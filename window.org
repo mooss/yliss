@@ -1,0 +1,134 @@
+# -*- eval: (progn (org-babel-goto-named-src-block "autoload") (org-babel-execute-src-block) (outline-hide-sublevels 1)); -*-
+
+#+title: Literate c++ window system
+#+author: Félix Jamet
+
+#+property: header-args :guard-prefix YLISS :eval never :main no
+* Emacs autoload :noexport:
+The following block is executed everytime this file is opened in emacs.
+=org_cpp_extension.el= adds header guard generation for =.h= and =.hpp= files.
+#+name: autoload
+#+BEGIN_SRC emacs-lisp :eval yes
+(load-file "org_cpp_extension.el")
+#+END_SRC
+
+#+RESULTS: autoload
+:RESULTS:
+t
+:END:
+
+* Window
+The first step is to be able to display an empty window.
+The main characteristics of are window are its width, height and title.
+We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need to store a handle to the window and monitor used.
+
+#+BEGIN_SRC C++ :noweb no-export :includes yls_glad.h <GLFW/glfw3.h> <stdexcept> :tangle include/window.h
+class window
+{
+  public:
+    <<Titled constructor>>
+    <<Destructor>>
+    <<Getters>>
+
+  private:
+    std::string title_;
+    unsigned int width_, height_;
+    GLFWwindow* window_handle_;
+    GLFWmonitor* monitor_handle_;
+};
+#+END_SRC
+
+** Titled constructor
+#+name: Titled constructor
+#+BEGIN_SRC C++ :noweb no-export
+window(std::string title, unsigned int width, unsigned int height):
+    title_(title), width_(width), height_(height),
+    window_handle_(nullptr), monitor_handle_(nullptr)
+{
+    glfwInit();
+    <<Create window>>
+    <<OpenGL setup>>
+}
+
+#+END_SRC
+
+*** Create window
+If =monitor_handle_='s value is =nullptr=, this is not a problem because when =glfwCreateWindow= is called this way, it simply creates a window in windowed mode.
+
+The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
+ 
+#+name: Create window
+#+BEGIN_SRC C++
+window_handle_ = glfwCreateWindow(width_, height_, title.c_str(), monitor_handle_, nullptr);
+if(window_handle_ == nullptr){
+    glfwTerminate();
+    throw std::runtime_error("Failed to create glfw window");
+}
+
+#+END_SRC
+
+*** OpenGL setup
+The OpenGL context holds the state of the current OpenGL instance.
+A process can make several OpenGL contexts.
+The call to =glfwCreateWindow= in the section above spawned an OpenGL context[fn:: See https://www.glfw.org/docs/latest/context_guide.html].
+Before doing any OpenGL work, the OpenGL context associated to the =window_handle_= is made current via =glfwMakeContextCurrent=.
+
+
+**** TODO Explain why the viewport dimension might be different from the window size and explain what the viewport is
+#+name: OpenGL setup
+#+BEGIN_SRC C++
+glfwMakeContextCurrent(window_handle_);
+if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
+    glfwDestroyWindow(window_handle_);
+    glfwTerminate();
+    throw std::runtime_error("Failed to create OpenGL context with glad");
+}
+
+int fb_width, fb_height;
+glfwGetFramebufferSize(window_handle_, &fb_width, &fb_height);
+glViewport(0, 0, fb_width, fb_height);
+#+END_SRC
+
+** Destructor
+We only have to tell glfw to liberate the resources it has allocated.
+#+name: Destructor
+#+BEGIN_SRC C++
+~window()
+{
+    glfwDestroyWindow(window_handle_);
+    glfwTerminate();
+}
+
+#+END_SRC
+
+** Getters
+
+#+name: Getters
+#+BEGIN_SRC C++
+const std::string& title() const {return title_;}
+unsigned int width() const {return width_;}
+unsigned int height() const {return height_;}
+GLFWwindow* window_handle() {return window_handle_;}
+GLFWmonitor* monitor_handle() {return monitor_handle_;}
+#+END_SRC
+
+** Empty window test
+
+#+BEGIN_SRC C++ :tangle empty_window.cpp :includes include/window.h
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+int main(){
+    window empty_window("Empty window", 640u, 480u);
+    glfwSetKeyCallback(empty_window.window_handle(), key_callback);
+    glClearColor(0.4, 0.007843137, 0.235294118, 0);//tyrian purple
+    while(!glfwWindowShouldClose(empty_window.window_handle())){
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glfwPollEvents();
+        glfwSwapBuffers(empty_window.window_handle());
+    }
+    return 0;
+}
+#+END_SRC
