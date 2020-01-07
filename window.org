@@ -4,6 +4,7 @@
 #+author: Félix Jamet
 
 #+property: header-args :guard-prefix YLISS :eval never :main no
+#+property: header-args:makefile :tangle Makefile
 * Emacs autoload :noexport:
 The following block is executed everytime this file is opened in emacs.
 =org_cpp_extension.el= adds header guard generation for =.h= and =.hpp= files.
@@ -16,6 +17,25 @@ The following block is executed everytime this file is opened in emacs.
 :RESULTS:
 t
 :END:
+
+* Compilation
+** Tangling
+
+#+BEGIN_SRC bash :eval never :tangle scripts/compile_tangler.sh :shebang "#!/usr/bin/env bash"
+if ! [ -d  worgle ]
+then
+    git clone https://github.com/paulbatchelor/worgle
+fi
+cd worgle
+make --no-print-directory
+#+END_SRC
+
+
+#+BEGIN_SRC makefile
+tangler:
+	./scripts/compile_tangler.sh
+#+END_SRC
+
 
 * Window
 The first step is to be able to display an empty window.
