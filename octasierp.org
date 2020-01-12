@@ -1,4 +1,4 @@
-#+property: header-args:jupyter-python :session sierp :results silent
+#+property: header-args:jupyter-python :session sierp :results silent :tangle no
 
 * Development setup                                                :noexport:
 
@@ -12,7 +12,7 @@ pip install --user gizeh moviepy
 
 * About mathematical rigour
 
-The maths presented here will be hand-wavy most of the time and a lot of formulas will not be formally proved because I'm a lazy bastard who mostly want to program.
+The maths presented here will be hand-wavy most of the time and a lot of it will not be formally proved because I'm a lazy bastard who mostly want to program.
 So do not expect much rigour.
 
 * Octahedron and Sierpiński triangle
@@ -23,36 +23,119 @@ The number of subdivision of an octasierp is its degree $d \in \mathbb{N}$, with
 
 An interesting property of octasierp is that they can almost be represented as a square grid.
 
-* Diagrams generation :noexport:
+* Diagrams generation
 
 The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations.
 
-#+BEGIN_SRC jupyter-python
+#+BEGIN_SRC jupyter-python :tangle scripts/animations.py
 import gizeh as gz
 #+END_SRC
 
 Images are saved in the =images= folder:
-#+BEGIN_SRC bash :results silent
-mkdir -p images
-#+END_SRC
-
-#+BEGIN_SRC jupyter-python
+#+BEGIN_SRC jupyter-python :tangle scripts/animations.py
 import os
 os.chdir('images')
 #+END_SRC
 
 
 ** Triangle
+:PROPERTIES:
+:header-args:jupyter-python+: :eval never
+:END:
+
+A =Triangle= represents one of the triangles of an octasierp net.
+It has two main properties, its degree of subdivision and the initial width of its strokes.
+It has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle.
+
+#+name: Triangle
+#+BEGIN_SRC jupyter-python :noweb no-export
+class Triangle(object):
+    def __init__(self, degree, initial_width):
+        self.degree = degree
+        self.initial_width = initial_width
+
+    def generate(self, a, b, c, current=0):
+        <<generate implementation>>
+#+END_SRC
+
+*** =generate= implementation
+We want to adapt the size of the points and of the lines in order to make the subdivisions more evident.
+To achieve this, we decrease the stroke width linearly with the current degree by multiplying the initial width by a factor $factor_{current}$ such that $1 \geq factor_{current} \geq minFactor$, where $current$ is the current degree of subdivision.
+
+We know that $factor_0 = 1$ and $factor_{degree} = minFactor$.
+Since we want to decrease the width linearly, we also know that $factor_{current} = a \times current + b$, thus
+\begin{cases}
+  a \times 0 + b = 1 \Leftrightarrow b = 1\\
+  a \times degree + b = minFactor \Leftrightarrow a = \frac{minFactor -1}{degree}
+\end{cases}
+
+We finally obtain the function $factor_{current} = \frac{minFactor - 1}{degree} \times current + 1$.
+This function is not defined when $degree = 0 so this need to be addressed as a special case.
+
+After playing a bit with $minFactor$ value, it looks like 0.75 is a good value.
+
+#+name: generate implementation
+#+BEGIN_SRC jupyter-python
+# factor = - current / (1.5 * self.degree) + 1
+factor = current * (-.75 /  self.degree) + 1 if self.degree != 0 else 1
+stroke_width = self.initial_width * factor
+stroke_width = max(1, stroke_width)
+#+END_SRC
+
+The triangle is simply three lines joining the three points:
+#+name: generate implementation
+#+BEGIN_SRC jupyter-python
+main_triangle = gz.polyline(
+    [a, b, c, a],
+    stroke_width=stroke_width
+)
+#+END_SRC
+
+We also display the points, mostly as a way to hide artifacts generated at the end of the lines, where they cross.
+#+name: generate implementation
+#+BEGIN_SRC jupyter-python
+point = gz.circle(r=stroke_width, fill=(1, 1, 1))
+points = [point.translate(a), point.translate(b), point.translate(c)]
+#+END_SRC
+
+Now that the geometric elements have been dealt with, only the recursive calls - or lack thereof - remains.
+The generation is over when the maximal degree has been reached:
+#+name: generate implementation
+#+BEGIN_SRC jupyter-python
+if current == self.degree:
+    return gz.Group([main_triangle] + points)
+#+END_SRC
+
+Otherwise, we make recursive calls to =generate=, using the midpoints of the three original points:
+#+name: generate implementation
+#+BEGIN_SRC jupyter-python
+ab = midpoint(a, b)
+ac = midpoint(a, c)
+bc = midpoint(b, c)
+return gz.Group([
+    main_triangle,
+    self.generate(a, ab, ac, current + 1),
+    self.generate(b, ab, bc, current + 1),
+    self.generate(c, ac, bc, current + 1),
+    self.generate(ab, ac, bc, current + 1) # sierpinsky if absent
+] + points)
+#+END_SRC
+
+With =midpoint= being defined as:
+#+name: Triangle
+#+BEGIN_SRC jupyter-python
+def midpoint(left, right):
+    return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
+#+END_SRC
+
+** Octasierp net
 
 #+name: Octanet
 #+BEGIN_SRC jupyter-python :eval never
 import numpy as np
 import math
 
-def midpoint(left, right):
-    return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2, )
-
-class octanet(object):
+class Octanet(object):
     def __init__(
             self, side, horizontal_margin, vertical_margin, stroke_width,
             degree=0
@@ -77,28 +160,8 @@ class octanet(object):
         self.point = gz.circle(r=stroke_width, fill=(1, 1, 1))
         self.progress = 0
 
-    def triangles(self, a, b, c, degree=0):
-        stroke_width = self.stroke_width * (- degree / (1.5 * self.degree) + 1)
-        main_triangle = gz.polyline(
-            [a, b, c, a],
-            stroke_width=stroke_width
-        )
-        point = gz.circle(r=stroke_width, fill=(1, 1, 1))
-        points = [point.translate(a), point.translate(b), point.translate(c)]
-
-        if degree == self.degree:
-            return gz.Group([main_triangle] + points)
-
-        ab = midpoint(a, b)
-        ac = midpoint(a, c)
-        bc = midpoint(b, c)
-        return gz.Group([
-            main_triangle,
-            self.triangles(a, ab, ac, degree + 1),
-            self.triangles(b, ab, bc, degree + 1),
-            self.triangles(c, ac, bc, degree + 1),
-            self.triangles(ab, ac, bc, degree + 1) # sierpinsky if absent
-        ] + points)
+        triangle = Triangle(degree, stroke_width)
+        self.triangles = triangle.generate
 
     def make_net(self, progress):
         vertical_correction = progress * self.side / 2
@@ -135,13 +198,18 @@ class octanet(object):
 #+END_SRC
 
 
-#+BEGIN_SRC jupyter-python :noweb yes
+#+BEGIN_SRC jupyter-python :noweb no-export :tangle scripts/animations.py
+<<Triangle>>
 <<Octanet>>
+
 scale = 5
-animation = octanet(
-    100 * scale, 10 * scale, 30 * scale, 2 * scale,
-    degree=2
-)
+def instantiate(scale):
+    return Octanet(
+        100 * scale, 10 * scale, 30 * scale, 1.5 * scale,
+        degree=4
+    )
+
+animation = instantiate(4)
 animation.make_surface().write_to_png('octahedron_net.png')
 animation.make_surface(1).write_to_png('octahedron_net_as_square.png')
 
