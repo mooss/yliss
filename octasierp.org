@@ -49,6 +49,9 @@ os.chdir('images')
 import numpy as np
 import math
 
+def midpoint(left, right):
+    return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2, )
+
 class octanet(object):
     def __init__(
             self, side, horizontal_margin, vertical_margin, stroke_width,
@@ -74,6 +77,29 @@ class octanet(object):
         self.point = gz.circle(r=stroke_width, fill=(1, 1, 1))
         self.progress = 0
 
+    def triangles(self, a, b, c, degree=0):
+        stroke_width = self.stroke_width * (- degree / (1.5 * self.degree) + 1)
+        main_triangle = gz.polyline(
+            [a, b, c, a],
+            stroke_width=stroke_width
+        )
+        point = gz.circle(r=stroke_width, fill=(1, 1, 1))
+        points = [point.translate(a), point.translate(b), point.translate(c)]
+
+        if degree == self.degree:
+            return gz.Group([main_triangle] + points)
+
+        ab = midpoint(a, b)
+        ac = midpoint(a, c)
+        bc = midpoint(b, c)
+        return gz.Group([
+            main_triangle,
+            self.triangles(a, ab, ac, degree + 1),
+            self.triangles(b, ab, bc, degree + 1),
+            self.triangles(c, ac, bc, degree + 1),
+            self.triangles(ab, ac, bc, degree + 1) # sierpinsky if absent
+        ] + points)
+
     def make_net(self, progress):
         vertical_correction = progress * self.side / 2
         h_ab = (self.left + self.right) / 2
@@ -91,14 +117,7 @@ class octanet(object):
         v_c = cosa * (v_b - v_a) + v_a
         c = (h_c, v_c)
 
-        t1 = gz.polyline(
-            [a, b, c, a],
-            stroke_width=self.stroke_width
-        )
-        p1 = self.point.translate(a)
-        p2 = self.point.translate(b)
-        p3 = self.point.translate(c)
-        t1 = gz.Group([t1, p1, p2, p3])
+        t1 = self.triangles(a, b, c)
 
         twin_point = ((h_ab + h_c) / 2, (v_b + v_c) / 2)
         t2 = t1.rotate(math.pi, twin_point)
@@ -107,7 +126,6 @@ class octanet(object):
         second_quarter = first_quarter.rotate(-angle, a)
         third_quarter = first_quarter.rotate(-2 * angle, a)
         fourth_quarter = first_quarter.rotate(angle, a)
-
         return gz.Group([first_quarter, second_quarter, third_quarter, fourth_quarter])
 
     def make_surface(self, progress=0):
@@ -117,25 +135,25 @@ class octanet(object):
 #+END_SRC
 
 
-#+BEGIN_SRC jupyter-python :results silent :noweb yes
+#+BEGIN_SRC jupyter-python :noweb yes
 <<Octanet>>
 scale = 5
 animation = octanet(
-    100 * scale, 10 * scale, 30 * scale, 0.8 * scale,
+    100 * scale, 10 * scale, 30 * scale, 2 * scale,
+    degree=2
 )
 animation.make_surface().write_to_png('octahedron_net.png')
 animation.make_surface(1).write_to_png('octahedron_net_as_square.png')
 
 from moviepy.editor import VideoClip
-duration = 1
-still_time = 1
+duration = 1.5
+still_time = .5
 clip = VideoClip(
     lambda x: animation.make_surface(min(x / duration, 1)).get_npimage(),
     duration=duration + still_time
 )
-clip.write_videofile('net_to_square.mp4', fps=30, threads=8)
+clip.write_videofile('net_to_square.mp4', fps=30, threads=3)
 #+END_SRC
-
 
 #+name: Octahedron net
 [[file:images/octahedron_net.png]]
