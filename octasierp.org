@@ -1,0 +1,147 @@
+#+property: header-args:jupyter-python :session sierp :results silent
+
+* Development setup                                                :noexport:
+
+** Python packages
+Some illustrations and animations are generated with =gizeh= and =moviepy=, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
+
+They can be installed via pip:
+#+BEGIN_SRC bash :eval never
+pip install --user gizeh moviepy
+#+END_SRC
+
+* About mathematical rigour
+
+The maths presented here will be hand-wavy most of the time and a lot of formulas will not be formally proved because I'm a lazy bastard who mostly want to program.
+So do not expect much rigour.
+
+* Octahedron and Sierpiński triangle
+
+An octasierp is the brainchild of a regular octahedron and the Sierpiński triangle, the first is the platonic solid formed of 8 equilateral triangles and the second is a recursive subdivision of an equilateral triangle.
+Each face of an octahedron can be divided into 4 smaller equilateral triangles which can themselves be divided and so on.
+The number of subdivision of an octasierp is its degree $d \in \mathbb{N}$, with $d=0$ being the initial octahedron.
+
+An interesting property of octasierp is that they can almost be represented as a square grid.
+
+* Diagrams generation :noexport:
+
+The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations.
+
+#+BEGIN_SRC jupyter-python
+import gizeh as gz
+#+END_SRC
+
+Images are saved in the =images= folder:
+#+BEGIN_SRC bash :results silent
+mkdir -p images
+#+END_SRC
+
+#+BEGIN_SRC jupyter-python
+import os
+os.chdir('images')
+#+END_SRC
+
+
+** Triangle
+
+#+name: Octanet
+#+BEGIN_SRC jupyter-python :eval never
+import numpy as np
+import math
+
+class octanet(object):
+    def __init__(
+            self, side, horizontal_margin, vertical_margin, stroke_width,
+            degree=0
+    ):
+        self.altitude = math.sqrt(3) * (side / 2)
+        self.stroke_width = stroke_width
+        self.side = side
+        self.degree = degree
+
+        self.width = int(4 * self.altitude)
+        self.height = 2 * side
+        self.left = horizontal_margin
+        self.top = vertical_margin
+        self.right = self.width + horizontal_margin
+        self.bottom = self.height + vertical_margin
+
+        self.surface_parameters = {
+            'width': self.width + 2 * horizontal_margin,
+            'height': self.height + 2 * vertical_margin,
+            'bg_color': (0.4, 0.007843137, 0.235294118)
+        }
+        self.point = gz.circle(r=stroke_width, fill=(1, 1, 1))
+        self.progress = 0
+
+    def make_net(self, progress):
+        vertical_correction = progress * self.side / 2
+        h_ab = (self.left + self.right) / 2
+        v_a = self.bottom - self.side / 2 - vertical_correction
+        v_b = self.bottom - self.side * 1.5 - vertical_correction
+        a = (h_ab, v_a)
+        b = (h_ab, v_b)
+
+        angle = math.pi / 3 + progress * (math.pi / 6)
+        cosa = math.cos(angle)
+        sina = math.sin(angle)
+        # Simplified from cosa * (h_ab - h_ab) - sina * (v_b - v_a) + h_ab
+        h_c = - sina * (v_b - v_a) + h_ab
+        # Simplified from sina * (h_ab - h_ab) + cosa * (v_b - v_a) + v_a
+        v_c = cosa * (v_b - v_a) + v_a
+        c = (h_c, v_c)
+
+        t1 = gz.polyline(
+            [a, b, c, a],
+            stroke_width=self.stroke_width
+        )
+        p1 = self.point.translate(a)
+        p2 = self.point.translate(b)
+        p3 = self.point.translate(c)
+        t1 = gz.Group([t1, p1, p2, p3])
+
+        twin_point = ((h_ab + h_c) / 2, (v_b + v_c) / 2)
+        t2 = t1.rotate(math.pi, twin_point)
+
+        first_quarter = gz.Group([t1, t2])
+        second_quarter = first_quarter.rotate(-angle, a)
+        third_quarter = first_quarter.rotate(-2 * angle, a)
+        fourth_quarter = first_quarter.rotate(angle, a)
+
+        return gz.Group([first_quarter, second_quarter, third_quarter, fourth_quarter])
+
+    def make_surface(self, progress=0):
+        surface = gz.Surface(**self.surface_parameters)
+        self.make_net(progress).draw(surface)
+        return surface
+#+END_SRC
+
+
+#+BEGIN_SRC jupyter-python :results silent :noweb yes
+<<Octanet>>
+scale = 5
+animation = octanet(
+    100 * scale, 10 * scale, 30 * scale, 0.8 * scale,
+)
+animation.make_surface().write_to_png('octahedron_net.png')
+animation.make_surface(1).write_to_png('octahedron_net_as_square.png')
+
+from moviepy.editor import VideoClip
+duration = 1
+still_time = 1
+clip = VideoClip(
+    lambda x: animation.make_surface(min(x / duration, 1)).get_npimage(),
+    duration=duration + still_time
+)
+clip.write_videofile('net_to_square.mp4', fps=30, threads=8)
+#+END_SRC
+
+
+#+name: Octahedron net
+[[file:images/octahedron_net.png]]
+
+#+name: Octahedron as quasi square
+[[file:images/octahedron_net_as_square.png]]
+
+* References
+ - https://en.wikipedia.org/wiki/Find_first_set#CTZ
