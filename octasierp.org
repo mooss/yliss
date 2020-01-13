@@ -55,10 +55,11 @@ class Triangle(object):
         self.initial_width = initial_width
 
     def generate(self, a, b, c, current=0):
-        <<generate implementation>>
+        <<Initiate triangle geometry>>
+        <<Generate subdivised triangles>>
 #+END_SRC
 
-*** =generate= implementation
+*** Initiate triangle geometry
 We want to adapt the size of the points and of the lines in order to make the subdivisions more evident.
 To achieve this, we decrease the stroke width linearly with the current degree by multiplying the initial width by a factor $factor_{current}$ such that $1 \geq factor_{current} \geq minFactor$, where $current$ is the current degree of subdivision.
 
@@ -74,7 +75,7 @@ This function is not defined when $degree = 0 so this need to be addressed as a 
 
 After playing a bit with $minFactor$ value, it looks like 0.75 is a good value.
 
-#+name: generate implementation
+#+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
 # factor = - current / (1.5 * self.degree) + 1
 factor = current * (-.75 /  self.degree) + 1 if self.degree != 0 else 1
@@ -83,7 +84,7 @@ stroke_width = max(1, stroke_width)
 #+END_SRC
 
 The triangle is simply three lines joining the three points:
-#+name: generate implementation
+#+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
 main_triangle = gz.polyline(
     [a, b, c, a],
@@ -92,22 +93,23 @@ main_triangle = gz.polyline(
 #+END_SRC
 
 We also display the points, mostly as a way to hide artifacts generated at the end of the lines, where they cross.
-#+name: generate implementation
+#+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
 point = gz.circle(r=stroke_width, fill=(1, 1, 1))
 points = [point.translate(a), point.translate(b), point.translate(c)]
 #+END_SRC
 
+*** Generate subdivised triangles
 Now that the geometric elements have been dealt with, only the recursive calls - or lack thereof - remains.
 The generation is over when the maximal degree has been reached:
-#+name: generate implementation
+#+name: Generate subdivised triangles
 #+BEGIN_SRC jupyter-python
 if current == self.degree:
     return gz.Group([main_triangle] + points)
 #+END_SRC
 
 Otherwise, we make recursive calls to =generate=, using the midpoints of the three original points:
-#+name: generate implementation
+#+name: Generate subdivised triangles
 #+BEGIN_SRC jupyter-python
 ab = midpoint(a, b)
 ac = midpoint(a, c)
