@@ -10,10 +10,12 @@ They can be installed via pip:
 pip install --user gizeh moviepy
 #+END_SRC
 
+
 * About mathematical rigour
 
 The maths presented here will be hand-wavy most of the time and a lot of it will not be formally proved because I'm a lazy bastard who mostly want to program.
 So do not expect much rigour.
+
 
 * Octahedron and Sierpiński triangle
 
@@ -22,6 +24,7 @@ Each face of an octahedron can be divided into 4 smaller equilateral triangles w
 The number of subdivision of an octasierp is its degree $d \in \mathbb{N}$, with $d=0$ being the initial octahedron.
 
 An interesting property of octasierp is that they can almost be represented as a square grid.
+
 
 * Diagrams generation
 
@@ -37,26 +40,41 @@ import os
 os.chdir('images')
 #+END_SRC
 
-
 ** Triangle
 :PROPERTIES:
 :header-args:jupyter-python+: :eval never
 :END:
 
-A =Triangle= represents one of the triangles of an octasierp net.
-It has two main properties, its degree of subdivision and the initial width of its strokes.
-It has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle.
+A =Triangle= represents one of the triangles of an octasierp net, its properties are:
+ - =degree= :: Degree of subdivision.
+ - =initial_width= :: Width of the first element.
+ - =color_code= :: Color code of each subdivision.
+                   This is a list whose elements describe the colors at a given degree.
+                   If the list is too short, the last color is reused for every subsequent degree.
+                   The elements take the form of a 2-uple of colors with first the color for the lines and then the color for the points.
+                   For example, the default color code is black for lines and white for points, resulting in the element =((1, 1, 1), (0, 0, 0))=.
+
+A =Triangle= has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle.
 
 #+name: Triangle
 #+BEGIN_SRC jupyter-python :noweb no-export
 class Triangle(object):
-    def __init__(self, degree, initial_width):
+    def __init__(self, degree, initial_width, color_code=None):
         self.degree = degree
         self.initial_width = initial_width
+        if color_code is None:
+            color_code = [((0, 0, 0), (1, 1, 1))]
+        assert type(color_code) is list and all(type(el) is tuple for el in color_code),\
+            'Invalid color code, expected a list of tuple of colors.'
+        self.color_code = color_code
 
-    def generate(self, a, b, c, current=0):
+    def generate(self, a, b, c):
+        lines, points = self.geometry(a, b, c)
+        return gz.Group(lines + points)
+
+    def geometry(self, a, b, c, current=0):
         <<Initiate triangle geometry>>
-        <<Generate subdivised triangles>>
+        <<Subdivise triangle>>
 #+END_SRC
 
 *** Initiate triangle geometry
@@ -77,50 +95,56 @@ After playing a bit with $minFactor$ value, it looks like 0.75 is a good value.
 
 #+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
-# factor = - current / (1.5 * self.degree) + 1
 factor = current * (-.75 /  self.degree) + 1 if self.degree != 0 else 1
 stroke_width = self.initial_width * factor
 stroke_width = max(1, stroke_width)
 #+END_SRC
 
-The triangle is simply three lines joining the three points:
+Before drawing the triangle, we have to find the color code for the current degree.
 #+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
-main_triangle = gz.polyline(
+line_color, point_color = self.color_code[current if current < len(self.color_code) else -1]
+#+END_SRC
+
+
+The initial triangle is simply three lines joining the three points, kept in a list that will eventually hold the subsequent triangles.
+#+name: Initiate triangle geometry
+#+BEGIN_SRC jupyter-python
+lines = [gz.polyline(
     [a, b, c, a],
-    stroke_width=stroke_width
-)
+    stroke_width=stroke_width,
+    stroke=line_color
+)]
 #+END_SRC
 
 We also display the points, mostly as a way to hide artifacts generated at the end of the lines, where they cross.
 #+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
-point = gz.circle(r=stroke_width, fill=(1, 1, 1))
+point = gz.circle(r=stroke_width * 1.2, fill=point_color)
 points = [point.translate(a), point.translate(b), point.translate(c)]
 #+END_SRC
 
-*** Generate subdivised triangles
+*** Subdivise triangle
 Now that the geometric elements have been dealt with, only the recursive calls - or lack thereof - remains.
 The generation is over when the maximal degree has been reached:
-#+name: Generate subdivised triangles
+#+name: Subdivise triangle
 #+BEGIN_SRC jupyter-python
 if current == self.degree:
-    return gz.Group([main_triangle] + points)
+    return lines, points
 #+END_SRC
 
-Otherwise, we make recursive calls to =generate=, using the midpoints of the three original points:
-#+name: Generate subdivised triangles
+Otherwise, we make recursive calls to =geometry=, using the midpoints of the three original points.
+The order of the points and of the lines is important because the graphical elements are drawn in the order of their apparition and we want to make sure that the earliest subdivisions are written over the subsequent ones.
+#+name: Subdivise triangle
 #+BEGIN_SRC jupyter-python
 ab = midpoint(a, b)
 ac = midpoint(a, c)
 bc = midpoint(b, c)
-return gz.Group([
-    main_triangle,
-    self.generate(a, ab, ac, current + 1),
-    self.generate(b, ab, bc, current + 1),
-    self.generate(c, ac, bc, current + 1),
-    self.generate(ab, ac, bc, current + 1) # sierpinsky if absent
-] + points)
+for sierpinski in [(a, ab, ac), (b, ab, bc), (c, ac, bc), (ab, ac, bc)]:
+    recurse_lines, recurse_points = self.geometry(*sierpinski, current + 1)
+    lines = recurse_lines + lines # order is important
+    points = recurse_points + points
+return lines, points
 #+END_SRC
 
 With =midpoint= being defined as:
@@ -130,10 +154,36 @@ def midpoint(left, right):
     return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
 #+END_SRC
 
+** Color palette
+
+I use a =SimpleNamespace= to store some colors that I want to use (the names are probably innacurate).
+#+name: Color palette
+#+BEGIN_SRC jupyter-python
+from types import SimpleNamespace
+palette = SimpleNamespace(
+    canard=(0, .6, .6),
+    turquoise=(0, 1, 1),
+    orange=(1, .6, 0),
+    mandarine=(1, .8, 0),
+    purple=(.4, 0, .4),
+    violet=(.6, .2, .6),
+    black=(0, 0, 0),
+    white=(1, 1, 1),
+    forest=(0, .4, 0),
+    grass=(0, .6, .2),
+    ocean=(0, .2, .8),
+    river=(0, .4, .8)
+)
+#+END_SRC
+
+
 ** Octasierp net
 
 #+name: Octanet
-#+BEGIN_SRC jupyter-python :eval never
+#+BEGIN_SRC jupyter-python :eval never :noweb no-export
+<<Triangle>>
+<<Color palette>>
+
 import numpy as np
 import math
 
@@ -142,11 +192,11 @@ class Octanet(object):
             self, side, horizontal_margin, vertical_margin, stroke_width,
             degree=0
     ):
-        self.altitude = math.sqrt(3) * (side / 2)
         self.stroke_width = stroke_width
         self.side = side
         self.degree = degree
 
+        self.altitude = math.sqrt(3) * (side / 2)
         self.width = int(4 * self.altitude)
         self.height = 2 * side
         self.left = horizontal_margin
@@ -157,12 +207,15 @@ class Octanet(object):
         self.surface_parameters = {
             'width': self.width + 2 * horizontal_margin,
             'height': self.height + 2 * vertical_margin,
-            'bg_color': (0.4, 0.007843137, 0.235294118)
+            'bg_color': (1, 1, 1)
         }
-        self.point = gz.circle(r=stroke_width, fill=(1, 1, 1))
-        self.progress = 0
 
-        triangle = Triangle(degree, stroke_width)
+        triangle = Triangle(degree, stroke_width, color_code=[
+            (palette.canard, palette.turquoise),
+            (palette.orange, palette.mandarine),
+            (palette.purple, palette.violet),
+            (palette.black, palette.white)
+        ] * 2)
         self.triangles = triangle.generate
 
     def make_net(self, progress):
@@ -199,31 +252,47 @@ class Octanet(object):
         return surface
 #+END_SRC
 
+** Animate octahedron net to quasi grid
 
-#+BEGIN_SRC jupyter-python :noweb no-export :tangle scripts/animations.py
-<<Triangle>>
+#+BEGIN_SRC jupyter-python :noweb no-export :tangle scripts/animations.py :results silent
 <<Octanet>>
 
-scale = 5
+scale = 8
+degree = 4
 def instantiate(scale):
     return Octanet(
         100 * scale, 10 * scale, 30 * scale, 1.5 * scale,
-        degree=4
+        degree=degree
     )
 
 animation = instantiate(4)
 animation.make_surface().write_to_png('octahedron_net.png')
 animation.make_surface(1).write_to_png('octahedron_net_as_square.png')
 
+animation_duration = 1.5
+freeze_duration = .5
+total_duration = animation_duration + freeze_duration
+fps = 30
+def generate_frame(time):
+    return animation.make_surface(time / animation_duration).get_npimage()
+
+from multiprocessing import Pool
+pool = Pool()
+
+frames = list(pool.map(generate_frame, np.linspace(0, animation_duration, int(fps * animation_duration))))
+pool.close()
+pool.join()
+idx = 0
+def next_frame(_):
+    global idx
+    idx += 1
+    return frames[idx - 1] if idx <= len(frames) else frames[-1]
+
 from moviepy.editor import VideoClip
-duration = 1.5
-still_time = .5
-clip = VideoClip(
-    lambda x: animation.make_surface(min(x / duration, 1)).get_npimage(),
-    duration=duration + still_time
-)
-clip.write_videofile('net_to_square.mp4', fps=30, threads=3)
+clip = VideoClip(next_frame, duration=total_duration)
+clip.write_videofile('net_to_square_degree{}.mp4'.format(degree), fps=fps)
 #+END_SRC
+
 
 #+name: Octahedron net
 [[file:images/octahedron_net.png]]
@@ -231,5 +300,14 @@ clip.write_videofile('net_to_square.mp4', fps=30, threads=3)
 #+name: Octahedron as quasi square
 [[file:images/octahedron_net_as_square.png]]
 
+
 * References
  - https://en.wikipedia.org/wiki/Find_first_set#CTZ
+
+ - http://old.cescg.org/CESCG97/marak/index.html (erosion, move)
+
+ - https://news.ycombinator.com/item?id=8681899, http://experilous.com/1/blog/post/procedural-planet-generation (planet generation, move)
+
+ - http://jsfiddle.net/rL0qmee9/ (procedural generation bookmarks, move)
+
+ - https://www.w3schools.com/colors/colors_picker.asp (color palettes)
