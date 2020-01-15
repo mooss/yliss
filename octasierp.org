@@ -52,7 +52,7 @@ A =Triangle= represents one of the triangles of an octasierp net, its properties
                    This is a list whose elements describe the colors at a given degree.
                    If the list is too short, the colors are cycled through again.
                    The elements take the form of a 2-uple of colors with first the color for the lines and then the color for the points.
-                   For example, the default color code is black for lines and white for points, resulting in the element =((1, 1, 1), (0, 0, 0))=.
+                   For example, the default color code is black for lines and white for points, resulting in the element =((0, 0, 0), (1, 1, 1))=.
 
 A =Triangle= has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle.
 
