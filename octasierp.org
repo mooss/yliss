@@ -50,7 +50,7 @@ A =Triangle= represents one of the triangles of an octasierp net, its properties
  - =initial_width= :: Width of the first element.
  - =color_code= :: Color code of each subdivision.
                    This is a list whose elements describe the colors at a given degree.
-                   If the list is too short, the last color is reused for every subsequent degree.
+                   If the list is too short, the colors are cycled through again.
                    The elements take the form of a 2-uple of colors with first the color for the lines and then the color for the points.
                    For example, the default color code is black for lines and white for points, resulting in the element =((1, 1, 1), (0, 0, 0))=.
 
@@ -103,7 +103,7 @@ stroke_width = max(1, stroke_width)
 Before drawing the triangle, we have to find the color code for the current degree.
 #+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
-line_color, point_color = self.color_code[current if current < len(self.color_code) else -1]
+line_color, point_color = self.color_code[current % len(self.color_code)]
 #+END_SRC
 
 
@@ -175,7 +175,6 @@ palette = SimpleNamespace(
     river=(0, .4, .8)
 )
 #+END_SRC
-
 
 ** Octasierp net
 
