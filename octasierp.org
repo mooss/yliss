@@ -48,7 +48,7 @@ os.chdir('images')
 A =Triangle= represents one of the triangles of an octasierp net, its properties are:
  - =degree= :: Degree of subdivision.
  - =initial_width= :: Width of the first element.
- - =color_code= :: Color code of each subdivision.
+ - =color_palette= :: Color palette for points and lines.
                    This is a list whose elements describe the colors at a given degree.
                    If the list is too short, the colors are cycled through again.
                    The elements take the form of a 2-uple of colors with first the color for the lines and then the color for the points.
@@ -59,14 +59,14 @@ A =Triangle= has no coordinate of its own because the coordinates of its constit
 #+name: Triangle
 #+BEGIN_SRC jupyter-python :noweb no-export
 class Triangle(object):
-    def __init__(self, degree, initial_width, color_code=None):
+    def __init__(self, degree, initial_width, color_palette=None):
         self.degree = degree
         self.initial_width = initial_width
-        if color_code is None:
-            color_code = [((0, 0, 0), (1, 1, 1))]
-        assert type(color_code) is list and all(type(el) is tuple for el in color_code),\
+        if color_palette is None:
+            color_palette = [((0, 0, 0), (1, 1, 1))]
+        assert type(color_palette) is list and all(type(el) is tuple for el in color_palette),\
             'Invalid color code, expected a list of tuple of colors.'
-        self.color_code = color_code
+        self.color_palette = color_palette
 
     def generate(self, a, b, c):
         lines, points = self.geometry(a, b, c)
@@ -103,9 +103,8 @@ stroke_width = max(1, stroke_width)
 Before drawing the triangle, we have to find the color code for the current degree.
 #+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
-line_color, point_color = self.color_code[current % len(self.color_code)]
+line_color, point_color = self.color_palette[current % len(self.color_palette)]
 #+END_SRC
-
 
 The initial triangle is simply three lines joining the three points, kept in a list that will eventually hold the subsequent triangles.
 #+name: Initiate triangle geometry
@@ -154,26 +153,61 @@ def midpoint(left, right):
     return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
 #+END_SRC
 
-** Color palette
+** Colors
 
 I use a =SimpleNamespace= to store some colors that I want to use (the names are probably innacurate).
-#+name: Color palette
+#+name: Colors
 #+BEGIN_SRC jupyter-python
 from types import SimpleNamespace
-palette = SimpleNamespace(
+colors = SimpleNamespace(
     canard=(0, .6, .6),
     turquoise=(0, 1, 1),
-    orange=(1, .6, 0),
+    orange=(1, .5, 0),
     mandarine=(1, .8, 0),
     purple=(.4, 0, .4),
     violet=(.6, .2, .6),
     black=(0, 0, 0),
+    evergrey=(.5, .5, .5),
     white=(1, 1, 1),
     forest=(0, .4, 0),
     grass=(0, .6, .2),
     ocean=(0, .2, .8),
-    river=(0, .4, .8)
+    river=(0, .4, .8),
+    air=(0, 0, 0, 0)
 )
+#+END_SRC
+
+Here are some color palettes :
+
+#+name: Colors
+#+BEGIN_SRC jupyter-python
+palette_colorful = [
+    (colors.canard, colors.turquoise),
+    (colors.purple, colors.violet),
+    (colors.orange, colors.mandarine),
+    (colors.black, colors.white),
+    (colors.black, colors.white)
+]
+palette_gfg = [
+    (colors.white, colors.canard),
+    (colors.canard, colors.purple),
+    (colors.purple, colors.orange),
+    (colors.orange, colors.black),
+    (colors.black, colors.white)
+]
+palette_gfgpoints = [
+    (colors.air, colors.canard),
+    (colors.air, colors.purple),
+    (colors.air, colors.orange),
+    (colors.air, colors.evergrey)
+]
+palette_psyche = [
+    (colors.canard, colors.white),
+    (colors.orange, colors.white),
+    (colors.purple, colors.white),
+    (colors.black, colors.white),
+    (colors.black, colors.white),
+]
 #+END_SRC
 
 ** Octasierp net
@@ -181,7 +215,7 @@ palette = SimpleNamespace(
 #+name: Octanet
 #+BEGIN_SRC jupyter-python :eval never :noweb no-export
 <<Triangle>>
-<<Color palette>>
+<<Colors>>
 
 import numpy as np
 import math
@@ -189,7 +223,7 @@ import math
 class Octanet(object):
     def __init__(
             self, side, horizontal_margin, vertical_margin, stroke_width,
-            degree=0
+            degree=0, color_palette=[(colors.black, colors.white)]
     ):
         self.stroke_width = stroke_width
         self.side = side
@@ -209,12 +243,7 @@ class Octanet(object):
             'bg_color': (1, 1, 1)
         }
 
-        triangle = Triangle(degree, stroke_width, color_code=[
-            (palette.canard, palette.turquoise),
-            (palette.orange, palette.mandarine),
-            (palette.purple, palette.violet),
-            (palette.black, palette.white)
-        ] * 2)
+        triangle = Triangle(degree, stroke_width, color_palette=color_palette)
         self.triangles = triangle.generate
 
     def make_net(self, progress):
