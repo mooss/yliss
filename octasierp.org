@@ -1,4 +1,4 @@
-#+property: header-args:jupyter-python :session sierp :results silent :tangle no
+#+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export
 
 * Development setup                                                :noexport:
 
@@ -117,7 +117,7 @@ A =Triangle= represents one of the triangles of an octasierp net, its properties
 A =Triangle= has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle.
 
 #+name: Triangle
-#+BEGIN_SRC jupyter-python :noweb no-export
+#+BEGIN_SRC jupyter-python
 class Triangle(object):
     def __init__(self, degree, initial_width, color_palette=None):
         self.degree = degree
@@ -216,7 +216,7 @@ def midpoint(left, right):
 ** Octasierp net
 
 #+name: Octanet
-#+BEGIN_SRC jupyter-python :eval never :noweb no-export
+#+BEGIN_SRC jupyter-python :eval never
 <<Triangle>>
 <<Colors>>
 
@@ -285,7 +285,7 @@ class Octanet(object):
 
 ** Animate octahedron net to quasi grid
 
-#+BEGIN_SRC jupyter-python :noweb no-export :tangle scripts/animations.py :results silent
+#+BEGIN_SRC jupyter-python :tangle scripts/animations.py :results silent
 <<Octanet>>
 
 scale = 8
