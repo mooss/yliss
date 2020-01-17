@@ -30,10 +30,6 @@ An interesting property of octasierp is that they can almost be represented as a
 
 The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations.
 
-#+BEGIN_SRC jupyter-python :tangle scripts/animations.py
-import gizeh as gz
-#+END_SRC
-
 Images are saved in the =images= folder:
 #+BEGIN_SRC jupyter-python :tangle scripts/animations.py
 import os
@@ -178,6 +174,8 @@ A =Triangle= has no coordinate of its own because the coordinates of its constit
 
 #+name: Triangle
 #+BEGIN_SRC jupyter-python
+import gizeh as gz
+
 <<Geometric primitives>>
 
 class Triangle(object):
