@@ -226,7 +226,6 @@ The same idea is repeated to create an initial point ...:
 #+BEGIN_SRC jupyter-python
 color, factor = self.points[current]
 width = max(1, self.initial_width * factor)
-print('width', width)
 point = gz.circle(r=width, fill=color)
 #+END_SRC
 
@@ -279,16 +278,17 @@ import math
 
 class Octanet(object):
     def __init__(
-            self, side, horizontal_margin, vertical_margin, stroke_width,
-            degree=0, color_palette=[(colors.black, colors.white)]
+            self, scale, degree=0, points=None, lines=None,
     ):
-        self.stroke_width = stroke_width
-        self.side = side
         self.degree = degree
+        self.side = 100 * scale
+        stroke_width = scale
+        horizontal_margin = 10 * scale
+        vertical_margin = 30 * scale
 
-        self.altitude = math.sqrt(3) * (side / 2)
+        self.altitude = math.sqrt(3) * (self.side / 2)
         self.width = int(4 * self.altitude)
-        self.height = 2 * side
+        self.height = 2 * self.side
         self.left = horizontal_margin
         self.top = vertical_margin
         self.right = self.width + horizontal_margin
@@ -300,7 +300,7 @@ class Octanet(object):
             'bg_color': (1, 1, 1)
         }
 
-        triangle = Triangle(degree, stroke_width, color_palette=color_palette)
+        triangle = Triangle(degree, stroke_width, points=points, lines=lines)
         triangle = Triangle(degree, stroke_width)
         self.triangles = triangle.generate
 
@@ -341,19 +341,10 @@ class Octanet(object):
 ** Animate octahedron net to quasi grid
 
 #+BEGIN_SRC jupyter-python :tangle scripts/animations.py :results silent
-exit('Broken code. Fixed in next commit.')
-
 <<Octanet>>
 
-scale = 8
 degree = 4
-def instantiate(scale):
-    return Octanet(
-        100 * scale, 10 * scale, 30 * scale, 1.5 * scale,
-        degree=degree
-    )
-
-animation = instantiate(4)
+animation = Octanet(scale=6, degree=degree)
 animation.make_surface().write_to_png('octahedron_net.png')
 animation.make_surface(1).write_to_png('octahedron_net_as_square.png')
 
