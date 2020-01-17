@@ -192,7 +192,7 @@ class Triangle(object):
             self.lines = lines
 
     def generate(self, a, b, c):
-        lines, points = self.geometry(a, b, c)
+        points, lines = self.geometry(a, b, c)
         return gz.Group(lines + points)
 
     def geometry(self, a, b, c, current=0):
@@ -299,7 +299,6 @@ class Octanet(object):
         }
 
         triangle = Triangle(degree, stroke_width, points=points, lines=lines)
-        triangle = Triangle(degree, stroke_width)
         self.triangles = triangle.generate
 
     def make_net(self, progress):
