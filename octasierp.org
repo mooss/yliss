@@ -284,17 +284,20 @@ class Octanet(object):
         horizontal_margin = 5 * scale
         vertical_margin = 15 * scale
 
-        self.altitude = math.sqrt(3) * (self.side / 2)
-        self.width = int(4 * self.altitude)
-        self.height = 2 * self.side
-        self.left = horizontal_margin
-        self.top = vertical_margin
-        self.right = self.width + horizontal_margin
-        self.bottom = self.height + vertical_margin
+        altitude = math.sqrt(3) * (self.side / 2)
+        width = int(4 * altitude)
+        height = 2 * self.side
+        left = horizontal_margin
+        right = width + horizontal_margin
+        bottom = height + vertical_margin
+
+        self.x_ab = (left + right) /2
+        self.y_a = bottom - self.side / 2
+        self.y_b = bottom - self.side * 1.5
 
         self.surface_parameters = {
-            'width': self.width + 2 * horizontal_margin,
-            'height': self.height + 2 * vertical_margin,
+            'width': width + 2 * horizontal_margin,
+            'height': height + 2 * vertical_margin,
             'bg_color': (1, 1, 1)
         }
 
@@ -303,30 +306,29 @@ class Octanet(object):
 
     def make_net(self, progress):
         vertical_correction = progress * self.side / 2
-        h_ab = (self.left + self.right) / 2
-        v_a = self.bottom - self.side / 2 - vertical_correction
-        v_b = self.bottom - self.side * 1.5 - vertical_correction
-        a = (h_ab, v_a)
-        b = (h_ab, v_b)
-
         angle = math.pi / 3 + progress * (math.pi / 6)
+
+        y_a = self.y_a - vertical_correction
+        y_b = self.y_b - vertical_correction
+        a = (self.x_ab, y_a)
+        b = (self.x_ab, y_b)
+
         cosa = math.cos(angle)
         sina = math.sin(angle)
-        # Simplified from cosa * (h_ab - h_ab) - sina * (v_b - v_a) + h_ab
-        h_c = - sina * (v_b - v_a) + h_ab
-        # Simplified from sina * (h_ab - h_ab) + cosa * (v_b - v_a) + v_a
-        v_c = cosa * (v_b - v_a) + v_a
-        c = (h_c, v_c)
+
+        x_c = -sina * (y_b - y_a) + self.x_ab
+        y_c = cosa * (y_b - y_a) + y_a
+        c = (x_c, y_c)
 
         t1 = self.triangles(a, b, c)
-
-        twin_point = ((h_ab + h_c) / 2, (v_b + v_c) / 2)
+        twin_point = ((self.x_ab + x_c) / 2, (y_b + y_c) / 2)
         t2 = t1.rotate(math.pi, twin_point)
 
         first_quarter = gz.Group([t1, t2])
         second_quarter = first_quarter.rotate(-angle, a)
         third_quarter = first_quarter.rotate(-2 * angle, a)
         fourth_quarter = first_quarter.rotate(angle, a)
+
         return gz.Group([first_quarter, second_quarter, third_quarter, fourth_quarter])
 
     def make_surface(self, progress=0):
