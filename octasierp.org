@@ -40,6 +40,66 @@ import os
 os.chdir('images')
 #+END_SRC
 
+** Colors
+
+I use a =SimpleNamespace= to store some colors that I want to use (the names are probably innacurate).
+The obvious alternative would be to use a =class= but that would be tedious to initialize, or a =dict= but I want to be able to access members through the dot operator.
+
+#+name: Colors
+#+BEGIN_SRC jupyter-python
+from types import SimpleNamespace
+colors = SimpleNamespace(
+    canard=(0, .6, .6),
+    turquoise=(0, 1, 1),
+    orange=(1, .5, 0),
+    mandarine=(1, .8, 0),
+    purple=(.4, 0, .4),
+    violet=(.6, .2, .6),
+    black=(0, 0, 0),
+    evergrey=(.5, .5, .5),
+    white=(1, 1, 1),
+    forest=(0, .4, 0),
+    grass=(0, .6, .2),
+    ocean=(0, .2, .8),
+    river=(0, .4, .8),
+    air=(0, 0, 0, 0)
+)
+#+END_SRC
+
+Here are some color palettes:
+
+#+name: Colors
+#+BEGIN_SRC jupyter-python
+palette_colorful = [
+    (colors.canard, colors.turquoise),
+    (colors.purple, colors.violet),
+    (colors.orange, colors.mandarine),
+    (colors.black, colors.white),
+    (colors.black, colors.white)
+]
+palette_gfg = [
+    (colors.white, colors.canard),
+    (colors.canard, colors.purple),
+    (colors.purple, colors.orange),
+    (colors.orange, colors.black),
+    (colors.black, colors.white)
+]
+palette_gfgpoints = [
+    (colors.air, colors.canard),
+    (colors.air, colors.purple),
+    (colors.air, colors.orange),
+    (colors.air, colors.evergrey),
+    (colors.air, colors.air),
+    (colors.air, colors.canard)
+]
+palette_psyche = [
+    (colors.canard, colors.white),
+    (colors.orange, colors.white),
+    (colors.purple, colors.white),
+    (colors.black, colors.white),
+    (colors.black, colors.white),
+]
+#+END_SRC
 ** Triangle
 :PROPERTIES:
 :header-args:jupyter-python+: :eval never
@@ -151,63 +211,6 @@ With =midpoint= being defined as:
 #+BEGIN_SRC jupyter-python
 def midpoint(left, right):
     return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
-#+END_SRC
-
-** Colors
-
-I use a =SimpleNamespace= to store some colors that I want to use (the names are probably innacurate).
-#+name: Colors
-#+BEGIN_SRC jupyter-python
-from types import SimpleNamespace
-colors = SimpleNamespace(
-    canard=(0, .6, .6),
-    turquoise=(0, 1, 1),
-    orange=(1, .5, 0),
-    mandarine=(1, .8, 0),
-    purple=(.4, 0, .4),
-    violet=(.6, .2, .6),
-    black=(0, 0, 0),
-    evergrey=(.5, .5, .5),
-    white=(1, 1, 1),
-    forest=(0, .4, 0),
-    grass=(0, .6, .2),
-    ocean=(0, .2, .8),
-    river=(0, .4, .8),
-    air=(0, 0, 0, 0)
-)
-#+END_SRC
-
-Here are some color palettes :
-
-#+name: Colors
-#+BEGIN_SRC jupyter-python
-palette_colorful = [
-    (colors.canard, colors.turquoise),
-    (colors.purple, colors.violet),
-    (colors.orange, colors.mandarine),
-    (colors.black, colors.white),
-    (colors.black, colors.white)
-]
-palette_gfg = [
-    (colors.white, colors.canard),
-    (colors.canard, colors.purple),
-    (colors.purple, colors.orange),
-    (colors.orange, colors.black),
-    (colors.black, colors.white)
-]
-palette_gfgpoints = [
-    (colors.air, colors.canard),
-    (colors.air, colors.purple),
-    (colors.air, colors.orange),
-    (colors.air, colors.evergrey)
-]
-palette_psyche = [
-    (colors.canard, colors.white),
-    (colors.orange, colors.white),
-    (colors.purple, colors.white),
-    (colors.black, colors.white),
-    (colors.black, colors.white),
-]
 #+END_SRC
 
 ** Octasierp net
