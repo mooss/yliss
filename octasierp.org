@@ -279,10 +279,10 @@ class Octanet(object):
             self, scale, degree=0, points=None, lines=None,
     ):
         self.degree = degree
-        self.side = 100 * scale
+        self.side = 50 * scale
         stroke_width = scale
-        horizontal_margin = 10 * scale
-        vertical_margin = 30 * scale
+        horizontal_margin = 5 * scale
+        vertical_margin = 15 * scale
 
         self.altitude = math.sqrt(3) * (self.side / 2)
         self.width = int(4 * self.altitude)
