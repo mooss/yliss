@@ -1,4 +1,4 @@
-#+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export
+#+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export :eval never
 
 * Development setup                                                :noexport:
 
@@ -267,7 +267,7 @@ def midpoint(left, right):
 ** Octasierp net
 
 #+name: Octanet
-#+BEGIN_SRC jupyter-python :eval never
+#+BEGIN_SRC jupyter-python
 <<Triangle>>
 <<Colors>>
 
@@ -339,7 +339,7 @@ class Octanet(object):
 
 ** Animate octahedron net to quasi grid
 
-#+BEGIN_SRC jupyter-python :tangle scripts/animations.py :results silent
+#+BEGIN_SRC jupyter-python :tangle scripts/animations.py :results silent :eval no-export
 <<Octanet>>
 
 degree = 4
