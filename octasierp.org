@@ -162,15 +162,13 @@ def decrease_size_linearly(degree, min_factor=.25):
 :END:
 
 A =Triangle= represents one of the triangles of an octasierp net, its properties are:
- - =degree= :: Degree of subdivision.
- - =initial_width= :: Width of the first element.
- - =color_palette= :: Color palette for points and lines.
-                   This is a list whose elements describe the colors at a given degree.
-                   If the list is too short, the colors are cycled through again.
-                   The elements take the form of a 2-uple of colors with first the color for the lines and then the color for the points.
-                   For example, the default color code is black for lines and white for points, resulting in the element =((0, 0, 0), (1, 1, 1))=.
+#+attr_latex: :float left :center nil
+| -- =degree=:        | The degree of subdivision.                              |
+| -- =initial_width=: | The width of the first element.                         |
+| -- =points=:        | =Geometry= object describing how points are to be drawn |
+| -- =lines=:         | =Geometry= object describing how lines are to be drawn  |
 
-A =Triangle= has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle.
+A =Triangle= has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle, whereas =geometry= does the recursive calculations regarding all the points and lines of the final figure.
 
 #+name: Triangle
 #+BEGIN_SRC jupyter-python
@@ -287,7 +285,7 @@ class Octanet(object):
         return surface
 #+END_SRC
 
-*** Net construction according to =progress=
+*** Net construction according to progress
 
 =Octanet='s evolution is tracked through the =progress= parameter of =make_net=:
  - when $progress = 0$, it's octahedron net shaped,
