@@ -1,7 +1,7 @@
 #+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export :eval never
 #+property: header-args:bash :eval never
 
-* Development setup                                                :noexport:
+* Development setup :noexport:
 
 ** Python packages
 Some illustrations and animations are generated with =gizeh= and =moviepy=, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
@@ -11,12 +11,10 @@ They can be installed via pip:
 pip install --user gizeh moviepy
 #+END_SRC
 
-
 * About mathematical rigour
 
 The maths presented here will be hand-wavy most of the time and a lot of it will not be formally proved because I'm a lazy bastard who mostly want to program.
 So do not expect much rigour.
-
 
 * Octahedron and Sierpiński triangle
 
@@ -24,15 +22,23 @@ An octasierp is the brainchild of a regular octahedron and the Sierpiński trian
 Each face of an octahedron can be divided into 4 smaller equilateral triangles which can themselves be divided and so on.
 The number of subdivision of an octasierp is its degree $d \in \mathbb{N}$, with $d=0$ being the initial octahedron.
 
+** Octahedron net
+
 An octahedron can be represented in two dimensions as a net, a flattened arrangement of the sides, ready to be folded back into three dimensions.
-For an illustration of both the subdivision process and the net of an octahedron, extended to an octasierp, see figure [[montage_degree_0-3]].
+For an illustration of both the subdivision process and the net of an octahedron, extended to an octasierp, see figure [[montage_octa_degree_0-3]].
 
-#+name: montage_degree_0-3
+#+name: montage_octa_degree_0-3
 #+caption: Octasierp net for degrees 0, 1, 2 and 3
-[[file:images/montage_degree_0-3.png]]
+[[file:images/montage_net_octa_degree_0-3.png]]
 
-An interesting property of octasierp is that they can almost be represented as a square grid.
+** Squarified net
+An interesting property of octasierps is that when you inflate the central angle to 90\textdegree{}, they can almost be represented as a square grid with additional diagonal connections as shown in figure [[montage_squa_degree_0-3]].
+A strange thing about this representation is that points are neighbouring each other along the sides in a symmetric pattern.
+Since the end goal of this project is to generate a procedural planet, this representation is strongly reminiscent of the Peirce quincuncial projection[fn::See https://en.wikipedia.org/wiki/Peirce_quincuncial_projection.].
 
+#+name: montage_squa_degree_0-3
+#+caption: Octasierp squarified net for degrees 0, 1, 2 and 3
+[[file:images/montage_net_squa_degree_0-3.png]]
 
 * Diagrams generation
 
@@ -368,38 +374,54 @@ def __init__(
 
 ** Illustration: degrees 0 through 3
 
-We use the =Octanet= class defined above to create the 4 images corresponding to the degrees 0 through 3:
+We use the =Octanet= class defined above to create the 8 images corresponding to the degrees 0 through 3 of the octahedron and the quasi-square version:
 #+BEGIN_SRC jupyter-python :tangle scripts/octasierp_net_0-3.py
 <<Octanet>>
 
 for degree in range(4):
     net = Octanet(scale=10, degree=degree)
-    net.make_surface(0).write_to_png('net_degree_{}.png'.format(degree))
+    net.make_surface(0).write_to_png('net_octa_degree_{}.png'.format(degree))
+    net.make_surface(1).write_to_png('net_squa_degree_{}.png'.format(degree))
 #+END_SRC
 
 The code above is then called by a bash script who annotates and stitches the images together with imagemagick's =mogrify= and =montage=:
 #+BEGIN_SRC bash :tangle scripts/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash"
 python3 scripts/octasierp_net_0-3.py
 
-for degree in 0 1 2 3
-do
-    mogrify -size 600x400 -pointsize 60\
-            -annotate +770+1165 "degree = $degree"\
-            net_degree_${degree}.png
-done
+function make_montage(){
+    base=net_${version}_degree_
 
-montage net_degree_{0,1,2,3}.png -geometry 600x400 images/montage_degree_0-3.png
-rm net_degree_{0,1,2,3}.png
+    for degree in 0 1 2 3
+    do
+        mogrify -size 600x400 -pointsize 60\
+                -annotate +770+$vertical "degree = $degree"\
+                $base$degree.png
+    done
+
+    montage ${base}{0,1,2,3}.png -geometry 600x400 images/montage_${base}0-3.png
+    # -background none
+    rm ${base}{0,1,2,3}.png
+}
+
+version=octa
+vertical=1165
+make_montage
+
+version=squa
+vertical=1250
+make_montage
 #+END_SRC
-
 
 ** Animate octahedron net to quasi grid
 
 #+BEGIN_SRC jupyter-python :tangle scripts/animations.py :results silent :eval no-export
 <<Octanet>>
 
-degree = 4
-animation = Octanet(scale=6, degree=degree)
+degree = 3
+animation = Octanet(
+    scale=10, degree=degree,
+    lines=Geometry(degree, color_palette=[colors.black, colors.canard, colors.purple, colors.orange])
+)
 animation.make_surface().write_to_png('images/octahedron_net.png')
 animation.make_surface(1).write_to_png('images/octahedron_net_as_square.png')
 
