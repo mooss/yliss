@@ -142,7 +142,7 @@ Since we want to decrease the size linearly, we also know that $factor_{current}
 \end{cases}
 
 We finally obtain the function $factor_{current} = \frac{minFactor - 1}{degree} \times current + 1$.
-This function is not defined when $degree = 0 so this need to be addressed as a special case.
+This function is not defined when $degree = 0$ so this need to be addressed as a special case.
 
 After playing a bit with $minFactor$ value, it looks like .25 is a good value.
 
