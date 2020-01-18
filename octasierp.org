@@ -24,6 +24,13 @@ An octasierp is the brainchild of a regular octahedron and the Sierpiński trian
 Each face of an octahedron can be divided into 4 smaller equilateral triangles which can themselves be divided and so on.
 The number of subdivision of an octasierp is its degree $d \in \mathbb{N}$, with $d=0$ being the initial octahedron.
 
+An octahedron can be represented in two dimensions as a net, a flattened arrangement of the sides, ready to be folded back into three dimensions.
+For an illustration of both the subdivision process and the net of an octahedron, extended to an octasierp, see figure [[montage_degree_0-3]].
+
+#+name: montage_degree_0-3
+#+caption: Octasierp net for degrees 0, 1, 2 and 3
+[[file:images/montage_degree_0-3.png]]
+
 An interesting property of octasierp is that they can almost be represented as a square grid.
 
 
@@ -358,6 +365,33 @@ def __init__(
     triangle = Triangle(degree, stroke_width, points=points, lines=lines)
     self.triangles = triangle.generate
 #+END_SRC
+
+** Illustration: degrees 0 through 3
+
+We use the =Octanet= class defined above to create the 4 images corresponding to the degrees 0 through 3:
+#+BEGIN_SRC jupyter-python :tangle scripts/octasierp_net_0-3.py
+<<Octanet>>
+
+for degree in range(4):
+    net = Octanet(scale=10, degree=degree)
+    net.make_surface(0).write_to_png('net_degree_{}.png'.format(degree))
+#+END_SRC
+
+The code above is then called by a bash script who annotates and stitches the images together with imagemagick's =mogrify= and =montage=:
+#+BEGIN_SRC bash :tangle scripts/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash"
+python3 scripts/octasierp_net_0-3.py
+
+for degree in 0 1 2 3
+do
+    mogrify -size 600x400 -pointsize 60\
+            -annotate +770+1165 "degree = $degree"\
+            net_degree_${degree}.png
+done
+
+montage net_degree_{0,1,2,3}.png -geometry 600x400 images/montage_degree_0-3.png
+rm net_degree_{0,1,2,3}.png
+#+END_SRC
+
 
 ** Animate octahedron net to quasi grid
 
