@@ -413,9 +413,11 @@ def generate_frame(time):
 from multiprocessing import Pool
 pool = Pool()
 
+import numpy as np
 frames = list(pool.map(generate_frame, np.linspace(0, animation_duration, int(fps * animation_duration))))
 pool.close()
 pool.join()
+
 idx = 0
 def next_frame(_):
     global idx
@@ -427,13 +429,11 @@ clip = VideoClip(next_frame, duration=total_duration)
 clip.write_videofile('images/net_to_square_degree{}.mp4'.format(degree), fps=fps)
 #+END_SRC
 
-
 #+name: Octahedron net
 [[file:images/octahedron_net.png]]
 
 #+name: Octahedron as quasi square
 [[file:images/octahedron_net_as_square.png]]
-
 
 * References
  - https://en.wikipedia.org/wiki/Find_first_set#CTZ
