@@ -16,29 +16,137 @@ pip install --user gizeh moviepy
 The maths presented here will be hand-wavy most of the time and a lot of it will not be formally proved because I'm a lazy bastard who mostly want to program.
 So do not expect much rigour.
 
-* Octahedron and Sierpiński triangle
+* Of octahedrons and Sierpiński triangles
+
+This document is about octasierps, fractal solids destined to be used as the basis for a procedurally generated planet.
 
 An octasierp is the brainchild of a regular octahedron and the Sierpiński triangle, the first is the platonic solid formed of 8 equilateral triangles and the second is a recursive subdivision of an equilateral triangle.
-Each face of an octahedron can be divided into 4 smaller equilateral triangles which can themselves be divided and so on.
-The number of subdivision of an octasierp is its degree $d \in \mathbb{N}$, with $d=0$ being the initial octahedron.
+Indeed, since each face of an octahedron is an equilateral triangle, it can be divided into 4 smaller equilateral triangles which can themselves be divided and so on, thus adapting the concept of Sierpiński triangles to the third dimension.
 
-** Octahedron net
+This recursive structure is caracterised by its degree $d \in \mathbb{N}$, which is the number of successive subdivisions necessary to construct it.
+The simplest octasierp occurs when $d=0$ and corresponds to an octahedron.
 
-An octahedron can be represented in two dimensions as a net, a flattened arrangement of the sides, ready to be folded back into three dimensions.
+** Goals
+
+This is my second attempt at generating a procedural planet using an octahedron as the starting point.
+
+The main problem I encountered last time was finding a good data structure for my subdivided octahedron as well as implementing the code to get the neighbours of a point.
+I ended up using a convoluted approach that I can't even remember now, and thankfully I don't have to since I've collected some observations that will help me to build a much simpler and intuitive data structure than last time.
+
+A good data structure for an octasierp must meet some criteria:
+ - A coordinate system, both for mental representation and as a programming primitive.
+ - A support for different levels of detail, meaning the possibility to further subdivise the structure without having to reconstruct the whole object.
+ - A fast way to request the neighbours of a point.
+
+# Note: those goals are not static, the definition of a good data structure will probably expand when I'll get a better grasp on the problem.
+
+** Geometric visualisation
+
+I think an appropriate first step to find the best underlying representation of an octasierp is to visualise the problem, since the subject of study is a geometric concept.
+
+*** Octahedron net
+
+An octahedron can be represented in two dimensions as a net, a flattened arrangement of the eight sides, ready to be folded back into three dimensions.
 For an illustration of both the subdivision process and the net of an octahedron, extended to an octasierp, see figure [[montage_octa_degree_0-3]].
 
 #+name: montage_octa_degree_0-3
 #+caption: Octasierp net for degrees 0, 1, 2 and 3
 [[file:images/montage_net_octa_degree_0-3.png]]
 
-** Squarified net
+*** Squarified net
+
 An interesting property of octasierps is that when you inflate the central angle to 90\textdegree{}, they can almost be represented as a square grid with additional diagonal connections as shown in figure [[montage_squa_degree_0-3]].
 A strange thing about this representation is that points are neighbouring each other along the sides in a symmetric pattern.
-Since the end goal of this project is to generate a procedural planet, this representation is strongly reminiscent of the Peirce quincuncial projection[fn::See https://en.wikipedia.org/wiki/Peirce_quincuncial_projection.].
+This representation is strongly reminiscent of the Peirce quincuncial projection[fn::See https://en.wikipedia.org/wiki/Peirce_quincuncial_projection.], all the more because the end goal of this project is to generate a planet.
 
 #+name: montage_squa_degree_0-3
 #+caption: Octasierp squarified net for degrees 0, 1, 2 and 3
 [[file:images/montage_net_squa_degree_0-3.png]]
+
+**** Four quarters
+
+We can divise the squarified net into four quarter, each being a rotated image of the others around the central point.
+This means rules devised for one quarter can easily be adapted to the others.
+
+Those quarters are identified by a number ranging from zero to three, with quarter 0 being the top-right one and the others being numerated counter-clockwise.
+The counter-clockwise rotation has been chosen to correspond to the sense of trigonometric rotation.
+
+**** Two poles and four corners
+
+To pay hommage to both the planet metaphor and the peirce quincuncial projection, the central point is the north pole, while the four extremes are one and the same, the south pole.
+
+The four midpoints of the sides are actually just random points on the equator but since they also are initial vertices of the octasierp, let's give them a name ; the four corners of the world, with the right one being corner 0 and the others numerated once again counter-clockwise.
+I know that the four corners are a bit confusing because from the 2d perspective of the squarified net, the corners of the square are actually the south pole but it will make more sense in 3d and I really like the term, so it stays.
+
+** Coordinate system
+
+Based on the observation of the squarified net, the natural coordinate system for an octasierp is an indexing along the axis between corners 1 and 3 (the x-axis) and the one between corners 2 and 0 (the y-axis).
+In this scheme, the point of coordinates $(0, 0)$ is the north pole.
+
+Since an octasierp is a discrete structure, the coordinates will be integer-based.
+An unfortunate side effect of integer coordinates is that except for the north pole, points will not keep their coordinates when the degree of subdivision changes.
+For example when $degree = 0$, corner 0 is at the coordinates $(1, 0)$ and when $degree = 1$ it is at the coordinates $(2, 0)$.
+In the end, the rule is that coordinates only make sense at a given degree.
+
+Another problem is that there is a redundancy in this coordinate system that needs to be resolved (most strikingly, the south pole is present four times).
+First we will need to derive the cardinality of a half-axis, that is to say the number of points on it.
+Then that property will be used to describe precisely the redundancy problem.
+Finally, I will present the solution I opted for to resolve the situation and fix the coordinate system.
+
+*** Half-axis cardinality
+
+To pass from degree $d$ to degree $d + 1$, points are inserted between every adjacent point.
+From degree 0 to degree 1, 1 point is added, from degree 1 to 2, 2 points are inserted, then 4, then 8, then $2^4$, then $2^5$, and so on.
+Another way to see it is that the number of points added at degree $d + 1$ is the number of segments at degree $d$ ; we start with one segment to subdivise, then two, then four and so on.
+
+Based on what we have deduced so far, we can express this number, with the relation $\vert points_{d+1} \vert = \vert points_d \vert + 2^{d}$ with $d \in \mathbb{N}$.
+The problem is that I don't know anymore how to process this kind of recurrence relationships and I can't be bothered to find how so let's just make a hasardous guess from the first five numbers, shown in table [[hasardous_guess]].
+A most interesting pattern made evident by this table is that in each line we add $2^d$ to itself, plus one.
+Thus we deduce that $\vert points_{d+1} \vert = 2 \times 2^d + 1 \Leftrightarrow \vert points_{d+1} \vert = 2^{d+1} + 1 \Leftrightarrow \vert points_d \vert = 2^{d} + 1$.
+
+#+name: hasardous_guess
+#+caption: Small amount of data to support my dubious claim (no mathematicians were hurt in the process (don't quote me on that))
+| $d$ | $\vert points_d \vert$ | $2^{d}$ | $\vert points_{d+1} \vert$ |
+|-----+------------------------+---------+----------------------------|
+|   0 |                      2 |       1 |                          3 |
+|   1 |                      3 |       2 |                          5 |
+|   2 |                      5 |       4 |                          9 |
+|   3 |                      9 |       8 |                         17 |
+|   4 |                     17 |      16 |                         33 |
+
+*** Points redundancy
+
+A peculiar caracteristic of the squarified-net-inspired coordinate system is that there is a redundancy at the edges, where the four corners act as a center of symmetry.
+For example, the points $(2, -1)$ and $(2, 1)$ at degree 1 are one and the same.
+We can deduce a general rule from this example.
+
+First we need to find what are the extreme values of our coordinate system at a given degree.
+The extreme value we are looking for here will be the number of points on an half-axis minus one, since the numerotation starts at 0.
+We already know the number of points on a half-axis at degree $d$ to be $\vert points_d \vert = 2^{d} + 1$ so the extreme value we are looking for is $2^d$.
+
+Since the center of symmetry are the four corners we deduce the following rules for the redundant points at degree $d$, centered around:
+ - *corner 0*: $\{(2^d, n), (2^d, -n)\}$
+ - *corner 1*: $\{(n, 2^d), (-n, 2^d)\}$
+ - *corner 2*: $\{(-2^d, n), (-2^d, -n)\}$
+ - *corner 3*: $\{(n, -2^d), (-n, -2^d)\}$
+With $n \in \mathbb{N}$ and $0 \leq n \leq 2^d$, so technically the centers of symmetry are included (when $n=0$).
+Note that a special case arise when $n=2^d$, where the redundant points - for all the corners - are the south pole.
+
+*** Border disputes and canonical quarters
+
+Because there are redundancies in the coordinate system, it will be useful to define the canonical quarter of a redundant point, that is to say the one to which they "officially" belong.
+Two cases need to be treated:
+ - The poles because they are on every quarter.
+ - The borders between quarters (excluding the poles) because they are shared between two quarters.
+
+There is only two poles, so they cannot be distributed equally between the four quarters.
+Rather that attributing one pole to, say the quarter 0 and another to the quarter 2, I prefer to give them both to quarter 0 because:
+ 1. it is more memorable, and
+ 2. it gets the message across that quarter 0 is the reference quarter, or The canonical quarter, if you will.
+
+Because quarter 1, 2 and 3 are essentially a rotation of quarter 0, we resolve the border dispute between quarters by using this property.
+The top and bottom border of quarter 0, i.e. its border with quarter 1 and quarter 3 respectively are attributed to quarter 0.
+By rotation, every border has its quarter and every quarter has its border.
 
 * Diagrams generation
 
