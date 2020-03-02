@@ -142,7 +142,7 @@ Note that a special case arise when $n=2^d$, where the redundant points - for al
 *** Border disputes and canonical quarters
 
 Because there are redundancies in the coordinate system, it will be useful to define the canonical quarter of a redundant point, that is to say the one to which they "officially" belong.
-Two cases need to be treated:
+Two main cases need to be treated:
  - The poles because they are on every quarter.
  - The borders between quarters (excluding the poles) because they are shared between two quarters.
 
