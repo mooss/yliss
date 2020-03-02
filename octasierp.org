@@ -1,14 +1,14 @@
 #+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export :eval never
 #+property: header-args:bash :eval never
 
-* Development setup :noexport:
-
-
-
-* About mathematical rigour
+* Prelude
+** About mathematical rigour
 
 The maths presented here will be hand-wavy most of the time and a lot of it will not be formally proved because I'm a lazy bastard who mostly want to program.
 So do not expect much rigour.
+
+
+
 
 * Of octahedrons and Sierpiński triangles
 
