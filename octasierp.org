@@ -3,13 +3,7 @@
 
 * Development setup :noexport:
 
-** Python packages
-Some illustrations and animations are generated with =gizeh= and =moviepy=, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
 
-They can be installed via pip:
-#+BEGIN_SRC bash :eval never
-pip install --user gizeh moviepy
-#+END_SRC
 
 * About mathematical rigour
 
@@ -150,7 +144,13 @@ By rotation, every border has its quarter and every quarter has its border.
 
 * Diagrams generation
 
-The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations.
+The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
+
+They can be installed via pip:
+#+BEGIN_SRC bash :eval never
+pip install --user gizeh moviepy
+#+END_SRC
+
 
 Images are saved in the =images= folder and the scripts are supposed to be executed from the root of the project like so:
 #+BEGIN_SRC bash
