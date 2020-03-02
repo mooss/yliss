@@ -142,6 +142,10 @@ Because quarter 1, 2 and 3 are essentially a rotation of quarter 0, we resolve t
 The top and bottom border of quarter 0, i.e. its border with quarter 1 and quarter 3 respectively are attributed to quarter 0.
 By rotation, every border has its quarter and every quarter has its border.
 
+Beyond those two cases we just resolved lurks a third one, the corners.
+Even though they technically belong to the borders, the rotation mecanism would still make them shared between quarters because there would be two corners per quarter while there is the same number of corners and quarters (4).
+To solve this last issue, we'll just say that the bottom right corner belongs to quarter 0 and as always, this rule applies by rotation to the other quarters.
+
 * Diagrams generation
 
 The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
