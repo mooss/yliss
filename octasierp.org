@@ -1,5 +1,6 @@
 #+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export :eval never
 #+property: header-args:bash :eval never
+#+property: header-args:cpp :eval never :main no :noweb no-export
 
 * Prelude
 ** About mathematical rigour
@@ -7,8 +8,20 @@
 The maths presented here will be hand-wavy most of the time and a lot of it will not be formally proved because I'm a lazy bastard who mostly want to program.
 So do not expect much rigour.
 
+** About C++ developpment
 
+I try to follow the C++ core guidelines[fn::See https://github.com/isocpp/CppCoreGuidelines.] when it suits me.
 
+The C++ code presented here will go inside the namespace =octa= and tangled to =include/octasierp.h=.
+
+#+BEGIN_SRC cpp :tangle include/octasierp.h
+<<Inclusions>>
+namespace octa{
+
+<<octa namespace>>
+
+}
+#+END_SRC
 
 * Of octahedrons and Sierpiński triangles
 
