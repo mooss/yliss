@@ -288,6 +288,185 @@ bindeg(8,3) = 0
 #+END_src
 
 The binary degree function will be fundamental to point indexation in an octasierp and can probably be optimised using =<strings.h>='s =ffs= (find first set).
+*** Textual quarter generation :noexport:
+The code below can:
+ - generate a textual representation of a quarter, using =x= to denote a spontaneous point, and
+ - assemble several quarters together.
+
+It is a perfect example of why designing a function using (rather poorly) observed artifacts rather than carefully deduced mathematical knowledge will result in a terrible unmaintanable mess.
+But hey, it works.
+
+In retrospect, it would have been much better to start from the central point since it is obviously a center of symmetry.
+Even with that in mind, I will not bother redesigning the code below because once again hey, it works^{tm}.
+
+#+name: Textual quarter
+#+BEGIN_SRC python
+def quarter(size, spontaneous, point='x', quarter0=True):
+    # Barebones character set.
+    horizontal = '-'
+    empty = ' '
+    vertical = '|'
+    corner = '+'
+
+    # Length of the sides.
+    length = pow(2, size) + 1
+
+    # Special case with corner points
+    if spontaneous == 0:
+        # * 2 to match horizonal compensation (see below).
+        top = corner + horizontal * (2 * length - 3) + (point if quarter0 else corner)
+        bottom = (point if quarter0 else corner) + horizontal * (2 * length - 3) + point
+        emptyline = vertical + empty * (2 * length - 3) + vertical
+        return '\n'.join([top] + [emptyline] * (length - 2) + [bottom])
+
+    # Number of points in odd and even lines.
+    npoints_even = pow(2, spontaneous - 1)
+    npoints_odd = pow(2, spontaneous) - 1
+
+    # Number of spaces separating points in the middle
+    # for odd and even lines.
+    nspaces_odd = pow(2, size - spontaneous) - 1
+    nspaces_even = 2 * nspaces_odd + 1
+
+    nlines_even = pow(2, spontaneous - 1) - 1
+
+    # A horizontal compensation is included because
+    # vertical spaces are much larger than horizontal ones.
+    hcomp = ' '
+
+    # Define horizontally compensated character set.
+    point = point + hcomp
+    hcompless_horizontal = horizontal
+    horizontal = horizontal + hcomp
+    vertical = vertical + hcomp
+    empty = empty + hcomp
+    corner = corner + hcomp
+
+    # Construct composite strings.
+    small_horizontal = horizontal * nspaces_odd
+    big_horizontal = horizontal * nspaces_even
+    small_empty = empty * nspaces_odd
+    big_empty = empty * nspaces_even
+
+    # Build lines.
+    topbottom = corner + small_horizontal + big_horizontal.join([point] * npoints_even) + small_horizontal + corner.rstrip(hcomp)
+    emptylines = ''.join(['\n' + vertical + empty * (length - 2) + vertical.rstrip(hcomp)] * nspaces_odd) + '\n'
+
+    if spontaneous == 0:
+        return emptylines.join((topbottom, topbottom))
+
+    oddline = vertical + small_empty + small_empty.join([point] * npoints_odd) + small_empty + vertical.rstrip(hcomp)
+    # empty_lines = ('\n' + vertical + empty * (length - 2) + vertical) * nspaces_odd
+    evenline = vertical + small_empty + big_empty.join([point] * npoints_even) + small_empty + vertical.rstrip(hcomp)
+
+    # To have better looking lines, we spread horizontal characters
+    # above empty adjacent horizontal compensation
+    topbottom = topbottom.replace(hcomp, hcompless_horizontal)
+
+    # Assemble the quarter.
+    return emptylines.join([topbottom] + [oddline, evenline] * nlines_even + [oddline, topbottom])
+#+END_SRC
+
+#+BEGIN_SRC python :noweb no-export :results output :wrap "src text"
+<<Textual quarter>>
+size = 3
+for i in range(size + 1):
+    print()
+    print('size={}, showing quarter 0 spontaneous points for degree {}:'.format(size, i))
+    print(quarter(size, i, quarter0=True))
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_src text
+
+size=3, showing quarter 0 spontaneous points for degree 0:
++---------------x
+|               |
+|               |
+|               |
+|               |
+|               |
+|               |
+|               |
+x---------------x
+
+size=3, showing quarter 0 spontaneous points for degree 1:
++-------x-------+
+|               |
+|               |
+|               |
+|       x       |
+|               |
+|               |
+|               |
++-------x-------+
+
+size=3, showing quarter 0 spontaneous points for degree 2:
++---x-------x---+
+|               |
+|   x   x   x   |
+|               |
+|   x       x   |
+|               |
+|   x   x   x   |
+|               |
++---x-------x---+
+
+size=3, showing quarter 0 spontaneous points for degree 3:
++-x---x---x---x-+
+| x x x x x x x |
+| x   x   x   x |
+| x x x x x x x |
+| x   x   x   x |
+| x x x x x x x |
+| x   x   x   x |
+| x x x x x x x |
++-x---x---x---x-+
+#+END_src
+
+
+**** Addition of textual quarters
+One advantage of this textual representation is that it's easy to add quarters together by iterating through two representations of the same level.
+Note that I don't bother to check anything, it's up to the caller.
+
+#+name: Textual quarter addition
+#+BEGIN_SRC python
+def add_quarters(left, right, point='x', collision='E'):
+    buffer = []
+    for cleft, cright in zip(left, right):
+        if cright == point:
+            buffer += collision if cleft == point else point
+        else:
+            buffer += cleft
+    return ''.join(buffer)
+#+END_SRC
+
+We can use =map= and =reduce= to produce the addition of all textual quarters of a given size:
+#+BEGIN_SRC python :noweb no-export :results output :wrap "src text"
+from functools import reduce
+
+<<Textual quarter>>
+<<Textual quarter addition>>
+
+sz = 3
+print('size={}, complete textual quarter 0 (degrees 0-{}):'.format(sz, sz))
+print(reduce(add_quarters, map(lambda x: quarter(sz, x, quarter0=True), range(sz + 1))))
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_src text
+size=3, complete textual quarter 0 (degrees 0-3):
++-x-x-x-x-x-x-x-x
+| x x x x x x x |
+| x x x x x x x |
+| x x x x x x x |
+| x x x x x x x |
+| x x x x x x x |
+| x x x x x x x |
+| x x x x x x x |
+x-x-x-x-x-x-x-x-x
+#+END_src
+
 * Diagrams generation
 
 The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
