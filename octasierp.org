@@ -121,6 +121,14 @@ Thus we deduce that $\vert points_{d+1} \vert = 2 \times 2^d + 1 \Leftrightarrow
 |   3 |                      9 |       8 |                         17 |
 |   4 |                     17 |      16 |                         33 |
 
+Translated in c++, this gives us:
+#+name: octa namespace
+#+BEGIN_SRC cpp
+std::size_t extreme(std::size_t degree){
+    return (std::size_t(1) << degree) + 1;
+}
+#+END_SRC
+
 *** Points redundancy
 
 A peculiar caracteristic of the squarified-net-inspired coordinate system is that there is a redundancy at the edges, where the four corners act as a center of symmetry.
