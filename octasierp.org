@@ -290,37 +290,6 @@ bindeg(8,3) = 0
 
 The binary degree function will be fundamental to point indexation in an octasierp and can probably be optimised using =<strings.h>='s =ffs= (find first set).
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#+END_SRC
-
-#+END_SRC
-
-
-
-
-
-
-
-
-
-
-
-#+END_SRC
-
 * Diagrams generation
 
 The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
