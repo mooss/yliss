@@ -745,7 +745,7 @@ clip.write_videofile('images/net_to_square_degree{}.mp4'.format(degree), fps=fps
 #+name: Octahedron as quasi square
 [[file:images/octahedron_net_as_square.png]]
 
-* Textual quarter representation
+* Textual representation
 :PROPERTIES:
 :CUSTOM_ID: textual_quarter
 :header-args:python+: :eval never
@@ -1066,8 +1066,127 @@ for degree in range(2, 5):
 +-------x---------------x-------+
 #+END_src
 
+** Textual squarified net representation
 
+Textual representation of a squarified octasierp net is generated with the  =SquareNet= class.
+Most of the work has already been done in =Quarter= so what's left to be done is assemble the four quarters together.
+The caller can choose to represent only a subset of the quarter by specifying for example src_python[:exports code]{SquareNet(degree, appearance, quarters={0,1})} to include only quarters 0 and 1.
+The excluded quarters will be represented devoid of points.
+
+#+name: Textual squarified net
+#+BEGIN_SRC python
+<<Textual quarter>>
+<<SquareNet utils>>
+class SquareNet:
+    def __init__(self, degree, appearance=None, quarters={0, 1, 2, 3}):
+        self.degree = degree
+        self.appearance = appearance
+        self.quarters = [Quarter(
+            degree=degree,
+            appearance=appearance if n in quarters else None,
+            quarter=n
+        ) for n in range(4)]
+
+    <<Final squarified net representation>>
+#+END_SRC
+
+*** Vertical and horizontal contatenation
+
+To generate the final representation, we have to first concatenate horizontally quarter 0 with quarter 1 and quarter 2 with quarter 3.
+Then only one vertical concatenation on the results of those two previous concatenations remain to be done.
+
+#+name: Final squarified net representation
+#+BEGIN_SRC python
+def __str__(self):
+    top = cat_quarter_horizontally(self.quarters[1].repr(), self.quarters[0].repr())
+    bottom = cat_quarter_horizontally(self.quarters[2].repr(), self.quarters[3].repr())
+    return '\n'.join(cat_quarter_vertically(top, bottom))
+#+END_SRC
+
+The vertical concatenation is the easiest ; since the representation is a list of lines, all lines are concatenated, except the central one (the one in common between the two quarters), which is merged:
+#+name: SquareNet utils
+#+BEGIN_SRC python
+def cat_quarter_vertically(top, bottom):
+    return top[:-1] + [merge_quarter_lines((top[-1], bottom[0]))] + bottom[1:]
+#+END_SRC
+
+The horizontal concatenation is a little bit longer because it goes against our vertically-oriented representation.
+It's not that complicated because =merge_quarter_lines= can merge columns as well as lines:
+#+name: SquareNet utils
+#+BEGIN_SRC python
+def cat_quarter_horizontally(left, right):
+    right_of_left = [line[-1] for line in left]
+    left_of_right = [line[0] for line in right]
+    merged_column = merge_quarter_lines((right_of_left, left_of_right))
+    return [
+        l[:-1] + merged_column[i] + r[1:]
+        for i, (l, r) in enumerate(zip(left, right))
+    ]
+#+END_SRC
+
+*** Demonstration
+
+#+BEGIN_SRC python :eval no-export :exports both
+<<Textual squarified net>>
+degree=2
+print('Right quarters')
+print(SquareNet(degree, '*', quarters={0, 3}))
+print()
+print('Bottom quarters')
+print(SquareNet(degree, '*', quarters={2, 3}))
+print()
+print('All quarters without the last points')
+print(SquareNet(degree, list(range(degree))))
+print()
+print('All quarters, only the last points')
+print(SquareNet(degree, degree))
+#+END_SRC
+
+#+RESULTS:
 #+BEGIN_src text
+Right quarters
++-------+-x-x-x-x
+|       | x x x |
+|       | x x x |
+|       | x x x |
++-------x-x-x-x-x
+|       x x x x x
+|       x x x x x
+|       x x x x x
++-------x-------+
+
+Bottom quarters
++-------+-------+
+|       |       |
+|       |       |
+|       |       |
+x-x-x-x-+-------+
+| x x x x x x x x
+| x x x x x x x x
+| x x x x x x x x
++-x-x-x-x-------+
+
+All quarters without the last points
++-------x---x---x
+|       |       |
+x   x   x   x   |
+|       |       |
+x---x---x---x---x
+|       |       |
+|   x   x   x   x
+|       |       |
++---x---x-------+
+
+All quarters, only the last points
++-------+-x---x-+
+x x x x x x x x |
+| x   x | x   x |
+x x x x x x x x |
++-x---x-+-x---x-+
+| x x x x x x x x
+| x   x | x   x |
+| x x x x x x x x
++-x---x-+-------+
 #+END_src
 
 * References
