@@ -771,6 +771,7 @@ class Quarter:
         self.degree = degree
         self.appearance = appearance
         self.quarter = quarter % 4
+        <<Textual quarter init>>
 
     <<Textual quarter methods>>
 
@@ -898,6 +899,13 @@ if type(self.appearance) is list:
     )
 else:
     assembly = self.raw(self.appearance)
+#+END_SRC
+
+To make life easier, I added a special case for =appearance=; the string src_python[:exports code]{'*'} is a shortcut for all the degrees of appearance possible:
+#+name: Textual quarter init
+#+BEGIN_SRC python
+if self.appearance == '*':
+    self.appearance = list(range(self.degree+1))
 #+END_SRC
 
 Using =reduce= here is by no means fast (to execute) but at least it's fast (to code).
