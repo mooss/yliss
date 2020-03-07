@@ -942,17 +942,17 @@ It would be faster, for example, to do one right rotation when =quarter == 3= bu
 #+name: Rotate the quarter
 #+BEGIN_SRC python
 for _ in range(self.quarter):
-    assembly = self.rotate_representation_left(assembly)
+    assembly = rotate_quarter_representation_left(assembly)
 #+END_SRC
 
 Rotating the representation left is a succession of two tricks:
  1. Replacing vertical characters with horizontal ones and vice versa.
  2. Replacing lines with columns (that's what =zip(*lines)= does).
-#+name: Textual quarter methods
+#+name: Textual quarter utils
 #+BEGIN_SRC python
-def rotate_representation_left(self, lines):
-    replacement = {self.HORIZONTAL: self.VERTICAL,
-                   self.VERTICAL: self.HORIZONTAL}
+def rotate_quarter_representation_left(lines):
+    replacement = {Quarter.HORIZONTAL: Quarter.VERTICAL,
+                   Quarter.VERTICAL: Quarter.HORIZONTAL}
     def replace(sequence):
         return ''.join(
             replacement[char] if char in replacement
