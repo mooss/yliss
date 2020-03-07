@@ -1027,17 +1027,8 @@ print('\n'.join(horizontal_compensation(Quarter(2).raw(2))))
 
 #+BEGIN_SRC python
 <<Textual quarter>>
-appearance=3
-qt = Quarter(3, appearance=appearance, quarter=0)
-qt2 = Quarter(3, 2, quarter=0)
-ap1 = qt.raw(appearance)
-ap2 = qt2.raw(2)
-# print('\n'.join(ap1))
-# print('\n'.join(ap2))
-# print('\n'.join(qt.merge_raw_quarters(ap1, ap2)))
 for degree in range(2, 5):
     print(Quarter(degree=degree, appearance=2, quarter=0))
-#print(qt)
 #+END_SRC
 
 #+RESULTS:
@@ -1075,16 +1066,6 @@ for degree in range(2, 5):
 +-------x---------------x-------+
 #+END_src
 
-+-x-x-x-x-x-x-x-x
-| x x x x x x x |
-| x x x x x x x |
-| x x x x x x x |
-| x x x x x x x |
-| x x x x x x x |
-| x x x x x x x |
-| x x x x x x x |
-x-x-x-x-x-x-x-x-x
-#+END_src
 
 #+BEGIN_src text
 #+END_src
