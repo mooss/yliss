@@ -138,6 +138,17 @@ x---x---x---x---x---x---x---x---x                         x-x-x-x-x-x-x-x-x-x-x-
            degree = 2                                                degree = 3
 #+END_src
 
+There are two things to address right now about this representation.
+
+The first is that it bears an unfortunate ressemblance with a swastika.
+At first I tried to find other representations but found no other fitting my needs.
+Then I thought about at least trying to make the arms point the other way but this contradicted the intuitive representation I had in mind so I finally decided to not let a hideous historical artifact affect a technical decision.
+If you are offended by this decision I'm sorry about it.
+
+The second thing to address is in fact the source of the first ; it looks this way because the redundant points have been removed.
+The most striking example of a redundant point are the corners, all the corners are in fact one and the same, so only the top-right one is displayed.
+The corners and the redundant points in general will be discussed in detail in the sibling section [[Coordinate system]].
+
 Everything related to the generation of the textual representation is gathered in section [[#textual_quarter]].
 
 **** Four quarters
