@@ -3,6 +3,13 @@
 #+property: header-args:cpp :eval never :main no :noweb no-export
 #+property: header-args:python :noweb no-export :results output :wrap "src text"
 
+* Lithel configuration :noexport:
+** TODO Minipage blocks
+#+lithel: :minipage "src text"
+Force a minipage on text source blocks because they are used for quarters and squarified nets textual representation and should not be spread across pages.
+
+This is not yet implemented on lithel.
+
 * Prelude
 ** About mathematical rigour
 
@@ -25,6 +32,9 @@ namespace octa{
 #+END_SRC
 
 * Of octahedrons and Sierpiński triangles
+:PROPERTIES:
+:header-args:python: :eval no-export :noweb no-export :exports both :results output :wrap "src text"
+:END:
 
 This document is about octasierps, fractal solids destined to be used as the basis for a procedurally generated planet.
 
@@ -991,7 +1001,7 @@ print('\n'.join(horizontal_compensation(Quarter(2).raw(2))))
 
 ** Demonstration
 :PROPERTIES:
-:header-args:python: :eval no-export :noweb no-export :exports both :results output :wrap "src text"
+:header-args:python+: :exports both :eval no-export
 :END:
 
 #+BEGIN_SRC python
