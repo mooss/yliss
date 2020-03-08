@@ -1073,13 +1073,20 @@ class SquareNet:
 
 To generate the final representation, we have to first concatenate horizontally quarter 0 with quarter 1 and quarter 2 with quarter 3.
 Then only one vertical concatenation on the results of those two previous concatenations remain to be done.
+Like with =Quarter=, =repr= returns a list of lines:
+#+name: Final squarified net representation
+#+BEGIN_SRC python
+def repr(self):
+    top = cat_quarter_horizontally(self.quarters[1].repr(), self.quarters[0].repr())
+    bottom = cat_quarter_horizontally(self.quarters[2].repr(), self.quarters[3].repr())
+    return cat_quarter_vertically(top, bottom)
+#+END_SRC
 
+And =__str__=, the string equivalent:
 #+name: Final squarified net representation
 #+BEGIN_SRC python
 def __str__(self):
-    top = cat_quarter_horizontally(self.quarters[1].repr(), self.quarters[0].repr())
-    bottom = cat_quarter_horizontally(self.quarters[2].repr(), self.quarters[3].repr())
-    return '\n'.join(cat_quarter_vertically(top, bottom))
+    return '\n'.join(self.repr())
 #+END_SRC
 
 The vertical concatenation is the easiest ; since the representation is a list of lines, all lines are concatenated, except the central one (the one in common between the two quarters), which is merged:
