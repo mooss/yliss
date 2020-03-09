@@ -802,8 +802,11 @@ clip.write_videofile('images/net_to_square_degree{}.mp4'.format(degree), fps=fps
 
 
 This section contains the implementation of the class used to produce the various ASCII-style representations of squarified-net quarters.
-The arguments are self-explanatory if you've read the section [[Of octahedrons and Sierpiński triangles]].
-Except for =appearance= which is actually the degree of appearance (=degree= is of course the degree of subdivision).
+Here is a breakdown of the arguments accepted by Quarter's init:
+ - =degree= is the degree of subdivision.
+ - =appearance= is the degree of appearance to eventually display.
+ - =quarter= is the index of the quarter (between 1 and 4).
+ - =display_redundant= commands whether the redundant points should be included in the representation.
 
 The inclusion of =appearance= in the arguments means that only points appearing at the degree =appearance= are included in the representation.
 I'll explain later how to make a representation including all the points or only the points in a given list.
@@ -1120,7 +1123,8 @@ for degree in range(2, 5):
 ** Textual squarified net representation
 
 Textual representation of a squarified octasierp net is generated with the  =SquareNet= class.
-Most of the work has already been done in =Quarter= so what's left to be done is assemble the four quarters together.
+Most of the work has already been done in =Quarter= so the arguments are the same, except for =quarter= which becomes =quarters=, illustrating that what's left to be done is to assemble the four quarters together.
+
 The caller can choose to represent only a subset of the quarter by specifying for example src_python[:exports code]{SquareNet(degree, appearance, quarters={0,1})} to include only quarters 0 and 1.
 The excluded quarters will be represented devoid of points.
 
