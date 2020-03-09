@@ -816,10 +816,11 @@ I'll explain later how to make a representation including all the points or only
 class Quarter:
     <<Textual quarter constants>>
 
-    def __init__(self, degree, appearance=None, quarter=0):
+    def __init__(self, degree, appearance=None, quarter=0, display_redundant=False):
         self.degree = degree
         self.appearance = appearance
         self.quarter = quarter % 4
+        self.display_redundant = display_redundant
         <<Textual quarter init>>
 
     <<Textual quarter methods>>
@@ -870,7 +871,7 @@ def raw(self, appearance=None):
     # Special case with corner points.
     # quarter == 0 is used because quarter 0 is the special case holding the poles.
     if appearance == 0:
-        top = self.CORNER + self.HORIZONTAL * (length - 2) + (self.POINT if self.quarter == 0 else self.CORNER)
+        top = self.CORNER + self.HORIZONTAL * (length - 2) + (self.POINT if self.quarter == 0 or self.display_redundant else self.CORNER)
         bottom = (self.POINT if self.quarter == 0 else self.CORNER) + self.HORIZONTAL * (length - 2) + self.POINT
         emptyline = self.VERTICAL + self.EMPTY * (length - 2) + self.VERTICAL
         return [top] + [emptyline] * (length - 2) + [bottom]
@@ -894,9 +895,10 @@ def raw(self, appearance=None):
     big_empty = self.EMPTY * nspaces_even
 
     # Build lines.
+    right_vertical = self.POINT if self.display_redundant else self.VERTICAL
     topbottom = self.CORNER + small_horizontal + big_horizontal.join([self.POINT] * npoints_even) + small_horizontal + self.CORNER
     emptylines = [self.VERTICAL + self.EMPTY * (length - 2) + self.VERTICAL] * nspaces_odd
-    oddline = self.VERTICAL + small_empty + small_empty.join([self.POINT] * npoints_odd) + small_empty + self.VERTICAL
+    oddline = self.VERTICAL + small_empty + small_empty.join([self.POINT] * npoints_odd) + small_empty + right_vertical
     evenline = self.VERTICAL + small_empty + big_empty.join([self.POINT] * npoints_even) + small_empty + self.VERTICAL
 
     # Assemble the quarter this is like str.join but with list
@@ -1127,13 +1129,17 @@ The excluded quarters will be represented devoid of points.
 <<Textual quarter>>
 <<SquareNet utils>>
 class SquareNet:
-    def __init__(self, degree, appearance=None, quarters={0, 1, 2, 3}):
+    def __init__(
+            self, degree, appearance=None,
+            quarters={0, 1, 2, 3}, display_redundant=False
+    ):
         self.degree = degree
         self.appearance = appearance
         self.quarters = [Quarter(
             degree=degree,
             appearance=appearance if n in quarters else None,
-            quarter=n
+            quarter=n,
+            display_redundant=display_redundant
         ) for n in range(4)]
 
     <<Final squarified net representation>>
