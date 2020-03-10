@@ -843,6 +843,35 @@ EMPTY = ' '
 VERTICAL = '|'
 CORNER = '+'
 COLLISION = 'E'
+REDUNDANT = 'v'
+CENTRAL_POINT = 'X'
+CENTRAL_EMPTY = 'o'
+#+END_SRC
+
+We also define the set of character that can collide and the set of character that are point.
+They are complementary in the sense that their intersection is empty and their union is the whole character set.
+#+name: Textual quarter constants
+#+BEGIN_SRC python
+CAN_COLLIDE = {
+    HORIZONTAL, EMPTY, VERTICAL,
+    CORNER, CENTRAL_EMPTY
+}
+IS_POINT = {POINT, COLLISION, REDUNDANT, CENTRAL_POINT}
+#+END_SRC
+
+We want the caller to be able to select the redundant character.
+This is done based on the value of =display_redundant= ; any value other than =True= will be interpreted as the an attempt to override the default redundant character.
+#+name: Textual quarter init
+#+BEGIN_SRC python
+if self.display_redundant is True:
+    self.redundant = Quarter.REDUNDANT
+else:
+    self.redundant = self.display_redundant
+if self.redundant is not False\
+   and self.redundant not in Quarter.IS_POINT:
+    msg = 'Usage of invalid redundant character `{}`.'\
+        + ' Expected values in {}.'.format(self.redundant, Quarter.IS_POINT)
+    raise ValueError(msg)
 #+END_SRC
 
 ** Generate a raw representation
@@ -876,11 +905,13 @@ def raw(self, appearance=None):
     # Special case with corner points.
     # quarter == 0 is used because quarter 0 is the special case holding the poles.
     if appearance == 0:
-        top = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2) + (
-            Quarter.POINT
-            if self.quarter == 0 or self.display_redundant
-            else Quarter.CORNER
-        )
+        if self.quarter == 0:
+            topright = Quarter.POINT
+        elif self.display_redundant:
+            topright = self.redundant
+        else:
+            topright = Quarter.CORNER
+        top = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2) + topright
         bottom = (Quarter.POINT if self.quarter == 0 else Quarter.CORNER)\
             + Quarter.HORIZONTAL * (length - 2) + Quarter.POINT
         emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2)\
@@ -906,7 +937,7 @@ def raw(self, appearance=None):
     big_empty = Quarter.EMPTY * nspaces_even
 
     # Build lines.
-    right_vertical = Quarter.POINT if self.display_redundant else Quarter.VERTICAL
+    right_vertical = self.redundant if self.display_redundant else Quarter.VERTICAL
     topbottom = Quarter.CORNER + small_horizontal\
         + big_horizontal.join([Quarter.POINT] * npoints_even)\
         + small_horizontal + Quarter.CORNER
@@ -991,11 +1022,11 @@ def merge_quarter_lines(arg):
     left, right = arg
     buffer = []
     for cleft, cright in zip(left, right):
-        if cright == Quarter.POINT:
-            if cleft in (Quarter.POINT, Quarter.COLLISION):
-                buffer += Quarter.COLLISION
+        if cright in Quarter.IS_POINT:
+            if cleft in Quarter.CAN_COLLIDE:
+                buffer += cright
             else:
-                buffer += Quarter.POINT
+                buffer += Quarter.COLLISION
         else:
             buffer += cleft
     return ''.join(buffer)
