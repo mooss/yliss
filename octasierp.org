@@ -867,16 +867,24 @@ def raw(self, appearance=None):
 
     # Special case without points.
     if appearance is None:
-        topbottom = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2) + Quarter.CORNER
-        emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2) + Quarter.VERTICAL
+        topbottom = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2)\
+            + Quarter.CORNER
+        emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2)\
+            + Quarter.VERTICAL
         return [topbottom] + [emptyline] * (length - 2) + [topbottom]
 
     # Special case with corner points.
     # quarter == 0 is used because quarter 0 is the special case holding the poles.
     if appearance == 0:
-        top = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2) + (Quarter.POINT if self.quarter == 0 or self.display_redundant else Quarter.CORNER)
-        bottom = (Quarter.POINT if self.quarter == 0 else Quarter.CORNER) + Quarter.HORIZONTAL * (length - 2) + Quarter.POINT
-        emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2) + Quarter.VERTICAL
+        top = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2) + (
+            Quarter.POINT
+            if self.quarter == 0 or self.display_redundant
+            else Quarter.CORNER
+        )
+        bottom = (Quarter.POINT if self.quarter == 0 else Quarter.CORNER)\
+            + Quarter.HORIZONTAL * (length - 2) + Quarter.POINT
+        emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2)\
+            + Quarter.VERTICAL
         return [top] + [emptyline] * (length - 2) + [bottom]
 
     # Number of points in odd and even lines.
@@ -899,13 +907,22 @@ def raw(self, appearance=None):
 
     # Build lines.
     right_vertical = Quarter.POINT if self.display_redundant else Quarter.VERTICAL
-    topbottom = Quarter.CORNER + small_horizontal + big_horizontal.join([Quarter.POINT] * npoints_even) + small_horizontal + Quarter.CORNER
-    emptylines = [Quarter.VERTICAL + Quarter.EMPTY * (length - 2) + Quarter.VERTICAL] * nspaces_odd
-    oddline = Quarter.VERTICAL + small_empty + small_empty.join([Quarter.POINT] * npoints_odd) + small_empty + right_vertical
-    evenline = Quarter.VERTICAL + small_empty + big_empty.join([Quarter.POINT] * npoints_even) + small_empty + Quarter.VERTICAL
+    topbottom = Quarter.CORNER + small_horizontal\
+        + big_horizontal.join([Quarter.POINT] * npoints_even)\
+        + small_horizontal + Quarter.CORNER
+    emptylines = [
+        Quarter.VERTICAL + Quarter.EMPTY * (length - 2) + Quarter.VERTICAL
+    ] * nspaces_odd
+    oddline = Quarter.VERTICAL + small_empty\
+        + small_empty.join([Quarter.POINT] * npoints_odd)\
+        + small_empty + right_vertical
+    evenline = Quarter.VERTICAL + small_empty\
+        + big_empty.join([Quarter.POINT] * npoints_even)\
+        + small_empty + Quarter.VERTICAL
 
     # Assemble the quarter this is like str.join but with list
-    fulllines = [topbottom] + ([oddline, evenline]) * nlines_even + [oddline, topbottom]
+    fulllines = [topbottom] + ([oddline, evenline]) * nlines_even\
+        + [oddline, topbottom]
     def joinlines():
         it = iter(fulllines)
         yield next(it)
