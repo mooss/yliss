@@ -213,7 +213,30 @@ std::size_t extreme(std::size_t degree){
 *** Points redundancy
 
 A peculiar caracteristic of the squarified-net-inspired coordinate system is that there is a redundancy at the edges, where the four corners act as a center of symmetry.
-For example, the points $(2, -1)$ and $(2, 1)$ at degree 1 are one and the same.
+For example, at degree 2 the points $A = (4, -3)$ and $B = (4, 3)$ are the same, as well as the points $C = (2, -1)$ and $D = (2, 1)$:
+#+BEGIN_SRC python
+<<Textual squarified net>>
+repre = SquareNet(2, [0, 1, 2], display_redundant='x').repr()
+first = repre[0]
+repre[0] = first[:2] + 'A' + first[3:-3] + 'B' + first[-2:]
+repre[2] = repre[2][:-1] + 'C'
+repre[6] = repre[2][:-1] + 'D'
+print('\n'.join(repre))
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_src text
+x-A-x-x-x-x-x-B-x
+x x x x x x x x x
+x x x x x x x x C
+x x x x x x x x x
+x-x-x-x-x-x-x-x-x
+x x x x x x x x x
+x x x x x x x x D
+x x x x x x x x x
+x-x-x-x-x-x-x-x-x
+#+END_src
+
 We can deduce a general rule from this example.
 
 First we need to find what are the extreme values of our coordinate system at a given degree.
@@ -247,6 +270,25 @@ By rotation, every border has its quarter and every quarter has its border.
 Beyond those two cases we just resolved lurks a third one, the corners.
 Even though they technically belong to the borders, the rotation mecanism would still make them shared between quarters because there would be two corners per quarter while there is the same number of corners and quarters (4).
 To solve this last issue, we'll just say that the bottom right corner belongs to quarter 0 and as always, this rule applies by rotation to the other quarters.
+
+Here is an updated representation of degree 2 reflecting the changes we just made, with =v= characters representing a redundant point[fn::The canonical counterparts of those points are still represented with an =x=.]:
+#+BEGIN_SRC python
+<<Textual squarified net>>
+print(SquareNet(2, '*', display_redundant=True))
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_src text
+v-v-v-v-x-x-x-x-x
+x x x x x x x x v
+x x x x x x x x v
+x x x x x x x x v
+x-x-x-x-x-x-x-x-x
+v x x x x x x x x
+v x x x x x x x x
+v x x x x x x x x
+v-x-x-x-x-v-v-v-v
+#+END_src
 
 * Memory representation
 
