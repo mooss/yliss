@@ -77,32 +77,35 @@ An interesting property of octasierps is that when you inflate the central angle
 A strange thing about this representation is that points are neighbouring each other along the sides in a symmetric pattern.
 This representation is strongly reminiscent of the Peirce quincuncial projection[fn::See https://en.wikipedia.org/wiki/Peirce_quincuncial_projection.], all the more because the end goal of this project is to generate a planet.
 
+#+attr_latex: :placement [H]
 #+name: montage_squa_degree_0-3
 #+caption: Octasierp squarified net for degrees 0, 1, 2 and 3
 [[file:images/montage_net_squa_degree_0-3.png]]
 
 Figure [[montage_squa_degree_0-3]] provides a nice means of visualisation, but since it's en image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of the implementation.
-See below the textual equivalent of figure [[montage_squa_degree_0-3]]:
+See below the textual equivalent of figure [[montage_squa_degree_0-3]] [fn::=x= are points, =-= are horizontal lines, =|= are vertical lines and =+= are corners. The representations have been scale to all appear at the same size, that is normally not the case.]:
 #+BEGIN_SRC python
 <<Textual squarified net>>
 between = ' ' * 25
-for deg0, deg1 in zip(SquareNet(3, [0]).repr(), SquareNet(3, [0, 1]).repr()):
+def construct(degree):
+    return SquareNet(3, list(range(degree+1)), display_redundant=True).repr()
+for deg0, deg1 in zip(construct(0), construct(1)):
     print(deg0 + between + deg1)
 print('           degree = 0           ' + between + '            degree = 1')
 print()
 print()
-for deg0, deg1 in zip(SquareNet(3, [0, 1, 2]).repr(), SquareNet(3, [0, 1, 2, 3]).repr()):
-    print(deg0 + between + deg1)
+for deg2, deg3 in zip(construct(2), construct(3)):
+    print(deg2 + between + deg3)
 print('           degree = 2           ' + between + '            degree = 3')
 #+END_SRC
 
 #+RESULTS:
 #+BEGIN_src text
-+---------------x---------------x                         +---------------x-------x-------x
+x---------------x---------------x                         x-------x-------x-------x-------x
 |               |               |                         |               |               |
 |               |               |                         |               |               |
 |               |               |                         |               |               |
-|               |               |                         x       x       x       x       |
+|               |               |                         x       x       x       x       x
 |               |               |                         |               |               |
 |               |               |                         |               |               |
 |               |               |                         |               |               |
@@ -110,44 +113,33 @@ x---------------x---------------x                         x-------x-------x-----
 |               |               |                         |               |               |
 |               |               |                         |               |               |
 |               |               |                         |               |               |
-|               |               |                         |       x       x       x       x
+|               |               |                         x       x       x       x       x
 |               |               |                         |               |               |
 |               |               |                         |               |               |
 |               |               |                         |               |               |
-+---------------x---------------+                         +-------x-------x---------------+
+x---------------x---------------x                         x-------x-------x-------x-------x
            degree = 0                                                degree = 1
 
 
-+---------------x---x---x---x---x                         +---------------x-x-x-x-x-x-x-x-x
-|               |               |                         x x x x x x x x x x x x x x x x |
-x   x   x   x   x   x   x   x   |                         x x x x x x x x x x x x x x x x |
-|               |               |                         x x x x x x x x x x x x x x x x |
-x   x   x   x   x   x   x   x   |                         x x x x x x x x x x x x x x x x |
-|               |               |                         x x x x x x x x x x x x x x x x |
-x   x   x   x   x   x   x   x   |                         x x x x x x x x x x x x x x x x |
-|               |               |                         x x x x x x x x x x x x x x x x |
 x---x---x---x---x---x---x---x---x                         x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x
-|               |               |                         | x x x x x x x x x x x x x x x x
-|   x   x   x   x   x   x   x   x                         | x x x x x x x x x x x x x x x x
-|               |               |                         | x x x x x x x x x x x x x x x x
-|   x   x   x   x   x   x   x   x                         | x x x x x x x x x x x x x x x x
-|               |               |                         | x x x x x x x x x x x x x x x x
-|   x   x   x   x   x   x   x   x                         | x x x x x x x x x x x x x x x x
-|               |               |                         | x x x x x x x x x x x x x x x x
-+---x---x---x---x---------------+                         +-x-x-x-x-x-x-x-x---------------+
+|               |               |                         x x x x x x x x x x x x x x x x x
+x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
+|               |               |                         x x x x x x x x x x x x x x x x x
+x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
+|               |               |                         x x x x x x x x x x x x x x x x x
+x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
+|               |               |                         x x x x x x x x x x x x x x x x x
+x---x---x---x---x---x---x---x---x                         x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x
+|               |               |                         x x x x x x x x x x x x x x x x x
+x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
+|               |               |                         x x x x x x x x x x x x x x x x x
+x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
+|               |               |                         x x x x x x x x x x x x x x x x x
+x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
+|               |               |                         x x x x x x x x x x x x x x x x x
+x---x---x---x---x---x---x---x---x                         x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x
            degree = 2                                                degree = 3
 #+END_src
-
-There are two things to address right now about this representation.
-
-The first is that it bears an unfortunate ressemblance with a swastika.
-At first I tried to find other representations but found no other fitting my needs.
-Then I thought about at least trying to make the arms point the other way but this contradicted the intuitive representation I had in mind so I finally decided to not let a hideous historical artifact affect a technical decision.
-If you are offended by this decision I'm sorry about it.
-
-The second thing to address is in fact the source of the first ; it looks this way because the redundant points have been removed.
-The most striking example of a redundant point are the corners, all the corners are in fact one and the same, so only the top-right one is displayed.
-The corners and the redundant points in general will be discussed in detail in the sibling section [[Coordinate system]].
 
 Everything related to the generation of the textual representation is gathered in section [[#textual_quarter]].
 
@@ -289,6 +281,31 @@ v x x x x x x x x
 v x x x x x x x x
 v-x-x-x-x-v-v-v-v
 #+END_src
+
+*** About the resemblance
+
+I must address the fact that the representation without redundant points bears an unfortunate resemblance with a swastika:
+#+BEGIN_SRC python
+<<Textual squarified net>>
+print(SquareNet(2, '*'))
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_src text
++-------x-x-x-x-x
+x x x x x x x x |
+x x x x x x x x |
+x x x x x x x x |
+x-x-x-x-x-x-x-x-x
+| x x x x x x x x
+| x x x x x x x x
+| x x x x x x x x
++-x-x-x-x-------+
+#+END_src
+
+At first I tried to find other representations but found no other fitting my needs.
+Then I thought about at least trying to make the arms point the other way but this contradicted the intuitive representation I had in mind so I finally decided to not let a hideous historical artifact affect a technical decision.
+If you are offended by this decision I'm sorry about it.
 
 * Memory representation
 
