@@ -188,7 +188,7 @@ To pass from degree $d$ to degree $d + 1$, points are inserted between every adj
 From degree 0 to degree 1, 1 point is added, from degree 1 to 2, 2 points are inserted, then 4, then 8, then $2^4$, then $2^5$, and so on.
 Another way to see it is that the number of points added at degree $d + 1$ is the number of segments at degree $d$ ; we start with one segment to subdivise, then two, then four and so on.
 
-Based on what we have deduced so far, we can express this number, with the relation $\vert points_{d+1} \vert = \vert points_d \vert + 2^{d}$ with $d \in \mathbb{N}$.
+Based on what we have deduced so far, we can express this number with the relation $\vert points_{d+1} \vert = \vert points_d \vert + 2^{d}$ with $d \in \mathbb{N}$.
 The problem is that I don't know anymore how to process this kind of recurrence relationships and I can't be bothered to find how so let's just make a hasardous guess from the first five numbers, shown in table [[hasardous_guess]].
 A most interesting pattern made evident by this table is that in each line we add $2^d$ to itself, plus one.
 Thus we deduce that $\vert points_{d+1} \vert = 2 \times 2^d + 1 \Leftrightarrow \vert points_{d+1} \vert = 2^{d+1} + 1 \Leftrightarrow \vert points_d \vert = 2^{d} + 1$.
