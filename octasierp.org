@@ -83,7 +83,7 @@ This representation is strongly reminiscent of the Peirce quincuncial projection
 [[file:images/montage_net_squa_degree_0-3.png]]
 
 Figure [[montage_squa_degree_0-3]] provides a nice means of visualisation, but since it's en image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of the implementation.
-See below the textual equivalent of figure [[montage_squa_degree_0-3]] [fn::=x= are points, =-= are horizontal lines, =|= are vertical lines and =+= are corners. The representations have been scale to all appear at the same size, that is normally not the case.]:
+See below the textual equivalent of figure [[montage_squa_degree_0-3]] [fn::=x= are points, =-= are horizontal lines, =|= are vertical lines and =+= are corners. The representations have been scaled to all appear at the same size, that is normally not the case.]:
 #+BEGIN_SRC python
 <<Textual squarified net>>
 between = ' ' * 25
