@@ -88,7 +88,10 @@ See below the textual equivalent of figure [[montage_squa_degree_0-3]] [fn::=x= 
 <<Textual squarified net>>
 between = ' ' * 25
 def construct(degree):
-    return SquareNet(3, list(range(degree+1)), display_redundant=True).repr()
+    return SquareNet(
+        3, list(range(degree+1)),
+        display_redundant=Quarter.POINT
+    ).repr()
 for deg0, deg1 in zip(construct(0), construct(1)):
     print(deg0 + between + deg1)
 print('           degree = 0           ' + between + '            degree = 1')
