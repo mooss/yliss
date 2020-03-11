@@ -41,7 +41,7 @@ This document is about octasierps, fractal solids destined to be used as the bas
 An octasierp is the brainchild of a regular octahedron and the Sierpiński triangle, the first is the platonic solid formed of 8 equilateral triangles and the second is a recursive subdivision of an equilateral triangle.
 Indeed, since each face of an octahedron is an equilateral triangle, it can be divided into 4 smaller equilateral triangles which can themselves be divided and so on, thus adapting the concept of Sierpiński triangles to the third dimension.
 
-This recursive structure is caracterised by its degree $d \in \mathbb{N}$, which is the number of successive subdivisions necessary to construct it.
+This recursive structure is caracterised by its subdivision degree $d \in \mathbb{N}$, which is the number of successive subdivisions necessary to construct it.
 The simplest octasierp occurs when $d=0$ and corresponds to an octahedron.
 
 ** Goals
@@ -57,6 +57,11 @@ A good data structure for an octasierp must meet some criteria:
  - A fast way to request the neighbours of a point.
 
 # Note: those goals are not static, the definition of a good data structure will probably expand when I'll get a better grasp on the problem.
+
+** Some terminology
+
+When used in isolation, degree is the shorthand for degree of subdivision.
+I must offer this clarification because, unfortunately there are other degrees, such as the degree of appearance.
 
 ** Geometric visualisation
 
@@ -165,6 +170,7 @@ I know that the four corners are a bit confusing because from the 2d perspective
 
 Based on the observation of the squarified net, the natural coordinate system for an octasierp is an indexing along the axis between corners 1 and 3 (the x-axis) and the one between corners 2 and 0 (the y-axis).
 In this scheme, the point of coordinates $(0, 0)$ is the north pole.
+This is the coordinate system we will use from now on, albeit we will sometimes call it the global coordinate system, because a system local to each quarter will be established later.
 
 Since an octasierp is a discrete structure, the coordinates will be integer-based.
 An unfortunate side effect of integer coordinates is that except for the north pole, points will not keep their coordinates when the degree of subdivision changes.
