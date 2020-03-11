@@ -112,7 +112,7 @@ x---------------x---------------x                         x-------x-------x-----
 |               |               |                         |               |               |
 |               |               |                         |               |               |
 |               |               |                         |               |               |
-x---------------x---------------x                         x-------x-------x-------x-------x
+x---------------X---------------x                         x-------x-------X-------x-------x
 |               |               |                         |               |               |
 |               |               |                         |               |               |
 |               |               |                         |               |               |
@@ -132,7 +132,7 @@ x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x 
 |               |               |                         x x x x x x x x x x x x x x x x x
 x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
 |               |               |                         x x x x x x x x x x x x x x x x x
-x---x---x---x---x---x---x---x---x                         x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x
+x---x---x---x---X---x---x---x---x                         x-x-x-x-x-x-x-x-X-x-x-x-x-x-x-x-x
 |               |               |                         x x x x x x x x x x x x x x x x x
 x   x   x   x   x   x   x   x   x                         x x x x x x x x x x x x x x x x x
 |               |               |                         x x x x x x x x x x x x x x x x x
@@ -225,7 +225,7 @@ x-A-x-x-x-x-x-B-x
 x x x x x x x x x
 x x x x x x x x C
 x x x x x x x x x
-x-x-x-x-x-x-x-x-x
+x-x-x-x-X-x-x-x-x
 x x x x x x x x x
 x x x x x x x x D
 x x x x x x x x x
@@ -278,7 +278,7 @@ v-v-v-v-x-x-x-x-x
 x x x x x x x x v
 x x x x x x x x v
 x x x x x x x x v
-x-x-x-x-x-x-x-x-x
+x-x-x-x-X-x-x-x-x
 v x x x x x x x x
 v x x x x x x x x
 v x x x x x x x x
@@ -299,7 +299,7 @@ print(SquareNet(2, '*'))
 x x x x x x x x |
 x x x x x x x x |
 x x x x x x x x |
-x-x-x-x-x-x-x-x-x
+x-x-x-x-X-x-x-x-x
 | x x x x x x x x
 | x x x x x x x x
 | x x x x x x x x
@@ -906,9 +906,10 @@ VERTICAL = '|'
 CORNER = '+'
 COLLISION = 'E'
 REDUNDANT = 'v'
-CENTRAL_POINT = 'X'
-CENTRAL_EMPTY = 'o'
+NORTH_POLE_POINT = 'X'
+NORTH_POLE = 'o'
 #+END_SRC
+=CORNER= is not a great name because it already means the 4 corners of the world of an octasierp but here it is the litteral corners of one quarter (two of which happen to be corners in the octasierp sense).
 
 We also define the set of character that can collide and the set of character that are point.
 They are complementary in the sense that their intersection is empty and their union is the whole character set.
@@ -916,9 +917,9 @@ They are complementary in the sense that their intersection is empty and their u
 #+BEGIN_SRC python
 CAN_COLLIDE = {
     HORIZONTAL, EMPTY, VERTICAL,
-    CORNER, CENTRAL_EMPTY
+    CORNER, NORTH_POLE
 }
-IS_POINT = {POINT, COLLISION, REDUNDANT, CENTRAL_POINT}
+IS_POINT = {POINT, COLLISION, REDUNDANT, NORTH_POLE_POINT}
 #+END_SRC
 
 We want the caller to be able to select the redundant character.
@@ -958,23 +959,27 @@ def raw(self, appearance=None):
 
     # Special case without points.
     if appearance is None:
-        topbottom = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2)\
+        tb_common = Quarter.HORIZONTAL * (length - 2)\
             + Quarter.CORNER
+        top = Quarter.CORNER + tb_common
+        bottom = Quarter.NORTH_POLE + tb_common
         emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2)\
             + Quarter.VERTICAL
-        return [topbottom] + [emptyline] * (length - 2) + [topbottom]
+        return [top] + [emptyline] * (length - 2) + [bottom]
 
     # Special case with corner points.
-    # quarter == 0 is used because quarter 0 is the special case holding the poles.
     if appearance == 0:
         if self.quarter == 0:
-            topright = Quarter.POINT
-        elif self.display_redundant:
-            topright = self.redundant
+            topright = Quarter.POINT # Technically south pole
+            bottomleft = Quarter.NORTH_POLE_POINT
         else:
-            topright = Quarter.CORNER
+            bottomleft = Quarter.NORTH_POLE
+            if self.display_redundant:
+                topright = self.redundant
+            else:
+                topright = Quarter.CORNER
         top = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2) + topright
-        bottom = (Quarter.POINT if self.quarter == 0 else Quarter.CORNER)\
+        bottom = bottomleft\
             + Quarter.HORIZONTAL * (length - 2) + Quarter.POINT
         emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2)\
             + Quarter.VERTICAL
@@ -1000,9 +1005,11 @@ def raw(self, appearance=None):
 
     # Build lines.
     right_vertical = self.redundant if self.display_redundant else Quarter.VERTICAL
-    topbottom = Quarter.CORNER + small_horizontal\
+    tb_common = small_horizontal\
         + big_horizontal.join([Quarter.POINT] * npoints_even)\
         + small_horizontal + Quarter.CORNER
+    top = Quarter.CORNER + tb_common
+    bottom = Quarter.NORTH_POLE + tb_common
     emptylines = [
         Quarter.VERTICAL + Quarter.EMPTY * (length - 2) + Quarter.VERTICAL
     ] * nspaces_odd
@@ -1014,8 +1021,8 @@ def raw(self, appearance=None):
         + small_empty + Quarter.VERTICAL
 
     # Assemble the quarter this is like str.join but with list
-    fulllines = [topbottom] + ([oddline, evenline]) * nlines_even\
-        + [oddline, topbottom]
+    fulllines = [top] + ([oddline, evenline]) * nlines_even\
+        + [oddline, bottom]
     def joinlines():
         it = iter(fulllines)
         yield next(it)
@@ -1148,7 +1155,7 @@ print('\n'.join(Quarter(2).raw(2)))
 |xxx|
 |x x|
 |xxx|
-+x-x+
+ox-x+
 #+END_src
 
 Vertical compensation is the last step to produce the final representation so we are ready to return:
@@ -1181,7 +1188,7 @@ print('\n'.join(horizontal_compensation(Quarter(2).raw(2))))
 | x x x |
 | x   x |
 | x x x |
-+-x---x-+
+o-x---x-+
 #+END_src
 
 ** Demonstration
@@ -1201,7 +1208,7 @@ for degree in range(2, 5):
 | x x x |
 | x   x |
 | x x x |
-+-x---x-+
+o-x---x-+
 +---x-------x---+
 |               |
 |   x   x   x   |
@@ -1210,7 +1217,7 @@ for degree in range(2, 5):
 |               |
 |   x   x   x   |
 |               |
-+---x-------x---+
+o---x-------x---+
 +-------x---------------x-------+
 |                               |
 |                               |
@@ -1227,7 +1234,7 @@ for degree in range(2, 5):
 |                               |
 |                               |
 |                               |
-+-------x---------------x-------+
+o-------x---------------x-------+
 #+END_src
 
 ** Textual squarified net representation
@@ -1314,8 +1321,8 @@ print()
 print('All quarters without the last points')
 print(SquareNet(degree, list(range(degree))))
 print()
-print('All quarters, only the last points')
-print(SquareNet(degree, degree))
+print('All quarters, only the last points, with redundant characters')
+print(SquareNet(degree, degree, display_redundant=True))
 #+END_SRC
 
 #+RESULTS:
@@ -1325,7 +1332,7 @@ Right quarters
 |       | x x x |
 |       | x x x |
 |       | x x x |
-+-------x-x-x-x-x
++-------X-x-x-x-x
 |       x x x x x
 |       x x x x x
 |       x x x x x
@@ -1336,7 +1343,7 @@ Bottom quarters
 |       |       |
 |       |       |
 |       |       |
-x-x-x-x-+-------+
+x-x-x-x-o-------+
 | x x x x x x x x
 | x x x x x x x x
 | x x x x x x x x
@@ -1347,22 +1354,22 @@ All quarters without the last points
 |       |       |
 x   x   x   x   |
 |       |       |
-x---x---x---x---x
+x---x---X---x---x
 |       |       |
 |   x   x   x   x
 |       |       |
 +---x---x-------+
 
-All quarters, only the last points
-+-------+-x---x-+
-x x x x x x x x |
+All quarters, only the last points, with redundant characters
++-v---v-+-x---x-+
+x x x x x x x x v
 | x   x | x   x |
-x x x x x x x x |
-+-x---x-+-x---x-+
-| x x x x x x x x
+x x x x x x x x v
++-x---x-o-x---x-+
+v x x x x x x x x
 | x   x | x   x |
-| x x x x x x x x
-+-x---x-+-------+
+v x x x x x x x x
++-x---x-+-v---v-+
 #+END_src
 
 * References
