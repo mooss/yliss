@@ -214,28 +214,36 @@ std::size_t extreme(std::size_t degree){
 *** Points redundancy
 
 A peculiar caracteristic of the squarified-net-inspired coordinate system is that there is a redundancy at the edges, where the four corners act as a center of symmetry.
-For example, at degree 2 the points $A = (4, -3)$ and $B = (4, 3)$ are the same, as well as the points $C = (2, -1)$ and $D = (2, 1)$:
+For example, at degree 2 the points $A = (-3, 4)$ and $B = (3, 4)$ are the same, as well as the points $C = (4, 2)$ and $D = (4, -2)$:
 #+BEGIN_SRC python
 <<Textual squarified net>>
-repre = SquareNet(2, [0, 1, 2], display_redundant='x').repr()
-first = repre[0]
-repre[0] = first[:2] + 'A' + first[3:-3] + 'B' + first[-2:]
-repre[2] = repre[2][:-1] + 'C'
-repre[6] = repre[2][:-1] + 'D'
-print('\n'.join(repre))
+result = SquareNet(2, [0, 1, 2], display_redundant='x').repr()
+first = result[0]
+result[0] = first[:2] + 'A' + first[3:-3] + 'B' + first[-2:]
+result[2] = result[2][:-1] + 'C'
+result[6] = result[2][:-1] + 'D'
+
+# Terribly cool hack, don't do this at home.
+top = [0] * 5
+<<Add axis to SquareNet representation>>
+print('\n'.join(result))
 #+END_SRC
 
 #+RESULTS:
 #+BEGIN_src text
-x-A-x-x-x-x-x-B-x
-x x x x x x x x x
-x x x x x x x x C
-x x x x x x x x x
-x-x-x-x-X-x-x-x-x
-x x x x x x x x x
-x x x x x x x x D
-x x x x x x x x x
-x-x-x-x-x-x-x-x-x
+   ^
++4 |  x-A-x-x-x-x-x-B-x
++3 |  x x x x x x x x x
++2 |  x x x x x x x x C
++1 |  x x x x x x x x x
+ 0 |  x-x-x-x-X-x-x-x-x
+-1 |  x x x x x x x x x
+-2 |  x x x x x x x x D
+-3 |  x x x x x x x x x
+-4 |  x-x-x-x-x-x-x-x-x
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
 #+END_src
 
 We can deduce a general rule from this example.
@@ -1246,7 +1254,9 @@ o-------x---------------x-------+
 ** Textual squarified net representation
 
 Textual representation of a squarified octasierp net is generated with the  =SquareNet= class.
-Most of the work has already been done in =Quarter= so the arguments are the same, except for =quarter= which becomes =quarters=, illustrating that what's left to be done is to assemble the four quarters together.
+Most of the work has already been done in =Quarter= so the arguments are the same, except for:
+ - =quarter= which becomes =quarters=, illustrating that what's left to be done is to assemble the four quarters together.
+ - =show_axis= is a specific argument to include the axis and their gradation in the final representation.
 
 The caller can choose to represent only a subset of the quarter by specifying for example src_python[:exports code]{SquareNet(degree, appearance, quarters={0,1})} to include only quarters 0 and 1.
 The excluded quarters will be represented devoid of points.
@@ -1257,8 +1267,8 @@ The excluded quarters will be represented devoid of points.
 <<SquareNet utils>>
 class SquareNet:
     def __init__(
-            self, degree, appearance=None,
-            quarters={0, 1, 2, 3}, display_redundant=False
+            self, degree, appearance=None, quarters={0, 1, 2, 3},
+            display_redundant=False, show_axis=False
     ):
         self.degree = degree
         self.appearance = appearance
@@ -1268,6 +1278,7 @@ class SquareNet:
             quarter=n,
             display_redundant=display_redundant
         ) for n in range(4)]
+        self.show_axis = show_axis
 
     <<Final squarified net representation>>
 #+END_SRC
@@ -1280,9 +1291,18 @@ Like with =Quarter=, =repr= returns a list of lines:
 #+name: Final squarified net representation
 #+BEGIN_SRC python
 def repr(self):
-    top = cat_quarter_horizontally(self.quarters[1].repr(), self.quarters[0].repr())
-    bottom = cat_quarter_horizontally(self.quarters[2].repr(), self.quarters[3].repr())
-    return cat_quarter_vertically(top, bottom)
+    top = cat_quarter_horizontally(
+        self.quarters[1].repr(),
+        self.quarters[0].repr()
+    )
+    bottom = cat_quarter_horizontally(
+        self.quarters[2].repr(),
+        self.quarters[3].repr()
+    )
+    result = cat_quarter_vertically(top, bottom)
+    if self.show_axis:
+        <<Add axis to SquareNet representation>>
+    return result
 #+END_SRC
 
 And =__str__=, the string equivalent:
@@ -1313,60 +1333,14 @@ def cat_quarter_horizontally(left, right):
     ]
 #+END_SRC
 
-*** Demonstration
-
+We can now represent for example the last points of all quarters of a squarified net of degree 2, with the redundant points:
 #+BEGIN_SRC python :eval no-export :exports both
 <<Textual squarified net>>
-degree=2
-print('Right quarters')
-print(SquareNet(degree, '*', quarters={0, 3}))
-print()
-print('Bottom quarters')
-print(SquareNet(degree, '*', quarters={2, 3}))
-print()
-print('All quarters without the last points')
-print(SquareNet(degree, list(range(degree))))
-print()
-print('All quarters, only the last points, with redundant characters')
-print(SquareNet(degree, degree, display_redundant=True))
+print(SquareNet(2, 2, quarters={0, 1, 2, 3}, display_redundant=True))
 #+END_SRC
 
 #+RESULTS:
 #+BEGIN_src text
-Right quarters
-+-------+-x-x-x-x
-|       | x x x |
-|       | x x x |
-|       | x x x |
-+-------X-x-x-x-x
-|       x x x x x
-|       x x x x x
-|       x x x x x
-+-------x-------+
-
-Bottom quarters
-+-------+-------+
-|       |       |
-|       |       |
-|       |       |
-x-x-x-x-o-------+
-| x x x x x x x x
-| x x x x x x x x
-| x x x x x x x x
-+-x-x-x-x-------+
-
-All quarters without the last points
-+-------x---x---x
-|       |       |
-x   x   x   x   |
-|       |       |
-x---x---X---x---x
-|       |       |
-|   x   x   x   x
-|       |       |
-+---x---x-------+
-
-All quarters, only the last points, with redundant characters
 +-v---v-+-x---x-+
 x x x x x x x x v
 | x   x | x   x |
@@ -1377,6 +1351,77 @@ v x x x x x x x x
 v x x x x x x x x
 +-x---x-+-v---v-+
 #+END_src
+
+*** Add axis to representation
+
+First of all we create the gradations with the help of =lenhalf=, the length of strictly positive (and strictly negative) values on the gradations.
+For example the =gradations= of a squarified net of degree 2 will be =[-4, -3, -2, -1, 0, 1, 2, 3, 4]= and =lenhalf= will be =4=.
+#+name: Add axis to SquareNet representation
+#+BEGIN_SRC python
+lenhalf = len(top) - 1
+gradations = list(range(lenhalf, 0, -1))
+gradations = list(map(str, gradations + [0] + list(reversed(gradations))))
+#+END_SRC
+
+The left axis is split into three part:
+ 1. The axis proper.
+ 2. The gradation.
+ 3. The legend (plus and minus signs).
+#+name: Add axis to SquareNet representation
+#+BEGIN_SRC python
+leftax = '^|' + '|' * len(result)
+leftgrad = ' ' + ''.join(reversed(gradations))
+leftleg = ' ' + '+' * lenhalf + ' ' + '-' * lenhalf
+#+END_SRC
+
+Same thing for the bottom ax:
+#+name: Add axis to SquareNet representation
+#+BEGIN_SRC python
+bottomax = '   +' + '--' * len(result) + '-->'
+bottomgrad = '      ' + ' '.join(gradations)
+bottomleg = '      ' + '- ' * lenhalf + ' ' + ' +' * lenhalf
+#+END_SRC
+
+Finally we modify the =result= by first inserting the left axis into each line and then appending the bottom axis to it.
+#+name: Add axis to SquareNet representation
+#+BEGIN_SRC python
+result = [
+    leg + grad + ' ' + ax + '  ' + line
+    for leg, grad, ax, line in zip(
+            leftleg, leftgrad, leftax, [''] + result
+    )
+] + [bottomax, bottomgrad, bottomleg]
+# Remove extraneous space, I can't bear the thought.
+result[0] = result[0].rstrip(' ')
+#+END_SRC
+
+
+Demonstration time:
+#+BEGIN_SRC python :eval no-export :exports both
+<<Textual squarified net>>
+print(SquareNet(2, [0, 2], show_axis=True))
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_src text
+   ^
++4 |  +-------x-x---x-x
++3 |  x x x x x x x x |
++2 |  | x   x | x   x |
++1 |  x x x x x x x x |
+ 0 |  x-x---x-X-x---x-x
+-1 |  | x x x x x x x x
+-2 |  | x   x | x   x |
+-3 |  | x x x x x x x x
+-4 |  +-x---x-x-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+END_src
+
+Note that this representation will break if we ever try to include gradations greater than 9, because it assumes that gradations are single-digit numbers.
+The last degree for which a correct axis can be made is therefore degree 3 with its gradations going from -8 to 8.
+It would be possible to make it work with higher degrees but degree 3 covers my needs regarding this feature.
 
 * References
  - https://en.wikipedia.org/wiki/Find_first_set#CTZ
