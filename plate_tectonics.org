@@ -1,0 +1,9 @@
+* References
+** Videos
+ - https://www.youtube.com/watch?v=ZTRu620bIsE :: Overview of plate tectonics.
+ - https://www.youtube.com/watch?v=Nf8xvhb1eBE :: Overview of the forces driving the plates.
+      Ridge push and slab pull are now thought to be what is moving the plates, rejecting the idea that it is the result of mantle convection cells.
+ - https://www.youtube.com/watch?v=rjn2ZJwpqQA&list=PL83859539437B72C3&index=17 :: Types of deformations depending on the nature of plate interaction.
+
+*** Tangential
+ - https://www.youtube.com/watch?v=iA788usYNWA :: Milankovitch cycles (ice ages).
