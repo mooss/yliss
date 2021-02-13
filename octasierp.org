@@ -49,7 +49,8 @@ The simplest octasierp occurs when $d=0$ and corresponds to an octahedron.
 This is my second attempt at generating a procedural planet using an octahedron as the starting point.
 
 The main problem I encountered last time was finding a good data structure for my subdivided octahedron as well as implementing the code to get the neighbours of a point.
-I ended up using a convoluted approach that I can't even remember now, and thankfully I don't have to since I've collected some observations that will help me to build a much simpler and intuitive data structure than last time.
+I ended up using a convoluted approach that I can't even remember now.
+Thankfully I don't have to, since I've collected some observations that will help me to build a much simpler and intuitive data structure than last time.
 
 A good data structure for an octasierp must meet some criteria:
  - A coordinate system, both for mental representation and as a programming primitive.
@@ -87,7 +88,7 @@ This representation is strongly reminiscent of the Peirce quincuncial projection
 #+caption: Octasierp squarified net for degrees 0, 1, 2 and 3
 [[file:images/montage_net_squa_degree_0-3.png]]
 
-Figure [[montage_squa_degree_0-3]] provides a nice means of visualisation, but since it's en image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of the implementation.
+The figure [[montage_squa_degree_0-3]] provides a nice means of visualisation, but since it's an image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of the implementation.
 See below the textual equivalent of figure [[montage_squa_degree_0-3]] [fn::=x= are points, =-= are horizontal lines, =|= are vertical lines and =+= are corners. The representations have been scaled to all appear at the same size, that is normally not the case.]:
 #+BEGIN_SRC python
 <<Textual squarified net>>
@@ -156,7 +157,7 @@ Everything related to the generation of the textual representation is gathered i
 We can divise the squarified net into four quarter, each being a rotated image of the others around the central point.
 This means rules devised for one quarter can easily be adapted to the others.
 
-Those quarters are identified by a number ranging from zero to three, with quarter 0 being the top-right one and the others being numerated counter-clockwise.
+Those quarters are identified by a number ranging from 0 to 3, with quarter 0 being the top-right one and the others being numerated counter-clockwise.
 The counter-clockwise rotation has been chosen to correspond to the sense of trigonometric rotation.
 
 **** Two poles and four corners
@@ -168,8 +169,8 @@ I know that the four corners are a bit confusing because from the 2d perspective
 
 ** Coordinate system
 
-Based on the observation of the squarified net, the natural coordinate system for an octasierp is an indexing along the axis between corners 1 and 3 (the x-axis) and the one between corners 2 and 0 (the y-axis).
-In this scheme, the point of coordinates $(0, 0)$ is the north pole.
+Based on the observation of the squarified net, the natural coordinate system for an octasierp is an indexing along the axis between the central point and corner 0 (the x-axis) and the one between the central point and corner 1 (the y-axis).
+In this scheme, the central point (of coordinates $(0, 0)$) is also the north pole.
 This is the coordinate system we will use from now on, albeit we will sometimes call it the global coordinate system, because a system local to each quarter will be established later.
 
 Since an octasierp is a discrete structure, the coordinates will be integer-based.
@@ -215,9 +216,10 @@ std::size_t extreme(std::size_t degree){
 
 A peculiar caracteristic of the squarified-net-inspired coordinate system is that there is a redundancy at the edges, where the four corners act as a center of symmetry.
 For example, at degree 2 the points $A = (-3, 4)$ and $B = (3, 4)$ are the same, as well as the points $C = (4, 2)$ and $D = (4, -2)$:
-#+BEGIN_SRC python
+#+name: Octasierp redundancy example
+#+BEGIN_SRC python :eval never
 <<Textual squarified net>>
-result = SquareNet(2, [0, 1, 2], display_redundant='x').repr()
+result = SquareNet(2, [0, 1, 2], display_redundant=display_redundant).repr()
 first = result[0]
 result[0] = first[:2] + 'A' + first[3:-3] + 'B' + first[-2:]
 result[2] = result[2][:-1] + 'C'
@@ -229,8 +231,13 @@ top = [0] * 5
 print('\n'.join(result))
 #+END_SRC
 
+#+BEGIN_SRC python
+display_redundant='x'
+<<Octasierp redundancy example>>
+#+END_SRC
+
 #+RESULTS:
-#+BEGIN_src text
+#+begin_src text
    ^
 +4 |  x-A-x-x-x-x-x-B-x
 +3 |  x x x x x x x x x
@@ -244,7 +251,7 @@ print('\n'.join(result))
    +-------------------->
       4 3 2 1 0 1 2 3 4
       - - - -   + + + +
-#+END_src
+#+end_src
 
 We can deduce a general rule from this example.
 
@@ -252,13 +259,17 @@ First we need to find what are the extreme values of our coordinate system at a 
 The extreme value we are looking for here will be the number of points on an half-axis minus one, since the numerotation starts at 0.
 We already know the number of points on a half-axis at degree $d$ to be $\vert points_d \vert = 2^{d} + 1$ so the extreme value we are looking for is $2^d$.
 
-Since the center of symmetry are the four corners we deduce the following rules for the redundant points at degree $d$, centered around:
+Since the centers of symmetry are the four corners, the following rules can be deduced for the redundant points at degree $d$ depending on the corners they are centered around:
  - *corner 0*: $\{(2^d, n), (2^d, -n)\}$
  - *corner 1*: $\{(n, 2^d), (-n, 2^d)\}$
  - *corner 2*: $\{(-2^d, n), (-2^d, -n)\}$
  - *corner 3*: $\{(n, -2^d), (-n, -2^d)\}$
 With $n \in \mathbb{N}$ and $0 \leq n \leq 2^d$, so technically the centers of symmetry are included (when $n=0$).
 Note that a special case arise when $n=2^d$, where the redundant points - for all the corners - are the south pole.
+
+When applied to our four example points, the rules are correctly implying that:
+ - $A = (-3, 4)$ and $B = (3, 4)$ are centered around corner 1 with $n=3$.
+ - $C = (4, 2)$ and $D = (4, -2)$ are centered around corner 0 with $n=2$.
 
 *** Border disputes and canonical quarters
 
@@ -267,10 +278,10 @@ Two main cases need to be treated:
  - The poles because they are on every quarter.
  - The borders between quarters (excluding the poles) because they are shared between two quarters.
 
-There is only two poles, so they cannot be distributed equally between the four quarters.
+There are only two poles, so they cannot be distributed equally between the four quarters.
 Rather that attributing one pole to, say the quarter 0 and another to the quarter 2, I prefer to give them both to quarter 0 because:
- 1. it is more memorable, and
- 2. it gets the message across that quarter 0 is the reference quarter, or The canonical quarter, if you will.
+ 1. It is more memorable.
+ 2. It gets the message across that quarter 0 is the reference quarter, or The canonical quarter, if you will.
 
 Because quarter 1, 2 and 3 are essentially a rotation of quarter 0, we resolve the border dispute between quarters by using this property.
 The top and bottom border of quarter 0, i.e. its border with quarter 1 and quarter 3 respectively are attributed to quarter 0.
@@ -280,23 +291,27 @@ Beyond those two cases we just resolved lurks a third one, the corners.
 Even though they technically belong to the borders, the rotation mecanism would still make them shared between quarters because there would be two corners per quarter while there is the same number of corners and quarters (4).
 To solve this last issue, we'll just say that the bottom right corner belongs to quarter 0 and as always, this rule applies by rotation to the other quarters.
 
-Here is an updated representation of degree 2 reflecting the changes we just made, with =v= characters representing a redundant point[fn::The canonical counterparts of those points are still represented with an =x=.]:
+Here is the updated example from the previous session reflecting the changes we just made, with =v= characters representing a redundant point[fn::The canonical counterparts of those points are still represented with an =x=.]:
 #+BEGIN_SRC python
-<<Textual squarified net>>
-print(SquareNet(2, '*', display_redundant=True))
+display_redundant=True
+<<Octasierp redundancy example>>
 #+END_SRC
 
 #+RESULTS:
 #+BEGIN_src text
-v-v-v-v-x-x-x-x-x
-x x x x x x x x v
-x x x x x x x x v
-x x x x x x x x v
-x-x-x-x-X-x-x-x-x
-v x x x x x x x x
-v x x x x x x x x
-v x x x x x x x x
-v-x-x-x-x-v-v-v-v
+   ^
++4 |  v-A-v-v-x-x-x-B-x
++3 |  x x x x x x x x v
++2 |  x x x x x x x x C
++1 |  x x x x x x x x v
+ 0 |  x-x-x-x-X-x-x-x-x
+-1 |  v x x x x x x x x
+-2 |  x x x x x x x x D
+-3 |  v x x x x x x x x
+-4 |  v-x-x-x-x-v-v-v-v
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
 #+END_src
 
 *** About the resemblance
