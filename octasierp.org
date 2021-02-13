@@ -477,11 +477,13 @@ Images are saved in the =images= folder and the scripts are supposed to be execu
 #+END_SRC
 
 ** Colors
+:PROPERTIES:
+:header-args:jupyter-python+: :noweb-ref "Colors"
+:END:
 
 I use a =SimpleNamespace= to store some colors that I want to use (the names are probably innacurate).
 The obvious alternative would be to use a =class= but that would be tedious to initialize, or a =dict= but I want to be able to access members through the dot operator.
 
-#+name: Colors
 #+BEGIN_SRC jupyter-python
 from types import SimpleNamespace
 colors = SimpleNamespace(
@@ -504,7 +506,6 @@ colors = SimpleNamespace(
 
 Here are some color palettes:
 
-#+name: Colors
 #+BEGIN_SRC jupyter-python
 palette_colorful = [
     (colors.canard, colors.turquoise),
@@ -538,6 +539,9 @@ palette_psyche = [
 #+END_SRC
 
 ** Geometric primitives
+:PROPERTIES:
+:header-args:jupyter-python+: :noweb-ref "Geometric primitives"
+:END:
 
 The class =Geometry= is here to provide an abstraction about the way a subdivided object is to be drawn.
 For the moment, geometric primitives only have two caracteristics at a given degree of subdivision :
@@ -550,7 +554,6 @@ Thus, =Geometry= is initialised with:
 
 The geometry parameters for degree $d$ can then simply be obtained with square brackets indexing (like =geometry[d]=), thanks to the method =__getitem__=.
 
-#+name: Geometric primitives
 #+BEGIN_SRC jupyter-python
 class Geometry(object):
     def __init__(self,
@@ -589,7 +592,6 @@ This function is not defined when $degree = 0$ so this need to be addressed as a
 
 After playing a bit with $minFactor$ value, it looks like .25 is a good value.
 
-#+name: Geometric primitives
 #+BEGIN_SRC jupyter-python
 def decrease_size_linearly(degree, min_factor=.25):
     def result(current):
@@ -613,8 +615,7 @@ A =Triangle= represents one of the triangles of an octasierp net, its properties
 
 A =Triangle= has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle, whereas =geometry= does the recursive calculations regarding all the points and lines of the final figure.
 
-#+name: Triangle
-#+BEGIN_SRC jupyter-python
+#+BEGIN_SRC jupyter-python :noweb-ref "Triangle"
 import gizeh as gz
 
 <<Geometric primitives>>
@@ -642,16 +643,17 @@ class Triangle(object):
 #+END_SRC
 
 *** Initiate triangle geometry
+:PROPERTIES:
+:header-args:jupyter-python+: :noweb-ref "Initiate triangle geometry"
+:END:
 We use the =Geometry= object instanciated in the constructor to get the color and deduce the line width at the current degree, making sure that it is at least 1.
 
-#+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
 color, factor = self.lines[current]
 width = max(1, self.initial_width * factor)
 #+END_SRC
 
 The initial triangle is simply three lines joining the three points, kept in a list that will eventually hold the subsequent triangles.
-#+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
 lines = [gz.polyline(
     [a, b, c, a],
@@ -661,7 +663,6 @@ lines = [gz.polyline(
 #+END_SRC
 
 The same idea is repeated to create an initial point, scaled a bit ($\times 1.2$) because their original use is to hide the corners of lines:
-#+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
 color, factor = self.points[current]
 width = max(1, self.initial_width * factor * 1.2)
@@ -669,16 +670,17 @@ point = gz.circle(r=width, fill=color)
 #+END_SRC
 
 This point was spawned at the default location of (0, 0), we use it to create the vertices of our triangle by translation:
-#+name: Initiate triangle geometry
 #+BEGIN_SRC jupyter-python
 points = list(map(point.translate, (a, b, c)))
 #+END_SRC
 
 *** Subdivise triangle
+:PROPERTIES:
+:header-args:jupyter-python+: :noweb-ref "Subdivise triangle"
+:END:
 
 Now that the geometric elements have been dealt with, only the recursive calls - or lack thereof - remains.
 The generation is over when the maximal degree has been reached:
-#+name: Subdivise triangle
 #+BEGIN_SRC jupyter-python
 if current == self.degree:
     return points, lines
@@ -686,7 +688,6 @@ if current == self.degree:
 
 Otherwise, we make recursive calls to =geometry=, using the midpoints of the three original points.
 The order of the points and of the lines is important because the graphical elements are drawn in the order of their apparition and we want to make sure that the earliest subdivisions are written over the subsequent ones.
-#+name: Subdivise triangle
 #+BEGIN_SRC jupyter-python
 ab = midpoint(a, b)
 ac = midpoint(a, c)
@@ -699,8 +700,7 @@ return points, lines
 #+END_SRC
 
 With =midpoint= being defined as:
-#+name: Triangle
-#+BEGIN_SRC jupyter-python
+#+BEGIN_SRC jupyter-python :noweb-ref "Triangle"
 def midpoint(left, right):
     return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
 #+END_SRC
@@ -927,9 +927,7 @@ class Quarter:
 ** Character set
 
 The character set used to describe a quarter is not supposed to be changed, that's why it is defined at the class level.
-
-#+name: Textual quarter constants
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter constants"
 POINT = 'x'
 HORIZONTAL = '-'
 EMPTY = ' '
@@ -944,8 +942,7 @@ NORTH_POLE = 'o'
 
 We also define the set of character that can collide and the set of character that are point.
 They are complementary in the sense that their intersection is empty and their union is the whole character set.
-#+name: Textual quarter constants
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter constants"
 CAN_COLLIDE = {
     HORIZONTAL, EMPTY, VERTICAL,
     CORNER, NORTH_POLE
@@ -955,8 +952,7 @@ IS_POINT = {POINT, COLLISION, REDUNDANT, NORTH_POLE_POINT}
 
 We want the caller to be able to select the redundant character.
 This is done based on the value of =display_redundant= ; any value other than =True= will be interpreted as the an attempt to override the default redundant character.
-#+name: Textual quarter init
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter init"
 if self.display_redundant is True:
     self.redundant = Quarter.REDUNDANT
 else:
@@ -981,9 +977,7 @@ But hey, it works.
 In retrospect, it would have been much better to start from the central point since it is obviously a center of symmetry.
 Even with that in mind, I will not bother redesigning the code below because once again hey, it works^{tm}.
 If you don't understand how this code works, don't worry, neither do I.
-
-#+name: Textual quarter methods
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter methods"
 def raw(self, appearance=None):
     # Length of the sides.
     length = pow(2, self.degree) + 1
@@ -1068,8 +1062,7 @@ def raw(self, appearance=None):
 ** Generate the final representation
 
 Here are handled the forementioned assembly steps, in the following method:
-#+name: Textual quarter methods
-#+BEGIN_SRC python :noweb no-export
+#+BEGIN_SRC python :noweb no-export :noweb-ref "Textual quarter methods"
 def repr(self):
     <<Assemble the degrees of appearance>>
     <<Rotate the quarter>>
@@ -1078,8 +1071,7 @@ def repr(self):
 
 The =Quarter= class is represented as a list of lines.
 To put icing on the cake, we also handle a string version of the representation:
-#+name: Textual quarter methods
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter methods"
 def __str__(self):
     return '\n'.join(self.repr())
 #+END_SRC
@@ -1104,8 +1096,7 @@ else:
 #+END_SRC
 
 To make life easier, I added a special case for =appearance=; the string src_python[:exports code]{'*'} is a shortcut for all the degrees of appearance possible:
-#+name: Textual quarter init
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter init"
 if self.appearance == '*':
     self.appearance = list(range(self.degree+1))
 #+END_SRC
@@ -1116,8 +1107,7 @@ To implement =merge_raw_quarters=, we first need to be able to merge two lines t
 With this textual representation, we just have to iterate through the two lines simultaneously and prioritise the point character above every other.
 I also output a collision character when two points collide, because that would mean either a repetition in =appearance= or a mistake in =merge_quarter_lines= and I want both failures to be obvious.
 
-#+name: Textual quarter utils
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter utils"
 def merge_quarter_lines(arg):
     left, right = arg
     buffer = []
@@ -1133,8 +1123,7 @@ def merge_quarter_lines(arg):
 #+END_SRC
 
 The actual merging method simply uses =merge_quarter_lines= to merge every line into a new list:
-#+name: Textual quarter methods
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter methods"
 def merge_raw_quarters(self, left, right):
     return list(map(merge_quarter_lines, zip(left, right)))
 #+END_SRC
@@ -1158,8 +1147,7 @@ for _ in range(self.quarter):
 Rotating the representation left is a succession of two tricks:
  1. Replacing vertical characters with horizontal ones and vice versa.
  2. Replacing lines with columns, in inverse order (that's what =reversed(list(zip(*lines)))= does).
-#+name: Textual quarter utils
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter utils"
 def rotate_quarter_representation_left(lines):
     replacement = {Quarter.HORIZONTAL: Quarter.VERTICAL,
                    Quarter.VERTICAL: Quarter.HORIZONTAL}
@@ -1197,8 +1185,7 @@ return horizontal_compensation(assembly)
 
 
 The horizontal compensation function simply pads the top and bottom lines with horizontal characters and the other lines with empty characters.
-#+name: Textual quarter utils
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Textual quarter utils"
 def horizontal_compensation(lines):
     buffer = [Quarter.HORIZONTAL.join(lines[0])]       # Top.
     for line in lines[1:-1]:
@@ -1305,8 +1292,7 @@ class SquareNet:
 To generate the final representation, we have to first concatenate horizontally quarter 0 with quarter 1 and quarter 2 with quarter 3.
 Then only one vertical concatenation on the results of those two previous concatenations remain to be done.
 Like with =Quarter=, =repr= returns a list of lines:
-#+name: Final squarified net representation
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Final squarified net representation"
 def repr(self):
     top = cat_quarter_horizontally(
         self.quarters[1].repr(),
@@ -1323,23 +1309,20 @@ def repr(self):
 #+END_SRC
 
 And =__str__=, the string equivalent:
-#+name: Final squarified net representation
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "Final squarified net representation"
 def __str__(self):
     return '\n'.join(self.repr())
 #+END_SRC
 
 The vertical concatenation is the easiest ; since the representation is a list of lines, all lines are concatenated, except the central one (the one in common between the two quarters), which is merged:
-#+name: SquareNet utils
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "SquareNet utils"
 def cat_quarter_vertically(top, bottom):
     return top[:-1] + [merge_quarter_lines((top[-1], bottom[0]))] + bottom[1:]
 #+END_SRC
 
 The horizontal concatenation is a little bit longer because it goes against our vertically-oriented representation.
 It's not that complicated because =merge_quarter_lines= can merge columns as well as lines:
-#+name: SquareNet utils
-#+BEGIN_SRC python
+#+BEGIN_SRC python :noweb-ref "SquareNet utils"
 def cat_quarter_horizontally(left, right):
     right_of_left = [line[-1] for line in left]
     left_of_right = [line[0] for line in right]
@@ -1370,10 +1353,12 @@ v x x x x x x x x
 #+END_src
 
 *** Add axis to representation
+:PROPERTIES:
+:header-args:python+: :noweb-ref "Add axis to SquareNet representation"
+:END:
 
 First of all we create the gradations with the help of =lenhalf=, the length of strictly positive (and strictly negative) values on the gradations.
 For example the =gradations= of a squarified net of degree 2 will be =[-4, -3, -2, -1, 0, 1, 2, 3, 4]= and =lenhalf= will be =4=.
-#+name: Add axis to SquareNet representation
 #+BEGIN_SRC python
 lenhalf = len(top) - 1
 gradations = list(range(lenhalf, 0, -1))
@@ -1384,7 +1369,6 @@ The left axis is split into three part:
  1. The axis proper.
  2. The gradation.
  3. The legend (plus and minus signs).
-#+name: Add axis to SquareNet representation
 #+BEGIN_SRC python
 leftax = '^|' + '|' * len(result)
 leftgrad = ' ' + ''.join(reversed(gradations))
@@ -1392,7 +1376,6 @@ leftleg = ' ' + '+' * lenhalf + ' ' + '-' * lenhalf
 #+END_SRC
 
 Same thing for the bottom ax:
-#+name: Add axis to SquareNet representation
 #+BEGIN_SRC python
 bottomax = '   +' + '--' * len(result) + '-->'
 bottomgrad = '      ' + ' '.join(gradations)
@@ -1400,7 +1383,6 @@ bottomleg = '      ' + '- ' * lenhalf + ' ' + ' +' * lenhalf
 #+END_SRC
 
 Finally we modify the =result= by first inserting the left axis into each line and then appending the bottom axis to it.
-#+name: Add axis to SquareNet representation
 #+BEGIN_SRC python
 result = [
     leg + grad + ' ' + ax + '  ' + line
@@ -1414,7 +1396,7 @@ result[0] = result[0].rstrip(' ')
 
 
 Demonstration time:
-#+BEGIN_SRC python :eval no-export :exports both
+#+BEGIN_SRC python :eval no-export :exports both :noweb-ref no
 <<Textual squarified net>>
 print(SquareNet(2, [0, 2], show_axis=True))
 #+END_SRC
