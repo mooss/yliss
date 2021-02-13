@@ -833,6 +833,8 @@ function make_montage(){
     rm ${base}{0,1,2,3}.png
 }
 
+mkdir -p images
+
 version=octa
 vertical=1165
 make_montage
