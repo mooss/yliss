@@ -31,11 +31,11 @@ class window
     <<Destructor>>
     <<Getters>>
 
+    GLFWwindow* window_handle;
+    GLFWmonitor* monitor_handle;
   private:
     std::string title_;
     unsigned int width_, height_;
-    GLFWwindow* window_handle_;
-    GLFWmonitor* monitor_handle_;
 };
 #+end_src
 
@@ -44,7 +44,7 @@ class window
 #+begin_src C++ :noweb no-export
 window(std::string title, unsigned int width, unsigned int height):
     title_(title), width_(width), height_(height),
-    window_handle_(nullptr), monitor_handle_(nullptr)
+    window_handle(nullptr), monitor_handle(nullptr)
 {
     glfwInit();
     <<Create window>>
@@ -54,14 +54,14 @@ window(std::string title, unsigned int width, unsigned int height):
 #+end_src
 
 *** Create window
-If =monitor_handle_='s value is =nullptr=, this is not a problem because when =glfwCreateWindow= is called this way, it simply creates a window in windowed mode.
+If =monitor_handle='s value is =nullptr=, this is not a problem because when =glfwCreateWindow= is called this way, it simply creates a window in windowed mode.
 
 The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
  
 #+name: Create window
-window_handle_ = glfwCreateWindow(width_, height_, title.c_str(), monitor_handle_, nullptr);
-if(window_handle_ == nullptr){
 #+begin_src C++
+window_handle = glfwCreateWindow(width_, height_, title.c_str(), monitor_handle, nullptr);
+if(window_handle == nullptr){
     glfwTerminate();
     throw std::runtime_error("Failed to create glfw window");
 }
@@ -72,21 +72,19 @@ if(window_handle_ == nullptr){
 The OpenGL context holds the state of the current OpenGL instance.
 A process can make several OpenGL contexts.
 The call to =glfwCreateWindow= in the section above spawned an OpenGL context[fn:: See https://www.glfw.org/docs/latest/context_guide.html].
-Before doing any OpenGL work, the OpenGL context associated to the =window_handle_= is made current via =glfwMakeContextCurrent=.
+Before doing any OpenGL work, the OpenGL context associated to the =window_handle= is made current via =glfwMakeContextCurrent=.
 
-
-**** TODO Explain why the viewport dimension might be different from the window size and explain what the viewport is
 #+name: OpenGL setup
-glfwMakeContextCurrent(window_handle_);
 #+begin_src C++
+glfwMakeContextCurrent(window_handle);
 if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
-    glfwDestroyWindow(window_handle_);
+    glfwDestroyWindow(window_handle);
     glfwTerminate();
     throw std::runtime_error("Failed to create OpenGL context with glad");
 }
 
 int fb_width, fb_height;
-glfwGetFramebufferSize(window_handle_, &fb_width, &fb_height);
+glfwGetFramebufferSize(window_handle, &fb_width, &fb_height);
 glViewport(0, 0, fb_width, fb_height);
 #+end_src
 
@@ -96,7 +94,7 @@ We only have to tell glfw to liberate the resources it has allocated.
 #+begin_src C++
 ~window()
 {
-    glfwDestroyWindow(window_handle_);
+    glfwDestroyWindow(window_handle);
     glfwTerminate();
 }
 
@@ -109,8 +107,6 @@ We only have to tell glfw to liberate the resources it has allocated.
 const std::string& title() const {return title_;}
 unsigned int width() const {return width_;}
 unsigned int height() const {return height_;}
-GLFWwindow* window_handle() {return window_handle_;}
-GLFWmonitor* monitor_handle() {return monitor_handle_;}
 #+end_src
 
 ** Empty window test
