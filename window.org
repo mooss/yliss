@@ -23,7 +23,7 @@ The first step is to be able to display an empty window.
 The main characteristics of are window are its width, height and title.
 We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need to store a handle to the window and monitor used.
 
-#+BEGIN_SRC C++ :noweb no-export :includes yls_glad.h <GLFW/glfw3.h> <stdexcept> :tangle include/window.h
+#+begin_src C++ :noweb no-export :includes yls_glad.h <GLFW/glfw3.h> <stdexcept> :tangle include/window.h
 class window
 {
   public:
@@ -37,11 +37,11 @@ class window
     GLFWwindow* window_handle_;
     GLFWmonitor* monitor_handle_;
 };
-#+END_SRC
+#+end_src
 
 ** Titled constructor
 #+name: Titled constructor
-#+BEGIN_SRC C++ :noweb no-export
+#+begin_src C++ :noweb no-export
 window(std::string title, unsigned int width, unsigned int height):
     title_(title), width_(width), height_(height),
     window_handle_(nullptr), monitor_handle_(nullptr)
@@ -51,7 +51,7 @@ window(std::string title, unsigned int width, unsigned int height):
     <<OpenGL setup>>
 }
 
-#+END_SRC
+#+end_src
 
 *** Create window
 If =monitor_handle_='s value is =nullptr=, this is not a problem because when =glfwCreateWindow= is called this way, it simply creates a window in windowed mode.
@@ -59,14 +59,14 @@ If =monitor_handle_='s value is =nullptr=, this is not a problem because when =g
 The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
  
 #+name: Create window
-#+BEGIN_SRC C++
 window_handle_ = glfwCreateWindow(width_, height_, title.c_str(), monitor_handle_, nullptr);
 if(window_handle_ == nullptr){
+#+begin_src C++
     glfwTerminate();
     throw std::runtime_error("Failed to create glfw window");
 }
 
-#+END_SRC
+#+end_src
 
 *** OpenGL setup
 The OpenGL context holds the state of the current OpenGL instance.
@@ -77,8 +77,8 @@ Before doing any OpenGL work, the OpenGL context associated to the =window_handl
 
 **** TODO Explain why the viewport dimension might be different from the window size and explain what the viewport is
 #+name: OpenGL setup
-#+BEGIN_SRC C++
 glfwMakeContextCurrent(window_handle_);
+#+begin_src C++
 if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
     glfwDestroyWindow(window_handle_);
     glfwTerminate();
@@ -88,34 +88,34 @@ if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
 int fb_width, fb_height;
 glfwGetFramebufferSize(window_handle_, &fb_width, &fb_height);
 glViewport(0, 0, fb_width, fb_height);
-#+END_SRC
+#+end_src
 
 ** Destructor
 We only have to tell glfw to liberate the resources it has allocated.
 #+name: Destructor
-#+BEGIN_SRC C++
+#+begin_src C++
 ~window()
 {
     glfwDestroyWindow(window_handle_);
     glfwTerminate();
 }
 
-#+END_SRC
+#+end_src
 
 ** Getters
 
 #+name: Getters
-#+BEGIN_SRC C++
+#+begin_src C++
 const std::string& title() const {return title_;}
 unsigned int width() const {return width_;}
 unsigned int height() const {return height_;}
 GLFWwindow* window_handle() {return window_handle_;}
 GLFWmonitor* monitor_handle() {return monitor_handle_;}
-#+END_SRC
+#+end_src
 
 ** Empty window test
 
-#+BEGIN_SRC C++ :tangle empty_window.cpp :includes include/window.h
+#+begin_src C++ :tangle empty_window.cpp :includes include/window.h
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -132,4 +132,5 @@ int main(){
     }
     return 0;
 }
-#+END_SRC
+#+end_src
+
