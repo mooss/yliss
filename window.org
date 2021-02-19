@@ -1,6 +1,6 @@
 # -*- eval: (progn (org-babel-goto-named-src-block "autoload") (org-babel-execute-src-block) (outline-hide-sublevels 1)); -*-
 
-#+title: Literate c++ window system
+#+title: C++ OpenGL window
 #+author: Félix Jamet
 
 #+property: header-args :guard-prefix YLISS :eval never :main no
@@ -20,7 +20,7 @@ t
 
 * Window
 The first step is to be able to display an empty window.
-The main characteristics of are window are its width, height and title.
+The main characteristics of a window are its width, height and title.
 We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need to store a handle to the window and monitor used.
 
 #+begin_src C++ :noweb no-export :includes yls_glad.h <GLFW/glfw3.h> <stdexcept> :tangle include/window.h
