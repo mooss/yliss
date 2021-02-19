@@ -106,7 +106,7 @@ unsigned int height() const {return height_;}
 
 ** Empty window test
 
-#+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw -lglad
+#+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw src/glad.c
 <<include(noweb="window")>>
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
@@ -126,4 +126,8 @@ int main(){
     return 0;
 }
 #+end_src
+
+#+RESULTS:
+:results:
+:end:
 
