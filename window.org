@@ -119,12 +119,12 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 
 int main(){
     window empty_window("Empty window", 640u, 480u);
-    glfwSetKeyCallback(empty_window.window_handle(), key_callback);
+    glfwSetKeyCallback(empty_window.window_handle, key_callback);
     glClearColor(0.4, 0.007843137, 0.235294118, 0);//tyrian purple
-    while(!glfwWindowShouldClose(empty_window.window_handle())){
+    while(!glfwWindowShouldClose(empty_window.window_handle)){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glfwPollEvents();
-        glfwSwapBuffers(empty_window.window_handle());
+        glfwSwapBuffers(empty_window.window_handle);
     }
     return 0;
 }
