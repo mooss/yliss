@@ -1,5 +1,11 @@
 #+title: yliss
 
+* Documents generation
+
+Currently, pdfs can be generated with =make pdf=, although some resources are missing because they are supposed to be generated with code that can't currently be tangled, as explained in the next section.
+
+These resources can be generated within emacs.
+
 * TODO Tangler
 
 This project needs a tangler, one that is written in C/C++ and that supports =noweb-ref= so that rules out Worgle at least.
