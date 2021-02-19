@@ -1,29 +1,23 @@
-# -*- eval: (progn (org-babel-goto-named-src-block "autoload") (org-babel-execute-src-block) (outline-hide-sublevels 1)); -*-
-
 #+title: C++ OpenGL window
 #+author: Félix Jamet
 
-#+property: header-args :guard-prefix YLISS :eval never :main no
+#+property: header-args :eval never :main no
 
-* Emacs autoload :noexport:
-The following block is executed everytime this file is opened in emacs.
-=org_cpp_extension.el= adds header guard generation for =.h= and =.hpp= files.
-#+name: autoload
-#+BEGIN_SRC emacs-lisp :eval yes
-(load-file "org_cpp_extension.el")
-#+END_SRC
+* Prelude
 
-#+RESULTS: autoload
-:RESULTS:
-t
-:END:
+#+name: include
+#+begin_src sh :var cpp="" noweb="" :results output :wrap "src cpp" :eval no-export
+./litlib/include.pl "window.org" "$cpp" "$noweb"
+#+end_src
+
 
 * Window
 The first step is to be able to display an empty window.
 The main characteristics of a window are its width, height and title.
 We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need to store a handle to the window and monitor used.
 
-#+begin_src C++ :noweb no-export :includes yls_glad.h <GLFW/glfw3.h> <stdexcept> :tangle include/window.h
+#+name: window
+#+begin_src cpp :noweb no-export
 class window
 {
   public:
@@ -38,6 +32,7 @@ class window
     unsigned int width_, height_;
 };
 #+end_src
+#+depends:window :cpp yls_glad.h GLFW/glfw3.h stdexcept
 
 ** Titled constructor
 #+name: Titled constructor
@@ -111,7 +106,9 @@ unsigned int height() const {return height_;}
 
 ** Empty window test
 
-#+begin_src C++ :tangle empty_window.cpp :includes include/window.h
+#+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw -lglad
+<<include(noweb="window")>>
+
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
