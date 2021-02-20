@@ -39,7 +39,7 @@ class window
 
 ** Titled constructor
 
-#+begin_src C++ :noweb no-export :noweb-ref "public window"
+#+begin_src cpp :noweb no-export :noweb-ref "public window"
 window(std::string title, unsigned int width, unsigned int height):
     title_(title), width_(width), height_(height),
     window_handle(nullptr), monitor_handle(nullptr)
@@ -57,7 +57,7 @@ If =monitor_handle='s value is =nullptr=, this is not a problem because when =gl
 The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
  
 #+name: Create window
-#+begin_src C++
+#+begin_src cpp
 window_handle = glfwCreateWindow(width_, height_, title.c_str(), monitor_handle, nullptr);
 if(window_handle == nullptr){
     glfwTerminate();
@@ -73,7 +73,7 @@ The call to =glfwCreateWindow= in the section above spawned an OpenGL context[fn
 Before doing any OpenGL work, the OpenGL context associated to the =window_handle= is made current via =glfwMakeContextCurrent=.
 
 #+name: OpenGL setup
-#+begin_src C++
+#+begin_src cpp
 glfwMakeContextCurrent(window_handle);
 if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
     glfwDestroyWindow(window_handle);
@@ -89,7 +89,7 @@ glViewport(0, 0, fb_width, fb_height);
 ** Destructor
 
 We only have to tell glfw to liberate the resources it has allocated.
-#+begin_src C++ :noweb-ref "public window"
+#+begin_src cpp :noweb-ref "public window"
 ~window()
 {
     glfwDestroyWindow(window_handle);
@@ -110,7 +110,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 int main(){
     window empty_window("Empty window", 640u, 480u);
     glfwSetKeyCallback(empty_window.window_handle, key_callback);
-    glClearColor(0.4, 0.007843137, 0.235294118, 0); //tyrian purple
+    glClearColor(0.4, 0.007843137, 0.235294118, 0); // Tyrian purple.
     while(!glfwWindowShouldClose(empty_window.window_handle)){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glfwPollEvents();
