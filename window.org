@@ -105,8 +105,8 @@ We only have to tell glfw to liberate the resources it has allocated.
 #+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw src/glad.c
 <<include(noweb="window")>>
 
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
+    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
