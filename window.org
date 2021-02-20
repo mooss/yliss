@@ -3,15 +3,15 @@
 
 #+property: header-args :eval never :main no
 
-* Prelude
+* Prelude :noexport:
 
 #+name: include
 #+begin_src sh :var cpp="" noweb="" :results output :wrap "src cpp" :eval no-export
 ./litlib/include.pl "window.org" "$cpp" "$noweb"
 #+end_src
 
-
 * Window
+
 The first step is to be able to display an empty window.
 The main characteristics of a window are its width, height and title.
 We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need to store a handle to the window and monitor used.
@@ -39,6 +39,7 @@ class window
 #+depends:window :cpp yls_glad.h GLFW/glfw3.h stdexcept
 
 ** Titled constructor
+
 #+name: Titled constructor
 #+begin_src C++ :noweb no-export
 window(std::string title, unsigned int width, unsigned int height):
@@ -49,10 +50,10 @@ window(std::string title, unsigned int width, unsigned int height):
     <<Create window>>
     <<OpenGL setup>>
 }
-
 #+end_src
 
 *** Create window
+
 If =monitor_handle='s value is =nullptr=, this is not a problem because when =glfwCreateWindow= is called this way, it simply creates a window in windowed mode.
 
 The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
@@ -64,10 +65,10 @@ if(window_handle == nullptr){
     glfwTerminate();
     throw std::runtime_error("Failed to create glfw window");
 }
-
 #+end_src
 
 *** OpenGL setup
+
 The OpenGL context holds the state of the current OpenGL instance.
 A process can make several OpenGL contexts.
 The call to =glfwCreateWindow= in the section above spawned an OpenGL context[fn:: See https://www.glfw.org/docs/latest/context_guide.html].
@@ -88,6 +89,7 @@ glViewport(0, 0, fb_width, fb_height);
 #+end_src
 
 ** Destructor
+
 We only have to tell glfw to liberate the resources it has allocated.
 #+name: Destructor
 #+begin_src C++
@@ -96,7 +98,6 @@ We only have to tell glfw to liberate the resources it has allocated.
     glfwDestroyWindow(window_handle);
     glfwTerminate();
 }
-
 #+end_src
 
 ** Empty window test
@@ -112,7 +113,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 int main(){
     window empty_window("Empty window", 640u, 480u);
     glfwSetKeyCallback(empty_window.window_handle, key_callback);
-    glClearColor(0.4, 0.007843137, 0.235294118, 0);//tyrian purple
+    glClearColor(0.4, 0.007843137, 0.235294118, 0); //tyrian purple
     while(!glfwWindowShouldClose(empty_window.window_handle)){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glfwPollEvents();
