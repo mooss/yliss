@@ -127,3 +127,11 @@ int main(){
 :results:
 :end:
 
+** Not implemented
+
+This section contains some notes about features that could be needed at some point but that I didn't bother to implement yet.
+
+*** Resizing
+
+To support resizing on the fly a callback must be set with =glfwSetFramebufferSizeCallback=.
+To start, see the =Viewport= section of =https://learnopengl.com/Getting-started/Hello-Window=.
