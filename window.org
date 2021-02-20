@@ -21,12 +21,16 @@ We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need 
 class window
 {
   public:
-    <<Titled constructor>>
-    <<Destructor>>
-    <<Getters>>
-
     GLFWwindow* window_handle;
     GLFWmonitor* monitor_handle;
+
+    <<Titled constructor>>
+    <<Destructor>>
+
+    const std::string& title() const {return title_;}
+    unsigned int width() const {return width_;}
+    unsigned int height() const {return height_;}
+
   private:
     std::string title_;
     unsigned int width_, height_;
@@ -93,15 +97,6 @@ We only have to tell glfw to liberate the resources it has allocated.
     glfwTerminate();
 }
 
-#+end_src
-
-** Getters
-
-#+name: Getters
-#+begin_src C++
-const std::string& title() const {return title_;}
-unsigned int width() const {return width_;}
-unsigned int height() const {return height_;}
 #+end_src
 
 ** Empty window test
