@@ -36,7 +36,7 @@ class window
     unsigned int width_, height_;
 };
 #+end_src
-#+depends:window :cpp yls_glad.h GLFW/glfw3.h stdexcept
+#+depends:window :cpp glad/glad.h GLFW/glfw3.h stdexcept
 
 ** Titled constructor
 
