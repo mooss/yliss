@@ -24,12 +24,11 @@ class window
     GLFWwindow* window_handle;
     GLFWmonitor* monitor_handle;
 
-    <<Titled constructor>>
-    <<Destructor>>
-
     const std::string& title() const {return title_;}
     unsigned int width() const {return width_;}
     unsigned int height() const {return height_;}
+
+    <<public window>>
 
   private:
     std::string title_;
@@ -40,8 +39,7 @@ class window
 
 ** Titled constructor
 
-#+name: Titled constructor
-#+begin_src C++ :noweb no-export
+#+begin_src C++ :noweb no-export :noweb-ref "public window"
 window(std::string title, unsigned int width, unsigned int height):
     title_(title), width_(width), height_(height),
     window_handle(nullptr), monitor_handle(nullptr)
@@ -91,8 +89,7 @@ glViewport(0, 0, fb_width, fb_height);
 ** Destructor
 
 We only have to tell glfw to liberate the resources it has allocated.
-#+name: Destructor
-#+begin_src C++
+#+begin_src C++ :noweb-ref "public window"
 ~window()
 {
     glfwDestroyWindow(window_handle);
