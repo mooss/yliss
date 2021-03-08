@@ -132,3 +132,53 @@ This section contains some notes about features that could be needed at some poi
 
 To support resizing on the fly a callback must be set with =glfwSetFramebufferSizeCallback=.
 To start, see the =Viewport= section of =https://learnopengl.com/Getting-started/Hello-Window=.
+
+* Lazy window
+
+The goal of this section is to provide some boilerplate that can help with experimentation but does not necessarily have its place inside a proper window class.
+Here, it allows us to make a window with a default white background, that simply closes when pressing escape and that has an handy =game_loop= that can be given a lambda to start drawing with opengl.
+
+#+name: lazy_window
+#+begin_src cpp
+void escape_close(GLFWwindow* window, int key, int scancode, int action, int mods){
+    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+struct lazy_window: public window {
+    lazy_window(std::string title, unsigned int width, unsigned int height):
+        window(title, width, height)
+    {
+        glfwSetKeyCallback(this->window_handle, escape_close);
+        glClearColor(1, 1, 1, 0);
+    }
+
+    template<typename F>
+    void game_loop(F rendering) {
+        while(!glfwWindowShouldClose(this->window_handle)){
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            rendering();
+            glfwSwapBuffers(this->window_handle);
+            glfwPollEvents();
+        }
+    }
+};
+#+end_src
+
+#+depends:lazy_window :noweb window
+
+The following draws absolutely nothing, but it does it handily:
+#+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw src/glad.c
+<<include(noweb="lazy_window")>>
+
+int main(){
+    lazy_window lazy("sloth", 640u, 480u);
+    lazy.game_loop([](){});
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
+
