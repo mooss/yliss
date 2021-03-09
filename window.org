@@ -6,8 +6,8 @@
 * Prelude :noexport:
 
 #+name: include
-#+begin_src sh :var cpp="" noweb="" :results output :wrap "src cpp" :eval no-export
-./litlib/include.pl "window.org" ":cpp $cpp :noweb $noweb"
+#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
+./litlib/include.pl "window.org" "$args"
 #+end_src
 
 * Window
@@ -100,7 +100,7 @@ We only have to tell glfw to liberate the resources it has allocated.
 ** Empty window test
 
 #+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw src/glad.c
-<<include(noweb="window")>>
+<<include(":noweb window")>>
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
@@ -168,7 +168,7 @@ struct lazy_window: public window {
 
 The following draws absolutely nothing, but it does it handily:
 #+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw src/glad.c
-<<include(noweb="lazy_window")>>
+<<include(":noweb lazy_window")>>
 
 int main(){
     lazy_window lazy("sloth", 640u, 480u);
