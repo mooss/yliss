@@ -1,0 +1,300 @@
+#+title: C++ OpenGL geometric primitives
+#+author: Félix Jamet
+
+#+property: header-args :eval never :main no
+* TODO Add an =#include:= (or something) notation to include.pl to make it possible to recursively include org mode files relatively to the file being processed.
+* TODO Syntax to declare that a block is purely destined to be used by org and not by include.pl
+#+litlib-ignore
+perhaps ?
+
+* Prelude :noexport:
+
+** Inclusion
+
+#+name: include
+#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
+./litlib/include.pl "window.org litlib/cpp.org geometric_primitive.org" "$args"
+#+end_src
+
+Specialised block for shaders (makes things slightly more readable):
+
+#+name: shader
+#+begin_src bash :var noweb="" :results output :wrap "src text" :eval no-export
+./litlib/include.pl "geometric_primitive.org" ":noweb $noweb :c-string"
+#+end_src
+
+* OpenGL objects
+
+Here are defined various OpenGL objects that let us draw things.
+I'm a bit lax with the dependencies declaration here because technically the blocks here are using OpenGL functions but they are not supposed to include those functions themselves.
+
+What's implied here is that the user of the code blocks below knows what to expect and is using them in the proper context, that is to say after window has been included.
+
+** Shader
+
+Apparently, shaders are supposed to be deleted once they are linked, hence the custom desctuctor.
+
+#+name: shader_base
+#+begin_src cpp
+class shader {
+  public:
+    const GLuint id;
+
+    ~shader() {
+        glDeleteShader(id);
+    }
+
+    bool compiled() const {
+        int success;
+        glGetShaderiv(id, GL_COMPILE_STATUS, &success);
+        return success;
+    }
+
+    std::string info_log() const {
+        char buffer[512];
+        glGetShaderInfoLog(id, 512, nullptr, buffer);
+        return std::string(buffer, 512);
+    }
+
+    void ensure_success() {
+        if(!compiled()) {
+            throw std::runtime_error(info_log());
+        }
+    }
+
+  protected:
+    shader(const char* source, int type):
+        id(glCreateShader(type))
+    {
+        glShaderSource(id, 1, &source, nullptr);
+        glCompileShader(id);
+    }
+};
+#+end_src
+#+depends:shader_base :cpp string stdexcept
+
+*** Vertex shader
+
+#+name: vertex_shader
+#+begin_src cpp
+struct vertex_shader: public shader {
+    vertex_shader(const char* source): shader(source, GL_VERTEX_SHADER) {}
+};
+#+end_src
+#+depends:vertex_shader :noweb shader_base
+
+*** Fragment shader
+
+#+name: fragment_shader
+#+begin_src cpp
+struct fragment_shader: public shader {
+    fragment_shader(const char* source): shader(source, GL_FRAGMENT_SHADER) {}
+};
+#+end_src
+#+depends:fragment_shader :noweb shader_base
+
+*** Shader program
+
+#+name: shader_program
+#+begin_src cpp
+class shader_program {
+  public:
+    shader_program(const vertex_shader& vs, const fragment_shader& fs):
+        id_(glCreateProgram())
+    {
+        glAttachShader(id_, vs.id);
+        glAttachShader(id_, fs.id);
+        glLinkProgram(id_);
+    }
+
+    void use() const {
+        glUseProgram(id_);
+    }
+
+    bool linked() const {
+        int success;
+        glGetProgramiv(id_, GL_LINK_STATUS, &success);
+        return success;
+    }
+
+    std::string info_log() const {
+        char buffer[512];
+        glGetProgramInfoLog(id_, 512, nullptr, buffer);
+        return std::string(buffer, 512);
+    }
+
+    void ensure_success() {
+        if(!linked()) {
+            throw std::runtime_error(info_log());
+        }
+    }
+
+  private:
+    const GLuint id_;
+};
+#+end_src
+#+depends:shader_program :noweb fragment_shader vertex_shader :cpp stdexcept
+
+** VBO (Vertex Buffer Object)
+
+#+name: VBO
+#+begin_src cpp
+class VBO {
+  public:
+    VBO() : id_(generate())
+    {}
+
+    void send(const std::span<GLfloat> data) const {
+        glBindBuffer(GL_ARRAY_BUFFER, id_);
+        glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), GL_STATIC_DRAW);
+    }
+
+  private:
+    const GLuint id_;
+    static GLuint generate() {
+        GLuint id;
+        glGenBuffers(1, &id);
+        return id;
+    }
+};
+#+end_src
+#+depends:VBO :cpp span
+
+** VAO (Vertex Array Object)
+
+#+name: VAO
+#+begin_src cpp
+class VAO {
+  public:
+    VAO(): id_(generate())
+    {}
+
+    void bind() const {
+        glBindVertexArray(id_);
+    }
+
+  private:
+    const GLuint id_;
+    static GLuint generate() {
+        GLuint id;
+        glGenVertexArrays(1, &id);
+        return id;
+    }
+};
+#+end_src
+
+** Data layout (vertex attributes)
+
+Vertex attributes are used to specify the layout of the data sent to the GPU.
+Vertices are sent straightaway to the GPU because I don't need anything else right now.
+
+# TODO: Understand if special member functions are generated in the code below and what are
+#       the implications of copy and move operations on those OpenGL calls.
+#       It might be best to just =delete everything but the move operations.
+
+#+name: vertices
+#+begin_src cpp
+namespace details {
+template<class T> struct glenum;
+template<> struct glenum<GLfloat> { static const GLenum v = GL_FLOAT; };
+}
+
+template< template<typename> class Container, typename Inner>
+class vertices {
+  public:
+    vertices(GLuint _index, GLint _vertex_size, Container<Inner>&& _content):
+        index(_index), vertex_size(_vertex_size), content(std::move(_content)), vbo()
+    {
+        vbo.send(content);
+        glVertexAttribPointer(
+            index, vertex_size, details::glenum<Inner>::v, GL_FALSE,
+            vertex_size * sizeof(Inner), (void*) 0
+        );
+        glEnableVertexAttribArray(index);
+    }
+
+  private:
+    const GLuint index;
+    const GLint vertex_size;
+    Container<Inner> content;
+    VBO vbo;
+};
+
+// Not sure if && is supposed to be the way to do this, I'm confused at this point.
+template<typename T>
+vertices<std::vector, T> vertices_vector(GLuint _index, GLint _vertex_size, std::vector<T>&& _content){
+    return vertices(_index, _vertex_size, std::move(_content));
+}
+
+#+end_src
+#+depends:vertices :cpp vector :noweb VBO
+
+* Sandbox
+
+#+name: basic_vs
+#+begin_src glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+}
+#+end_src
+
+#+name: basic_fs
+#+begin_src glsl
+#version 330 core
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+}
+#+end_src
+
+#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb lazy_window VAO shader_program vertices")>>
+
+float some_vertices[] = {
+      -0.5f, -0.5f, 0.0f,
+      0.5f, -0.5f, 0.0f,
+      0.0f,  0.5f, 0.0f
+};
+
+int main(){
+    const char *vs_str =
+        <<shader("basic_vs")>>
+        ;
+    const char *fs_str =
+        <<shader("basic_fs")>>
+        ;
+
+    lazy_window lazy("Triangle", 640u, 480u);
+    vertex_shader vs(vs_str); vs.ensure_success();
+    fragment_shader fs(fs_str); fs.ensure_success();
+    auto basic_shader = shader_program(vs, fs);
+    basic_shader.ensure_success();
+
+    VAO triangle_vao{};
+    triangle_vao.bind();
+    auto triangle = vertices_vector<GLfloat>(0, 3, {
+        -0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f,
+        0.0f,  0.5f, 0.0f
+    });
+    triangle_vao.bind();
+
+    lazy.game_loop([&]{
+        basic_shader.use();
+        triangle_vao.bind();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
+
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
