@@ -47,6 +47,9 @@ window(std::string title, unsigned int width, unsigned int height):
     glfwInit();
     <<Create window>>
     <<OpenGL setup>>
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 }
 #+end_src
 
@@ -150,13 +153,13 @@ struct lazy_window: public window {
         window(title, width, height)
     {
         glfwSetKeyCallback(this->window_handle, escape_close);
-        glClearColor(1, 1, 1, 0);
     }
 
     template<typename F>
     void game_loop(F rendering) {
         while(!glfwWindowShouldClose(this->window_handle)){
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
             rendering();
             glfwSwapBuffers(this->window_handle);
             glfwPollEvents();

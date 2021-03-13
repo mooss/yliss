@@ -206,7 +206,9 @@ class vertices {
   public:
     vertices(GLuint _index, GLint _vertex_size, Container<Inner>&& _content):
         index(_index), vertex_size(_vertex_size), content(std::move(_content)), vbo()
-    {
+    {}
+
+    void send() {
         vbo.send(content);
         glVertexAttribPointer(
             index, vertex_size, details::glenum<Inner>::v, GL_FALSE,
@@ -276,12 +278,13 @@ int main(){
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
 
     VAO triangle_vao{};
-    triangle_vao.bind();
     auto triangle = vertices_vector<GLfloat>(0, 3, {
         -0.5f, -0.5f, 0.0f,
         0.5f, -0.5f, 0.0f,
         0.0f,  0.5f, 0.0f
     });
+    triangle_vao.bind();
+    triangle.send();
     triangle_vao.bind();
 
     lazy.game_loop([&]{
