@@ -18,6 +18,7 @@ We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need 
 
 #+name: window
 #+begin_src cpp :noweb no-export
+<<Before window>>
 class window
 {
   public:
@@ -45,11 +46,10 @@ window(std::string title, unsigned int width, unsigned int height):
     window_handle(nullptr), monitor_handle(nullptr)
 {
     glfwInit();
-    <<Create window>>
-    <<OpenGL setup>>
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    <<window/Titled constructor>>
 }
 #+end_src
 
@@ -59,8 +59,7 @@ If =monitor_handle='s value is =nullptr=, this is not a problem because when =gl
 
 The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
  
-#+name: Create window
-#+begin_src cpp
+#+begin_src cpp :noweb-ref "window/Titled constructor"
 window_handle = glfwCreateWindow(width_, height_, title.c_str(), monitor_handle, nullptr);
 if(window_handle == nullptr){
     glfwTerminate();
@@ -75,8 +74,7 @@ A process can make several OpenGL contexts.
 The call to =glfwCreateWindow= in the section above spawned an OpenGL context[fn:: See https://www.glfw.org/docs/latest/context_guide.html].
 Before doing any OpenGL work, the OpenGL context associated to the =window_handle= is made current via =glfwMakeContextCurrent=.
 
-#+name: OpenGL setup
-#+begin_src cpp
+#+begin_src cpp :noweb-ref "window/Titled constructor"
 glfwMakeContextCurrent(window_handle);
 if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
     glfwDestroyWindow(window_handle);
@@ -87,6 +85,23 @@ if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
 int fb_width, fb_height;
 glfwGetFramebufferSize(window_handle, &fb_width, &fb_height);
 glViewport(0, 0, fb_width, fb_height);
+#+end_src
+
+*** Automatic resizing
+
+The OpenGL viewport must be adjusted to fit the window when the user resizes the window.
+This requires to register a callback.
+
+#+begin_src cpp :noweb-ref "Before window"
+namespace details {
+void resize_viewport(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
+}
+#+end_src
+
+#+begin_src cpp :noweb-ref "window/Titled constructor"
+glfwSetFramebufferSizeCallback(window_handle, details::resize_viewport);
 #+end_src
 
 ** Destructor
@@ -126,15 +141,6 @@ int main(){
 #+RESULTS:
 :results:
 :end:
-
-** Not implemented
-
-This section contains some notes about features that could be needed at some point but that I didn't bother to implement yet.
-
-*** Resizing
-
-To support resizing on the fly a callback must be set with =glfwSetFramebufferSizeCallback=.
-To start, see the =Viewport= section of =https://learnopengl.com/Getting-started/Hello-Window=.
 
 * Lazy window
 
