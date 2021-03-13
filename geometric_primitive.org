@@ -1,7 +1,7 @@
 #+title: C++ OpenGL geometric primitives
 #+author: Félix Jamet
 
-#+property: header-args :eval never :main no
+#+property: header-args :eval never :main no :exports both :wrap "src text"
 * TODO Add an =#include:= (or something) notation to include.pl to make it possible to recursively include org mode files relatively to the file being processed.
 * TODO Syntax to declare that a block is purely destined to be used by org and not by include.pl
 #+litlib-ignore
@@ -55,6 +55,9 @@ Here are defined various OpenGL objects that let us draw things.
 I'm a bit lax with the dependencies declaration here because technically the blocks here are using OpenGL functions but they are not supposed to include those functions themselves.
 
 What's implied here is that the user of the code blocks below knows what to expect and is using them in the proper context, that is to say after window has been included.
+
+I tried to make as many things =const= as possible for those OpenGL primitives, this way once the objects are constructed, they are set in stone and annoying mistakes can be avoided.
+Of course, those things will be "unconsted" when needed.
 
 ** Shader
 
@@ -195,7 +198,9 @@ class VBO {
 class VAO {
   public:
     VAO(): id_(generate())
-    {}
+    {
+        bind(); // For now.
+    }
 
     void bind() const {
         glBindVertexArray(id_);
@@ -211,10 +216,12 @@ class VAO {
 };
 #+end_src
 
-** Data layout (vertex attributes)
+** Vertices and their layout
 
-Vertex attributes are used to specify the layout of the data sent to the GPU.
+=vertices= handles both the vertex data and its layout.
+
 Vertices are sent straightaway to the GPU because I don't need anything else right now.
+Vertex attributes are used to specify the layout of the data sent to the GPU.
 
 # TODO: Understand if special member functions are generated in the code below and what are
 #       the implications of copy and move operations on those OpenGL calls.
@@ -230,34 +237,59 @@ template<> struct glenum<GLfloat> { static const GLenum v = GL_FLOAT; };
 template< template<typename> class Container, typename Inner>
 class vertices {
   public:
-    vertices(GLuint _index, GLint _vertex_size, Container<Inner>&& _content):
-        index(_index), vertex_size(_vertex_size), content(std::move(_content)), vbo()
-    {}
+    vertices(GLuint index, GLint vertex_size, Container<Inner>&& content):
+        index_(index), vertex_size_(vertex_size), count_(content.size() / vertex_size),
+        content_(std::move(content)), vbo_()
+    {
+        if(content_.size() % vertex_size_ != 0) {
+            // throw std::runtime_error(std::format(
+            //     "Invalid number of vertices, expected a multiple of {} but got {} % {} = {}.",
+            //     vertex_size_, content_.size(), vertex_size_, content_.size() % vertex_size_
+            // ));
+            // C++20's <format> header is not supported for now.
+            throw std::runtime_error(
+                std::string("Invalid number of vertices: ")
+                + std::to_string(content_.size())
+            );
+        }
+        send(); // For now.
+    }
 
-    void send() {
-        vbo.send(content);
-        glVertexAttribPointer(
-            index, vertex_size, details::glenum<Inner>::v, GL_FALSE,
-            vertex_size * sizeof(Inner), (void*) 0
-        );
-        glEnableVertexAttribArray(index);
+    void draw() const {
+        glDrawArrays(GL_TRIANGLES, 0, count_);
     }
 
   private:
-    const GLuint index;
-    const GLint vertex_size;
-    Container<Inner> content;
-    VBO vbo;
-};
+    const GLuint index_;
+    const GLint vertex_size_;
+    const GLsizei count_;
+    Container<Inner> content_;
+    VBO vbo_;
 
+    void send() {
+        vbo_.send(content_);
+        glVertexAttribPointer(
+            index_, vertex_size_, details::glenum<Inner>::v, GL_FALSE,
+            vertex_size_ * sizeof(Inner), (void*) 0
+        );
+        glEnableVertexAttribArray(index_);
+    }
+};
+#+end_src
+#+depends:vertices :noweb VBO :cpp iostream string
+
+Helper function to construct =vertices= using a =std::vector= for the underlying storage.
+
+#+name: vertices_vector
+#+begin_src cpp
 // Not sure if && is supposed to be the way to do this, I'm confused at this point.
 template<typename T>
 vertices<std::vector, T> vertices_vector(GLuint _index, GLint _vertex_size, std::vector<T>&& _content){
     return vertices(_index, _vertex_size, std::move(_content));
 }
-
 #+end_src
-#+depends:vertices :cpp vector :noweb VBO
+#+depends:vertices_vector :cpp vector :noweb vertices
+
 
 * Sandbox
 
@@ -284,7 +316,7 @@ void main()
 #+end_src
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vertices")>>
+<<include(":noweb lazy_window VAO shader_program vertices_vector")>>
 
 float some_vertices[] = {
       -0.5f, -0.5f, 0.0f,
@@ -305,18 +337,15 @@ int main(){
 
     VAO triangle_vao{};
     auto triangle = vertices_vector<GLfloat>(0, 3, {
-        -0.5f, -0.5f, 0.0f,
-        0.5f, -0.5f, 0.0f,
-        0.0f,  0.5f, 0.0f
+        -0.5, -0.5, 0.0,
+         0.5, -0.5, 0.0,
+         0.0,  0.5, 0.0
     });
-    triangle_vao.bind();
-    triangle.send();
-    triangle_vao.bind();
 
     lazy.game_loop([&]{
         basic_shader.use();
         triangle_vao.bind();
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        triangle.draw();
     });
 
     return 0;
@@ -324,5 +353,5 @@ int main(){
 #+end_src
 
 #+RESULTS:
-:results:
-:end:
+#+begin_src text
+#+end_src

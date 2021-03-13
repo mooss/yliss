@@ -159,13 +159,13 @@ struct lazy_window: public window {
         window(title, width, height)
     {
         glfwSetKeyCallback(this->window_handle, escape_close);
+        glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
     }
 
     template<typename F>
     void game_loop(F rendering) {
         while(!glfwWindowShouldClose(this->window_handle)){
-            glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             rendering();
             glfwSwapBuffers(this->window_handle);
             glfwPollEvents();
