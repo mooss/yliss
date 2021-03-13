@@ -44,6 +44,15 @@ class shader {
         glDeleteShader(id);
     }
 
+  protected:
+    shader(const char* source, int type):
+        id(glCreateShader(type))
+    {
+        glShaderSource(id, 1, &source, nullptr);
+        glCompileShader(id);
+        ensure_success();
+    }
+
     bool compiled() const {
         int success;
         glGetShaderiv(id, GL_COMPILE_STATUS, &success);
@@ -60,14 +69,6 @@ class shader {
         if(!compiled()) {
             throw std::runtime_error(info_log());
         }
-    }
-
-  protected:
-    shader(const char* source, int type):
-        id(glCreateShader(type))
-    {
-        glShaderSource(id, 1, &source, nullptr);
-        glCompileShader(id);
     }
 };
 #+end_src
@@ -105,11 +106,15 @@ class shader_program {
         glAttachShader(id_, vs.id);
         glAttachShader(id_, fs.id);
         glLinkProgram(id_);
+        ensure_success();
     }
 
     void use() const {
         glUseProgram(id_);
     }
+
+  private:
+    const GLuint id_;
 
     bool linked() const {
         int success;
@@ -128,9 +133,6 @@ class shader_program {
             throw std::runtime_error(info_log());
         }
     }
-
-  private:
-    const GLuint id_;
 };
 #+end_src
 #+depends:shader_program :noweb fragment_shader vertex_shader :cpp stdexcept
@@ -271,10 +273,7 @@ int main(){
         ;
 
     lazy_window lazy("Triangle", 640u, 480u);
-    vertex_shader vs(vs_str); vs.ensure_success();
-    fragment_shader fs(fs_str); fs.ensure_success();
-    auto basic_shader = shader_program(vs, fs);
-    basic_shader.ensure_success();
+    shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
 
     VAO triangle_vao{};
     triangle_vao.bind();
