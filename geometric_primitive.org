@@ -23,6 +23,32 @@ Specialised block for shaders (makes things slightly more readable):
 ./litlib/include.pl "geometric_primitive.org" ":noweb $noweb :c-string"
 #+end_src
 
+** Log the output of OpenGL commands
+
+With the help of some pretty awesome black magic, =sed= can be used to replace OpenGL calls with a logging call via =LOG_AND_CALL=.
+
+First, the following code block (from https://stackoverflow.com/a/66090390) must be executed:
+#+begin_src emacs-lisp :eval no-export :results silent
+(defun shell-command-on-buffer (command)
+  ;; (interactive)
+  (let ((line (line-number-at-pos)))
+    ;; replace buffer with output of shell command
+    (shell-command-on-region (point-min) (point-max) command nil t)
+    ;; restore cursor position
+    (goto-line line)
+    (recenter-top-bottom)))
+#+end_src
+
+Then execute the following elisp command via =C-x C-e=:
+(shell-command-on-buffer "sed -r 's| (gl[a-zA-Z]+[^(]+)\\(| LOG_AND_CALL(\\1, |'")
+There is a space at the beginning of the regex to avoid matching initialisation lists.
+
+Regex to transform logging calls back to plain opengl calls:
+(shell-command-on-buffer "sed -r 's|LOG_AND_CALL\\((gl[a-zA-Z]+[^,]+), |\\1(|'")
+
+I had to resort to sed because I'm not a fan of  Emacs' regexes.
+To adapt the regexes above, remember that backslashes must be escaped because they are in an elisp string.
+
 * OpenGL objects
 
 Here are defined various OpenGL objects that let us draw things.
