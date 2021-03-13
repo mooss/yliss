@@ -174,7 +174,7 @@ class VBO {
 
     void send(const std::span<GLfloat> data) const {
         glBindBuffer(GL_ARRAY_BUFFER, id_);
-        glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(GLfloat), data.data(), GL_STATIC_DRAW);
     }
 
   private:
