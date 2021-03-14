@@ -49,6 +49,8 @@ Regex to transform logging calls back to plain opengl calls:
 I had to resort to sed because I'm not a fan of  Emacs' regexes.
 To adapt the regexes above, remember that backslashes must be escaped because they are in an elisp string.
 
+It should be possible to make the logging calls work for initialisation lists by adding a templated =log_and_call= function.
+
 * OpenGL objects
 
 Here are defined various OpenGL objects that let us draw things.
@@ -168,6 +170,8 @@ class shader_program {
 
 ** VBO (Vertex Buffer Object)
 
+VBOs are what is used to send vertices to the GPU.
+
 #+name: VBO
 #+begin_src cpp
 class VBO {
@@ -192,6 +196,10 @@ class VBO {
 #+depends:VBO :cpp span
 
 ** VAO (Vertex Array Object)
+
+VAOs function is to remember various calls made on data held by VBOs.
+Once a VAO is bound, it remembers that state changes caused by various subsequent OpenGL calls.
+Those states changes can be enacted again later by simply bounding the VAO, acting like a sort of shortcut.
 
 #+name: VAO
 #+begin_src cpp
