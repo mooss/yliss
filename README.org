@@ -6,6 +6,12 @@ Currently, pdfs can be generated with =make pdf=, although some resources are mi
 
 These resources can be generated within emacs.
 
+Beyond that, proper document generation would require some work, either in the form of pandoc filters or of a custom pre-processing step.
+Notable missing elements are:
+ - Display code block names.
+ - Display code blocks dependencies.
+ - Optionally comment noweb inclusions.
+
 * TODO Tangler
 
 This project needs a tangler, one that is written in C/C++ and that supports =noweb-ref= so that rules out Worgle at least.
