@@ -8,6 +8,7 @@
 #+litlib-ignore
 perhaps ?
 
+
 * Prelude :noexport:
 
 ** Inclusion
@@ -52,6 +53,7 @@ To adapt the regexes above, remember that backslashes must be escaped because th
 
 It should be possible to make the logging calls work for initialisation lists by adding a templated =log_and_call= function.
 
+
 * OpenGL objects
 
 Here are defined various OpenGL objects that let us draw things.
@@ -61,6 +63,7 @@ What's implied here is that the user of the code blocks below knows what to expe
 
 I tried to make as many things =const= as possible for those OpenGL primitives, this way once the objects are constructed, they are set in stone and annoying mistakes can be avoided.
 Of course, those things will be "unconsted" when needed.
+
 
 ** Shader
 
@@ -169,21 +172,22 @@ class shader_program {
 #+end_src
 #+depends:shader_program :noweb fragment_shader vertex_shader :cpp stdexcept
 
-** VBO (Vertex Buffer Object)
 
-VBOs are what is used to send vertices to the GPU.
+** Buffers
 
-#+name: VBO
+#+name: opengl_buffer
 #+begin_src cpp
-class VBO {
-  public:
-    VBO() : id_(generate())
-    {}
-
-    void send(const std::span<GLfloat> data) const {
-        glBindBuffer(GL_ARRAY_BUFFER, id_);
-        glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(GLfloat), data.data(), GL_STATIC_DRAW);
+class opengl_buffer {
+  protected:
+    template<typename T>
+    void send(const std::span<const T> data) const {
+        glBindBuffer(target(), id_);
+        glBufferData(target(), data.size() * sizeof(T), data.data(), GL_STATIC_DRAW);
     }
+
+    opengl_buffer() : id_(generate()) {}
+
+    virtual GLenum target() const=0;
 
   private:
     const GLuint id_;
@@ -194,7 +198,46 @@ class VBO {
     }
 };
 #+end_src
-#+depends:VBO :cpp span
+#+depends:opengl_buffer :cpp span
+
+*** VBO (Vertex Buffer Object)
+
+VBOs are what is used to send vertices to the GPU.
+#+name: VBO
+#+begin_src cpp
+class VBO: public opengl_buffer {
+  public:
+    VBO(): opengl_buffer() {}
+    void send(const std::span<const GLfloat> data) const {
+        opengl_buffer::send<GLfloat>(data);
+    }
+
+  protected:
+    GLenum target() const override { return GL_ARRAY_BUFFER; }
+};
+#+end_src
+#+depends:VBO :noweb opengl_buffer
+
+*** EBO (Element Buffer Object)
+
+EBOs are used to store indexes referring to vertices stored inside VBOs.
+This way, vertices shared by several triangles can be send only once and used multiple times.
+
+#+name: EBO
+#+begin_src cpp
+class EBO: public opengl_buffer {
+  public:
+    EBO(): opengl_buffer() {}
+    void send(const std::span<const GLuint> data) const {
+        opengl_buffer::send<GLuint>(data);
+    }
+
+  protected:
+    GLenum target() const override { return GL_ELEMENT_ARRAY_BUFFER; }
+};
+#+end_src
+#+depends:EBO :noweb opengl_buffer
+
 
 ** VAO (Vertex Array Object)
 
@@ -225,16 +268,38 @@ class VAO {
 };
 #+end_src
 
-** Vertices and their layout
+
+** Vertices and indexes
+
+The =vertices= and =indexes= classes are a wrapper around respectively =VBO= and =EBO= adding a =draw= method.
+=vertices= is more complex because it also handles vertex attributes and because I tried to make it generic under the assumption that I might eventually need to send other things than =std::vector<GLfloat>=.
+In retrospect, this might be an overkill.
+
+Utilities common to =vertices= and =indexes=:
+#+name: vertindex_common
+#+begin_src cpp
+namespace details {
+void assert_multiple(unsigned int n, unsigned int divisor, const char* error_keyword) {
+    if(n % divisor != 0) {
+        // throw std::runtime_error(std::format(
+        //     "Invalid number of {}, expected a multiple of {} but got {} % {} = {}.",
+        //     error_keyword, divisor, n, divisor, n % divisor
+        // ));
+        // C++20's <format> header is not supported for now.
+        throw std::runtime_error( std::string("Invalid number of ") + std::string(error_keyword)
+                                  + std::string(": ") + std::to_string(n) );
+    }
+}
+}
+#+end_src
+#+depends:vertindex_common :cpp string stdexcept
+
+*** Vertices and their layout
 
 =vertices= handles both the vertex data and its layout.
 
 Vertices are sent straightaway to the GPU because I don't need anything else right now.
 Vertex attributes are used to specify the layout of the data sent to the GPU.
-
-# TODO: Understand if special member functions are generated in the code below and what are
-#       the implications of copy and move operations on those OpenGL calls.
-#       It might be best to just =delete everything but the move operations.
 
 #+name: vertices
 #+begin_src cpp
@@ -246,69 +311,75 @@ template<> struct glenum<GLfloat> { static const GLenum v = GL_FLOAT; };
 template< template<typename> class Container, typename Inner>
 class vertices {
   public:
-    vertices(GLuint index, GLint vertex_size, Container<Inner>&& content):
-        index_(index), vertex_size_(vertex_size), count_(content.size() / vertex_size),
-        content_(std::move(content)), vbo_()
+    // TODO: put Container.size inside some kind of template helper, a bit like glenum.
+    vertices(GLuint index, GLint vertex_size, const Container<Inner>& content):
+        count_(content.size() / vertex_size)
     {
-        if(content_.size() % vertex_size_ != 0) {
-            // throw std::runtime_error(std::format(
-            //     "Invalid number of vertices, expected a multiple of {} but got {} % {} = {}.",
-            //     vertex_size_, content_.size(), vertex_size_, content_.size() % vertex_size_
-            // ));
-            // C++20's <format> header is not supported for now.
-            throw std::runtime_error(
-                std::string("Invalid number of vertices: ")
-                + std::to_string(content_.size())
-            );
-        }
-        send(); // For now.
+        details::assert_multiple(content.size(), vertex_size, "vertices");
+        VBO vbo{}; vbo.send(content);
+        glVertexAttribPointer(
+            index, vertex_size, details::glenum<Inner>::v, GL_FALSE,
+            vertex_size * sizeof(Inner), (void*) 0
+        );
+        glEnableVertexAttribArray(index);
     }
 
-    void draw() const {
+    // TODO: Think about glDeleteBuffers for this and also indexes, as well as glDeleteVertexArray for VAO.
+    // Would probaly require move-only VAO and opengl_buffer to avoid multiple deletions of opengl resources.
+
+    void draw() const { // Strictly VBO-based, no EBOs here.
         glDrawArrays(GL_TRIANGLES, 0, count_);
     }
 
-    vertices(vertices&&)=default;
-    vertices& operator=(vertices&&)=default;
-    vertices(const vertices&)=delete;
-    vertices& operator=(const vertices&)=delete;
-    vertices()=delete;
-
   private:
-    const GLuint index_;
-    const GLint vertex_size_;
     const GLsizei count_;
-    Container<Inner> content_;
-    VBO vbo_;
-
-    void send() {
-        vbo_.send(content_);
-        glVertexAttribPointer(
-            index_, vertex_size_, details::glenum<Inner>::v, GL_FALSE,
-            vertex_size_ * sizeof(Inner), (void*) 0
-        );
-        glEnableVertexAttribArray(index_);
-    }
 };
 #+end_src
-#+depends:vertices :noweb VBO :cpp iostream string
+#+depends:vertices :noweb VBO vertindex_common
 
-Helper function to construct =vertices= using a =std::vector= for the underlying storage.
+Helper function to construct =vertices= with the data being held inside a =std::vector=.
 
 #+name: vertices_vector
 #+begin_src cpp
 // Not sure if && is supposed to be the way to do this, I'm confused at this point.
 template<typename T>
-vertices<std::vector, T> vertices_vector(GLuint _index, GLint _vertex_size, std::vector<T>&& _content){
-    return vertices(_index, _vertex_size, std::move(_content));
+vertices<std::vector, T> vertices_vector(GLuint _index, GLint _vertex_size, const std::vector<T>& _content){
+    return vertices(_index, _vertex_size, _content);
 }
 #+end_src
 #+depends:vertices_vector :cpp vector :noweb vertices
 
+*** Indexes
 
-* Drawing a triangle
+I'm assuming for now that indexes will only be vectors of unsigned int.
 
-Using barebones fragment and vertex shaders to draw a simple triangle on the screen.
+#+name: indexes
+#+begin_src cpp
+class indexes {
+  public:
+    indexes(const std::vector<GLuint>& content):
+        count_(content.size())
+    {
+        // Hardcoded 3 because only triangles are supported.
+        details::assert_multiple(content.size(), 3, "indexes");
+        EBO ebo{}; ebo.send(content);
+    }
+
+    void draw() {
+        glDrawElements(GL_TRIANGLES, count_, GL_UNSIGNED_INT, 0);
+    }
+
+  private:
+    const GLsizei count_;
+};
+#+end_src
+#+depends:indexes :noweb EBO vertindex_common
+
+
+* Examples
+
+Using barebones fragment and vertex shaders to draw simple figures on the screen.
+Those examples are coming from the Hello-Triangle section or =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
 
 #+name: basic_vs
 #+begin_src glsl
@@ -331,6 +402,8 @@ void main()
     FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
 }
 #+end_src
+
+** Drawing a triangle with VBOs
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
 <<include(":noweb lazy_window VAO shader_program vertices_vector")>>
@@ -361,6 +434,49 @@ int main(){
 
     return 0;
 }
+#+end_src
+
+#+RESULTS:
+#+begin_src text
+#+end_src
+
+** Drawing a rectangle with =indexes=
+
+Same thing as above, except we use =indexes= (and therefore =EBO=)as well as =vertices= to draw the two triangles forming a rectangle.
+#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb lazy_window VAO shader_program vertices_vector indexes")>>
+
+int main(){
+    const char *vs_str =
+        <<shader("basic_vs")>>
+        ;
+    const char *fs_str =
+        <<shader("basic_fs")>>
+        ;
+
+    lazy_window lazy("Rectangle", 640u, 480u);
+    shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+
+    VAO rectangle_vao{};
+    auto rectangle_vertices = vertices_vector<GLfloat>(0, 3, {
+             0.5,  0.5, 0.0, // top right
+             0.5, -0.5, 0.0, // bottom right
+            -0.5, -0.5, 0.0, // bottom left
+            -0.5,  0.5, 0.0  // top left 
+    });
+    auto rectangle_indexes = indexes({
+            0, 1, 3, // first triangle
+            1, 2, 3  // second triangle
+    });
+
+    lazy.game_loop([&]{
+        basic_shader.use();
+        rectangle_vao.bind();
+        rectangle_indexes.draw();
+    });
+
+    return 0;
+  }
 #+end_src
 
 #+RESULTS:
