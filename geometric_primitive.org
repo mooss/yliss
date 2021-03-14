@@ -1,9 +1,10 @@
 #+title: C++ OpenGL geometric primitives
-#+author: Félix Jamet
 
 #+property: header-args :eval never :main no :exports both :wrap "src text"
-* TODO Add an =#include:= (or something) notation to include.pl to make it possible to recursively include org mode files relatively to the file being processed.
-* TODO Syntax to declare that a block is purely destined to be used by org and not by include.pl
+
+* Various TODOs :noexport:
+** TODO Add an =#include:= (or something) notation to include.pl to make it possible to recursively include org mode files relatively to the file being processed.
+** TODO Syntax to declare that a block is purely destined to be used by org and not by include.pl
 #+litlib-ignore
 perhaps ?
 
@@ -267,6 +268,12 @@ class vertices {
         glDrawArrays(GL_TRIANGLES, 0, count_);
     }
 
+    vertices(vertices&&)=default;
+    vertices& operator=(vertices&&)=default;
+    vertices(const vertices&)=delete;
+    vertices& operator=(const vertices&)=delete;
+    vertices()=delete;
+
   private:
     const GLuint index_;
     const GLint vertex_size_;
@@ -299,7 +306,9 @@ vertices<std::vector, T> vertices_vector(GLuint _index, GLint _vertex_size, std:
 #+depends:vertices_vector :cpp vector :noweb vertices
 
 
-* Sandbox
+* Drawing a triangle
+
+Using barebones fragment and vertex shaders to draw a simple triangle on the screen.
 
 #+name: basic_vs
 #+begin_src glsl
@@ -325,12 +334,6 @@ void main()
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
 <<include(":noweb lazy_window VAO shader_program vertices_vector")>>
-
-float some_vertices[] = {
-      -0.5f, -0.5f, 0.0f,
-      0.5f, -0.5f, 0.0f,
-      0.0f,  0.5f, 0.0f
-};
 
 int main(){
     const char *vs_str =
