@@ -14,14 +14,14 @@ perhaps ?
 
 #+name: include
 #+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
-./litlib/include.pl "window.org litlib/cpp.org geometric_primitive.org" "$args"
+./litlib/include.pl "window.org litlib/cpp.org geometric_primitives.org" "$args"
 #+end_src
 
 Specialised block for shaders (makes things slightly more readable):
 
 #+name: shader
 #+begin_src bash :var noweb="" :results output :wrap "src text" :eval no-export
-./litlib/include.pl "geometric_primitive.org" ":noweb $noweb :c-string"
+./litlib/include.pl "geometric_primitives.org" ":noweb $noweb :c-string"
 #+end_src
 
 ** Log the output of OpenGL commands
