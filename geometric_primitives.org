@@ -379,7 +379,7 @@ class indexes {
 * Examples
 
 Using barebones fragment and vertex shaders to draw simple figures on the screen.
-Those examples are coming from the Hello-Triangle section or =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
+Those examples are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
 
 #+name: basic_vs
 #+begin_src glsl
