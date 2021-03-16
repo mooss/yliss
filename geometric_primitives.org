@@ -1,6 +1,7 @@
 #+title: C++ OpenGL geometric primitives
 
-#+property: header-args :eval never :main no :exports both :wrap "src text"
+# No :wrap for this file because I can't disable it when I need to (uniform generation).
+#+property: header-args :eval never :main no :exports both
 
 * Various TODOs :noexport:
 ** TODO Add an =#include:= (or something) notation to include.pl to make it possible to recursively include org mode files relatively to the file being processed.
@@ -136,30 +137,30 @@ struct fragment_shader: public shader {
 class shader_program {
   public:
     shader_program(const vertex_shader& vs, const fragment_shader& fs):
-        id_(glCreateProgram())
+        id(glCreateProgram())
     {
-        glAttachShader(id_, vs.id);
-        glAttachShader(id_, fs.id);
-        glLinkProgram(id_);
+        glAttachShader(id, vs.id);
+        glAttachShader(id, fs.id);
+        glLinkProgram(id);
         ensure_success();
     }
 
     void use() const {
-        glUseProgram(id_);
+        glUseProgram(id);
     }
 
-  private:
-    const GLuint id_;
+    const GLuint id;
 
+  private:
     bool linked() const {
         int success;
-        glGetProgramiv(id_, GL_LINK_STATUS, &success);
+        glGetProgramiv(id, GL_LINK_STATUS, &success);
         return success;
     }
 
     std::string info_log() const {
         char buffer[512];
-        glGetProgramInfoLog(id_, 512, nullptr, buffer);
+        glGetProgramInfoLog(id, 512, nullptr, buffer);
         return std::string(buffer, 512);
     }
 
@@ -376,10 +377,75 @@ class indexes {
 #+depends:indexes :noweb EBO vertindex_common
 
 
+** Uniform
+
+Uniform can be used to share data between the CPU and shader programs.
+Lots of different data types can be shared this way, via =glUniform*= functions.
+For example, =glUniform4f= can be used to send a vector of 4 floats.
+
+Since I wanted the convenience of having a small wrapper, I made the code block below to generate uniforms as needed.
+The generation is static, therefore the block's =targets= must be updated and executed when new uniforms are needed.
+The ancient "Generated code blocks" section must also be removed.
+This code block will eventually need to be updated for matrices and other variants.
+
+#+begin_src python :eval no-export :results output raw
+template = """#+name: uniform{}
+,#+begin_src cpp
+struct uniform{} {{
+    const GLint location;
+    uniform{}(const GLchar* name, shader_program const& program):
+        location(glGetUniformLocation(program.id, name))
+    {{}}
+
+    void send({}) {{
+        glUniform{}(location, {});
+    }}
+}};
+,#+end_src"""
+
+param_names = ['x', 'y', 'z', 'w']
+letter_to_type = {
+    'f': 'float'
+}
+
+def gen_uniform(code):
+    number = int(code[0]); assert 0 < number <= 4
+    letter = code[1];
+    signature = ', '.join(letter_to_type[letter] + ' ' + param for param in param_names[:number])
+    call = ', '.join(param_names[:number])
+    print(template.format(code, code, code, signature, code, call))
+
+targets = ('4f',)
+
+print('*** Generated uniforms')
+print()
+for t in targets:
+    gen_uniform(t)
+    print()
+#+end_src
+
+#+RESULTS:
+*** Generated uniforms
+
+#+name: uniform4f
+#+begin_src cpp
+struct uniform4f {
+    const GLint location;
+    uniform4f(const GLchar* name, shader_program const& program):
+        location(glGetUniformLocation(program.id, name))
+    {}
+
+    void send(float x, float y, float z, float w) {
+        glUniform4f(location, x, y, z, w);
+    }
+};
+#+end_src
+
 * Examples
 
 Using barebones fragment and vertex shaders to draw simple figures on the screen.
-Those examples are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
+The two first examples are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
+The third one comes from the Shaders section (https://learnopengl.com/Getting-started/Shaders).
 
 #+name: basic_vs
 #+begin_src glsl
@@ -403,7 +469,7 @@ void main()
 }
 #+end_src
 
-** Drawing a triangle with VBOs
+** Drawing a triangle with =vertices=
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
 <<include(":noweb lazy_window VAO shader_program vertices_vector")>>
@@ -437,8 +503,8 @@ int main(){
 #+end_src
 
 #+RESULTS:
-#+begin_src text
-#+end_src
+:results:
+:end:
 
 ** Drawing a rectangle with =indexes=
 
@@ -480,5 +546,60 @@ int main(){
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+:results:
+:end:
+
+** Drawing a color-shifting triangle with =uniform=
+
+The following shader colors pixels according to the content of the uniform =cpu_color=:
+
+#+name: color_shifting_fs
+#+begin_src glsl
+#version 330 core
+out vec4 result_color;
+uniform vec4 cpu_color;
+
+void main(){
+    result_color = cpu_color;
+}
 #+end_src
+
+The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform4f= to update the value of =cpu_color= every time a frame is drawn.
+
+#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb lazy_window VAO shader_program vertices_vector uniform4f :cpp cmath iostream")>>
+
+int main(){
+    const char *vs_str =
+        <<shader("basic_vs")>>
+        ;
+    const char *fs_str =
+        <<shader("color_shifting_fs")>>
+        ;
+
+    lazy_window lazy("Triangle", 640u, 480u);
+    shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+    uniform4f cpu_color("cpu_color", basic_shader);
+    VAO triangle_vao{};
+
+    auto triangle = vertices_vector<GLfloat>(0, 3, {
+        -0.5, -0.5, 0.0,
+         0.5, -0.5, 0.0,
+         0.0,  0.5, 0.0
+    });
+
+    lazy.game_loop([&]{
+        float green = sin(glfwGetTime() * 3) * .07f + .75f;
+        cpu_color.send(.1, green, .8, 1.);
+        basic_shader.use();
+        triangle_vao.bind();
+        triangle.draw();
+    });
+
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
