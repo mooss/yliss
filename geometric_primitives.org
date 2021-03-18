@@ -312,13 +312,10 @@ template<class T> struct glenum;
 template<> struct glenum<GLfloat> { static const GLenum v = GL_FLOAT; };
 }
 
-template< template<typename> class Container, typename Inner>
+template<typename T>
 class vertices {
   public:
-    // TODO: put Container.size inside some kind of template helper, a bit like glenum.
-    vertices(
-        const Container<Inner>& content, const std::vector<std::size_t>& layout
-    ):
+    vertices(const std::span<const T> content, const std::span<const std::size_t> layout):
         count_(content.size() / lit::sum(layout))
     {
         if(layout.size() == 0)
@@ -351,10 +348,10 @@ Going back to the previous example, it would not be possible to swap the positio
 std::size_t offset = 0;
 for(std::size_t i = 0; i < layout.size(); ++i) {
     glVertexAttribPointer(
-        i, layout[i], details::glenum<Inner>::v, GL_FALSE,
-        layout[i] * sizeof(Inner), (void*) offset
+        i, layout[i], details::glenum<T>::v, GL_FALSE,
+        layout[i] * sizeof(T), (void*) offset
     );
-    offset += sizeof(Inner) * layout[i];
+    offset += sizeof(T) * layout[i];
     glEnableVertexAttribArray(i);
 }
 #+end_src
@@ -362,15 +359,15 @@ for(std::size_t i = 0; i < layout.size(); ++i) {
 The following helper function constructs =vertices= with both vertices and layout data being held inside a =std::vector=.
 Using this allows to create the vectors in place with a braced syntax.
 
-#+name: vertices_vector
+#+name: vec_vertices
 #+begin_src cpp
 // Not sure if && is supposed to be the way to do this, I'm confused at this point.
 template<typename T>
-vertices<std::vector, T> vertices_vector(const std::vector<T>& content, const std::vector<std::size_t>& layout){
-    return vertices(content, layout);
+vertices<T> vec_vertices(const std::vector<T>& content, const std::vector<std::size_t>& layout){
+    return vertices<T>(content, layout);
 }
 #+end_src
-#+depends:vertices_vector :cpp vector :noweb vertices
+#+depends:vec_vertices :cpp vector :noweb vertices
 
 *** Indexes
 
@@ -466,6 +463,7 @@ struct uniform4f {
 
 * Examples
 
+
 ** Drawing plain figures
 
 The examples in the next two subsection are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
@@ -494,7 +492,7 @@ void main() {
 *** Drawing a triangle with =vertices=
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vertices_vector")>>
+<<include(":noweb lazy_window VAO shader_program vec_vertices")>>
 
 int main(){
     const char *vs_str =
@@ -507,7 +505,7 @@ int main(){
     lazy_window lazy("Triangle", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     VAO triangle_vao{};
-    auto triangle = vertices_vector<GLfloat>({
+    auto triangle = vec_vertices<GLfloat>({
         -0.5, -0.5, 0.0,
          0.5, -0.5, 0.0,
          0.0,  0.5, 0.0
@@ -530,7 +528,7 @@ int main(){
 
 Same thing as above, except we use =indexes= (and therefore =EBO=)as well as =vertices= to draw the two triangles forming a rectangle.
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vertices_vector indexes")>>
+<<include(":noweb lazy_window VAO shader_program vec_vertices indexes")>>
 
 int main(){
     const char *vs_str =
@@ -543,7 +541,7 @@ int main(){
     lazy_window lazy("Rectangle", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     VAO rectangle_vao{};
-    auto rectangle_vertices = vertices_vector<GLfloat>({
+    auto rectangle_vertices = vec_vertices<GLfloat>({
              0.5,  0.5, 0.0, // top right
              0.5, -0.5, 0.0, // bottom right
             -0.5, -0.5, 0.0, // bottom left
@@ -588,7 +586,7 @@ void main() {
 The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform4f= to update the value of =cpu_color= every time a frame is drawn.
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vertices_vector uniform4f :cpp cmath")>>
+<<include(":noweb lazy_window VAO shader_program vec_vertices uniform4f :cpp cmath")>>
 
 int main(){
     const char *vs_str =
@@ -602,7 +600,7 @@ int main(){
     shader_program shifting_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     uniform4f color_cpu("color_cpu", shifting_shader);
     VAO triangle_vao{};
-    auto triangle = vertices_vector<GLfloat>({
+    auto triangle = vec_vertices<GLfloat>({
         -0.5, -0.5, 0.0,
          0.5, -0.5, 0.0,
          0.0,  0.5, 0.0
