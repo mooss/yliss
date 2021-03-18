@@ -316,11 +316,11 @@ template<typename T>
 class vertices {
   public:
     vertices(const std::span<const T> content, const std::span<const std::size_t> layout):
-        count_(content.size() / lit::sum(layout))
+        stride_(lit::sum(layout)), count_(content.size() / stride_)
     {
         if(layout.size() == 0)
             throw std::runtime_error("Empty vertex layouts are illegal.");
-        details::assert_multiple(content.size(), lit::sum(layout), "vertices for the given layout");
+        details::assert_multiple(content.size(), stride_, "vertices for the given layout");
         VBO vbo{}; vbo.send(content);
         <<Process vertices layout>>
     }
@@ -333,6 +333,7 @@ class vertices {
     }
 
   private:
+    const GLsizei stride_;
     const GLsizei count_;
 };
 #+end_src
@@ -349,7 +350,7 @@ std::size_t offset = 0;
 for(std::size_t i = 0; i < layout.size(); ++i) {
     glVertexAttribPointer(
         i, layout[i], details::glenum<T>::v, GL_FALSE,
-        layout[i] * sizeof(T), (void*) offset
+        stride_ * sizeof(T), (void*) offset
     );
     offset += sizeof(T) * layout[i];
     glEnableVertexAttribArray(i);
