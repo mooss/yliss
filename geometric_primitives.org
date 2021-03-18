@@ -302,8 +302,11 @@ void assert_multiple(unsigned int n, unsigned int divisor, const char* error_key
 Vertices are sent straightaway to the GPU because I don't need anything else right now.
 Vertex attributes are used to specify the layout of the data sent to the GPU.
 
+The layout is specified as a sequence of the sizes of the sub-vertices in the order of their apparition.
+For example, if we want to send vertices composed of 8 floats, the first three being the position, the next two being some magic data and the last 3 being the color, the corresponding layout will be ={3, 2, 3}=.
+
 #+name: vertices
-#+begin_src cpp
+#+begin_src cpp :noweb no-export
 namespace details {
 template<class T> struct glenum;
 template<> struct glenum<GLfloat> { static const GLenum v = GL_FLOAT; };
@@ -313,16 +316,16 @@ template< template<typename> class Container, typename Inner>
 class vertices {
   public:
     // TODO: put Container.size inside some kind of template helper, a bit like glenum.
-    vertices(GLuint index, GLint vertex_size, const Container<Inner>& content):
-        count_(content.size() / vertex_size)
+    vertices(
+        const Container<Inner>& content, const std::vector<std::size_t>& layout
+    ):
+        count_(content.size() / lit::sum(layout))
     {
-        details::assert_multiple(content.size(), vertex_size, "vertices");
+        if(layout.size() == 0)
+            throw std::runtime_error("Empty vertex layouts are illegal.");
+        details::assert_multiple(content.size(), lit::sum(layout), "vertices for the given layout");
         VBO vbo{}; vbo.send(content);
-        glVertexAttribPointer(
-            index, vertex_size, details::glenum<Inner>::v, GL_FALSE,
-            vertex_size * sizeof(Inner), (void*) 0
-        );
-        glEnableVertexAttribArray(index);
+        <<Process vertices layout>>
     }
 
     // TODO: Think about glDeleteBuffers for this and also indexes, as well as glDeleteVertexArray for VAO.
@@ -336,16 +339,35 @@ class vertices {
     const GLsizei count_;
 };
 #+end_src
-#+depends:vertices :noweb VBO vertindex_common
+#+depends:vertices :noweb VBO vertindex_common sum
 
-Helper function to construct =vertices= with the data being held inside a =std::vector=.
+
+The =layout= is used to deduce the needed values of vertex attribute, with the caveat that it is more restrictive than manually calling =glVertexAttribPointer=.
+In particular, by virtue of how =layout= is constructed, the sub-vertices must have the same order in the layout as in the shader.
+Going back to the previous example, it would not be possible to swap the position and the color without also inverting their order in the shader.
+
+#+name: Process vertices layout
+#+begin_src cpp
+std::size_t offset = 0;
+for(std::size_t i = 0; i < layout.size(); ++i) {
+    glVertexAttribPointer(
+        i, layout[i], details::glenum<Inner>::v, GL_FALSE,
+        layout[i] * sizeof(Inner), (void*) offset
+    );
+    offset += sizeof(Inner) * layout[i];
+    glEnableVertexAttribArray(i);
+}
+#+end_src
+
+The following helper function constructs =vertices= with both vertices and layout data being held inside a =std::vector=.
+Using this allows to create the vectors in place with a braced syntax.
 
 #+name: vertices_vector
 #+begin_src cpp
 // Not sure if && is supposed to be the way to do this, I'm confused at this point.
 template<typename T>
-vertices<std::vector, T> vertices_vector(GLuint _index, GLint _vertex_size, const std::vector<T>& _content){
-    return vertices(_index, _vertex_size, _content);
+vertices<std::vector, T> vertices_vector(const std::vector<T>& content, const std::vector<std::size_t>& layout){
+    return vertices(content, layout);
 }
 #+end_src
 #+depends:vertices_vector :cpp vector :noweb vertices
@@ -484,20 +506,18 @@ int main(){
 
     lazy_window lazy("Triangle", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
-
     VAO triangle_vao{};
-    auto triangle = vertices_vector<GLfloat>(0, 3, {
+    auto triangle = vertices_vector<GLfloat>({
         -0.5, -0.5, 0.0,
          0.5, -0.5, 0.0,
          0.0,  0.5, 0.0
-    });
+    }, {3});
 
     lazy.game_loop([&]{
         basic_shader.use();
         triangle_vao.bind();
         triangle.draw();
     });
-
     return 0;
 }
 #+end_src
@@ -522,14 +542,13 @@ int main(){
 
     lazy_window lazy("Rectangle", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
-
     VAO rectangle_vao{};
-    auto rectangle_vertices = vertices_vector<GLfloat>(0, 3, {
+    auto rectangle_vertices = vertices_vector<GLfloat>({
              0.5,  0.5, 0.0, // top right
              0.5, -0.5, 0.0, // bottom right
             -0.5, -0.5, 0.0, // bottom left
             -0.5,  0.5, 0.0  // top left 
-    });
+    }, {3});
     auto rectangle_indexes = indexes({
             0, 1, 3, // first triangle
             1, 2, 3  // second triangle
@@ -540,7 +559,6 @@ int main(){
         rectangle_vao.bind();
         rectangle_indexes.draw();
     });
-
     return 0;
   }
 #+end_src
@@ -581,12 +599,11 @@ int main(){
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     uniform4f cpu_color("cpu_color", basic_shader);
     VAO triangle_vao{};
-
-    auto triangle = vertices_vector<GLfloat>(0, 3, {
+    auto triangle = vertices_vector<GLfloat>({
         -0.5, -0.5, 0.0,
          0.5, -0.5, 0.0,
          0.0,  0.5, 0.0
-    });
+    }, {3});
 
     lazy.game_loop([&]{
         float green = sin(glfwGetTime() * 3) * .07f + .75f;
@@ -595,7 +612,6 @@ int main(){
         triangle_vao.bind();
         triangle.draw();
     });
-
     return 0;
 }
 #+end_src
