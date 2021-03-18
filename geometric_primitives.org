@@ -463,35 +463,35 @@ struct uniform4f {
 };
 #+end_src
 
+
 * Examples
 
-Using barebones fragment and vertex shaders to draw simple figures on the screen.
-The two first examples are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
-The third one comes from the Shaders section (https://learnopengl.com/Getting-started/Shaders).
+** Drawing plain figures
+
+The examples in the next two subsection are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
+They are about using barebones fragment and vertex shaders to draw simple figures on the screen.
 
 #+name: basic_vs
 #+begin_src glsl
 #version 330 core
-layout (location = 0) in vec3 aPos;
+layout (location = 0) in vec3 position;
 
-void main()
-{
-    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+void main() {
+    gl_Position = vec4(position.x, position.y, position.z, 1.0);
 }
 #+end_src
 
 #+name: basic_fs
 #+begin_src glsl
 #version 330 core
-out vec4 FragColor;
+out vec4 color;
 
-void main()
-{
-    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+void main() {
+    color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
 }
 #+end_src
 
-** Drawing a triangle with =vertices=
+*** Drawing a triangle with =vertices=
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
 <<include(":noweb lazy_window VAO shader_program vertices_vector")>>
@@ -526,7 +526,7 @@ int main(){
 :results:
 :end:
 
-** Drawing a rectangle with =indexes=
+*** Drawing a rectangle with =indexes=
 
 Same thing as above, except we use =indexes= (and therefore =EBO=)as well as =vertices= to draw the two triangles forming a rectangle.
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
@@ -567,25 +567,28 @@ int main(){
 :results:
 :end:
 
+
 ** Drawing a color-shifting triangle with =uniform=
+
+This example is coming from the Shaders section (https://learnopengl.com/Getting-started/Shaders).
 
 The following shader colors pixels according to the content of the uniform =cpu_color=:
 
 #+name: color_shifting_fs
 #+begin_src glsl
 #version 330 core
-out vec4 result_color;
-uniform vec4 cpu_color;
+out vec4 color_out;
+uniform vec4 color_cpu;
 
-void main(){
-    result_color = cpu_color;
+void main() {
+    color_out = color_cpu;
 }
 #+end_src
 
 The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform4f= to update the value of =cpu_color= every time a frame is drawn.
 
 #+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vertices_vector uniform4f :cpp cmath iostream")>>
+<<include(":noweb lazy_window VAO shader_program vertices_vector uniform4f :cpp cmath")>>
 
 int main(){
     const char *vs_str =
@@ -596,8 +599,8 @@ int main(){
         ;
 
     lazy_window lazy("Triangle", 640u, 480u);
-    shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
-    uniform4f cpu_color("cpu_color", basic_shader);
+    shader_program shifting_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+    uniform4f color_cpu("color_cpu", shifting_shader);
     VAO triangle_vao{};
     auto triangle = vertices_vector<GLfloat>({
         -0.5, -0.5, 0.0,
@@ -607,8 +610,8 @@ int main(){
 
     lazy.game_loop([&]{
         float green = sin(glfwGetTime() * 3) * .07f + .75f;
-        cpu_color.send(.1, green, .8, 1.);
-        basic_shader.use();
+        color_cpu.send(.1, green, .8, 1.);
+        shifting_shader.use();
         triangle_vao.bind();
         triangle.draw();
     });
