@@ -567,9 +567,11 @@ int main(){
 :end:
 
 
-** Drawing a color-shifting triangle with =uniform=
+** Uniform and sub-vertices
 
-This example is coming from the Shaders section (https://learnopengl.com/Getting-started/Shaders).
+The next examples are adapted from the Shaders section (https://learnopengl.com/Getting-started/Shaders).
+
+*** Drawing a color-shifting triangle with =uniform=
 
 The following shader colors pixels according to the content of the uniform =cpu_color=:
 
@@ -611,6 +613,76 @@ int main(){
         float green = sin(glfwGetTime() * 3) * .07f + .75f;
         color_cpu.send(.1, green, .8, 1.);
         shifting_shader.use();
+        triangle_vao.bind();
+        triangle.draw();
+    });
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+:end:
+
+** Sending colors as sub-vertices
+
+In this example, the colors of each vertex are sent to the GPU alongside their position.
+
+Below are the dedicated vertex and fragment shaders.
+Not much is done in them, it's mainly a question of receiving the position and color in the right location in the vertex shader and of transmitting it to the fragment shader.
+
+#+name: color_as_attribute_vs
+#+begin_src glsl
+#version 330 core
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 color_in;
+out vec3 color_fs;
+
+void main() {
+    gl_Position = vec4(position, 1.);
+    color_fs = color_in;
+}
+#+end_src
+
+#+name: color_as_attribute_fs
+#+begin_src glsl
+#version 330 core
+out vec4 color_out;
+in vec3 color_fs;
+
+void main() {
+    color_out = vec4(color_fs, 1.);
+}
+#+end_src
+
+
+The main difference with previous examples is that, to send the positions and the colors to their respective location, a vertex layout with two sub-vertices is used (={3, 3}=).
+This means that two vertex attributes composed of 3 elements are defined next to each other.
+The first one at location 0 is handled as the position in the vertex shader, whereas the second one at location 1 is handled as the color.
+
+#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb lazy_window VAO shader_program vec_vertices")>>
+
+int main(){
+    const char *vs_str =
+        <<shader("color_as_attribute_vs")>>
+        ;
+    const char *fs_str =
+        <<shader("color_as_attribute_fs")>>
+        ;
+
+    lazy_window lazy("Triangle", 640u, 480u);
+    shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+    VAO triangle_vao{};
+    auto triangle = vec_vertices<GLfloat>({
+         // Positions         // Colors           //
+            0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, // Bottom right.
+           -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f, // Bottom left.
+            0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f  // Top.
+    }, {3, 3});
+
+    lazy.game_loop([&]{
+        basic_shader.use();
         triangle_vao.bind();
         triangle.draw();
     });
