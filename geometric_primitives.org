@@ -464,6 +464,7 @@ struct uniform4f {
 
 All the examples below are adapted the excellent OpenGL tutorial at =learnopengl.com=.
 
+
 ** Drawing plain figures
 
 The examples in the next two subsection are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
@@ -623,7 +624,7 @@ int main(){
 :results:
 :end:
 
-** Sending colors as sub-vertices
+*** Sending colors as sub-vertices
 
 In this example, the colors of each vertex are sent to the GPU alongside their position.
 
