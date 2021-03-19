@@ -29,7 +29,7 @@ class window
     unsigned int width() const {return width_;}
     unsigned int height() const {return height_;}
 
-    <<public window>>
+    <<window/public>>
 
   private:
     std::string title_;
@@ -40,7 +40,7 @@ class window
 
 ** Titled constructor
 
-#+begin_src cpp :noweb no-export :noweb-ref "public window"
+#+begin_src cpp :noweb no-export :noweb-ref "window/public"
 window(std::string title, unsigned int width, unsigned int height):
     title_(title), width_(width), height_(height),
     window_handle(nullptr), monitor_handle(nullptr)
@@ -107,7 +107,7 @@ glfwSetFramebufferSizeCallback(window_handle, details::resize_viewport);
 ** Destructor
 
 We only have to tell glfw to liberate the resources it has allocated.
-#+begin_src cpp :noweb-ref "public window"
+#+begin_src cpp :noweb-ref "window/public"
 ~window()
 {
     glfwDestroyWindow(window_handle);
@@ -162,37 +162,44 @@ struct lazy_window: public window {
         glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
     }
 
-    template<typename F>
-    void render_one(F rendering) {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        rendering();
-        glfwSwapBuffers(this->window_handle);
-        glfwPollEvents();
-    }
-
-    template<typename F>
-    void render_n(std::size_t n, F rendering) {
-        for(std::size_t i = 0; i < n; ++i) {
-            render_one(rendering);
-        }
-    }
-
-    template<typename F>
-    void game_loop(F rendering) {
-        while(!glfwWindowShouldClose(this->window_handle)){
-            render_one(rendering);
-        }
-    }
+    <<lazy_window/public>>;
 };
 #+end_src
 #+depends:lazy_window :noweb window
+
+Packaged within =lazy_window= are the following rendering functions.
+#+begin_src cpp :noweb-ref lazy_window/public
+template<typename F>
+void render_one(F rendering) { // Great for OpenGL calls debugging via LOG_AND_CALL.
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    rendering();
+    glfwSwapBuffers(this->window_handle);
+    glfwPollEvents();
+}
+
+template<typename F>
+void render_n(std::size_t n, F rendering) { // Useful to observe quickly the result of some asjustment.
+    for(std::size_t i = 0; i < n; ++i) {
+        render_one(rendering);
+    }
+}
+
+template<typename F>
+void game_loop(F rendering) { // Closes automatically when escape is pressed.
+    while(!glfwWindowShouldClose(this->window_handle)){
+        render_one(rendering);
+    }
+}
+#+end_src
+
+** Usage
 
 The following draws absolutely nothing, but it does it handily:
 #+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw src/glad.c
 <<include(":noweb lazy_window")>>
 
 int main(){
-    lazy_window lazy("sloth", 640u, 480u);
+    lazy_window lazy("Sloth", 640u, 480u);
     lazy.game_loop([]{});
     return 0;
 }
@@ -201,4 +208,3 @@ int main(){
 #+RESULTS:
 :results:
 :end:
-
