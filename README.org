@@ -1,6 +1,13 @@
-#+title: yliss
+* yliss
 
-* Documents generation
+** Files included from other projects
+
+Some files from external dependencies are included directly in this repository.
+The projects from which files were borrowed are the following:
+ - glad (https://glad.dav1d.de) :: Since this is an OpenGL loader generator, I figured that the best way to use it would be to directly include the generated code.
+ - stb (https://github.com/nothings/stb) :: I only need a file and this seems to be the expected usage for this library anyway.
+
+** Documents generation
 
 Currently, pdfs can be generated with =make pdf=, although some resources are missing because they are supposed to be generated with code that can't currently be tangled, as explained in the next section.
 
@@ -12,10 +19,10 @@ Notable missing elements are:
  - Display code blocks dependencies.
  - Optionally comment noweb inclusions.
 
-* TODO Tangler
+** TODO Tangler
 
 This project needs a tangler, one that is written in C/C++ and that supports =noweb-ref= so that rules out Worgle at least.
 
-* Sources
+** Sources
 
  - https://learnopengl.com :: for most things related to OpenGL.

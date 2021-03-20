@@ -222,3 +222,55 @@ int main(){
 #+RESULTS:
 :results:
 :end:
+
+
+* Screenshots
+
+I thought that being able to take screenshots of the OpenGL scene being rendered would be very difficult while keeping external dependencies small, but thankfully stb (https://github.com/nothings/stb) has a header ready for this.
+I'm amazed by this thing.
+
+Some preprocessing is needed to first extract the pixels into a buffer but my work was cut out for me thanks to this post on the subject: https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/.
+I adapted it to the =window= class to make the following function:
+
+#+name: save_screenshot
+#+begin_src cpp
+void save_screenshot(const window& source, const std::string& destination) {
+    GLsizei channels = 3;
+    GLsizei stride = channels * source.width();
+    stride += (stride % 4) ? (4 - stride % 4): 0; // Make stride a multiple of 4 (for alignment).
+    GLsizei buffer_size = stride * source.height();
+    std::vector<char> buffer(buffer_size);
+
+    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+    glReadBuffer(GL_FRONT);
+    glReadPixels(0, 0, source.width(), source.height(), GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+
+    stbi_flip_vertically_on_write(true);
+    stbi_write_png(
+        destination.c_str(), source.width(), source.height(),
+        channels, buffer.data(), stride
+    );
+}
+#+end_src
+#+depends:save_screenshot :noweb window stb_image_write :cpp string vector glad/glad.h
+
+Concerning the =stb_image_write= dependency, I had to make it a noweb dependency rather than a C++ dependency because this was the only way to =#define= the mandatory =STB_IMAGE_WRITE_IMPLEMENTATION= before the inclusion.
+#+name: stb_image_write
+#+begin_src cpp
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+#+end_src
+
+The following helper makes it a little less cumbersome to capture and save the first frame rendered:
+#+name: game_loop_screen_first
+#+begin_src cpp
+template<typename Callable>
+void game_loop_screen_first(
+    const lazy_window& source, const std::string& destination, Callable render
+) {
+    source.render_one(render);
+    save_screenshot(source, destination);
+    source.game_loop(render);
+}
+#+end_src
+#+depends:game_loop_screen_first :noweb save_screenshot lazy_window
