@@ -10,6 +10,7 @@
 ./litlib/include.pl "window.org" "$args"
 #+end_src
 
+
 * Window
 
 The first step is to be able to display an empty window.
@@ -18,7 +19,6 @@ We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need 
 
 #+name: window
 #+begin_src cpp :noweb no-export
-<<Before window>>
 class window
 {
   public:
@@ -38,10 +38,11 @@ class window
 #+end_src
 #+depends:window :cpp glad/glad.h GLFW/glfw3.h stdexcept
 
+
 ** Titled constructor
 
-#+begin_src cpp :noweb no-export :noweb-ref "window/public"
-window(std::string title, unsigned int width, unsigned int height):
+#+begin_src cpp :noweb no-export :noweb-ref window/public
+window(const std::string& title, unsigned int width, unsigned int height):
     title_(title), width_(width), height_(height),
     window_handle(nullptr), monitor_handle(nullptr)
 {
@@ -90,19 +91,29 @@ glViewport(0, 0, fb_width, fb_height);
 *** Automatic resizing
 
 The OpenGL viewport must be adjusted to fit the window when the user resizes the window.
-This requires to register a callback.
+This requires to register a callback, and below is the method that will technically handle this callback:
 
-#+begin_src cpp :noweb-ref "Before window"
-namespace details {
+#+begin_src cpp :noweb-ref window/public
 void resize_viewport(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
-}
+    width_ = width;
+    height_ = height;
 }
 #+end_src
 
+Note that this method triggers a modification of the =width_= and =height_= attributes of =window=, hence why it is a method and not a free function.
+Sadly, a method pointer cannot be trivially transformed into a function pointer, which is why =glfwSetWindowUserPointer= and =glfwGetWindowUserPointer= must be used to transmit the =this= pointer to a captureless lambda delegating the work to the =resize_viewport=.
+
+This technique was explained here: https://stackoverflow.com/a/28660673.
+
 #+begin_src cpp :noweb-ref "window/Titled constructor"
-glfwSetFramebufferSizeCallback(window_handle, details::resize_viewport);
+glfwSetWindowUserPointer(window_handle, this);
+auto callback = [](GLFWwindow* handle, int width, int height) {
+    static_cast<window*>(glfwGetWindowUserPointer(handle))->resize_viewport(handle, width, height);
+};
+glfwSetFramebufferSizeCallback(window_handle, callback);
 #+end_src
+
 
 ** Destructor
 
@@ -114,6 +125,7 @@ We only have to tell glfw to liberate the resources it has allocated.
     glfwTerminate();
 }
 #+end_src
+
 
 ** Empty window test
 
@@ -142,6 +154,7 @@ int main(){
 :results:
 :end:
 
+
 * Lazy window
 
 The goal of this section is to provide some boilerplate that can help with experimentation but does not necessarily have its place inside a proper window class.
@@ -155,7 +168,7 @@ void escape_close(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 struct lazy_window: public window {
-    lazy_window(std::string title, unsigned int width, unsigned int height):
+    lazy_window(const std::string& title, unsigned int width, unsigned int height):
         window(title, width, height)
     {
         glfwSetKeyCallback(this->window_handle, escape_close);
@@ -170,7 +183,7 @@ struct lazy_window: public window {
 Packaged within =lazy_window= are the following rendering functions.
 #+begin_src cpp :noweb-ref lazy_window/public
 template<typename F>
-void render_one(F rendering) { // Great for OpenGL calls debugging via LOG_AND_CALL.
+void render_one(F rendering) const { // Great for OpenGL calls debugging via LOG_AND_CALL.
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     rendering();
     glfwSwapBuffers(this->window_handle);
@@ -178,19 +191,20 @@ void render_one(F rendering) { // Great for OpenGL calls debugging via LOG_AND_C
 }
 
 template<typename F>
-void render_n(std::size_t n, F rendering) { // Useful to observe quickly the result of some asjustment.
+void render_n(std::size_t n, F rendering) const { // Useful to observe quickly the result of some asjustment.
     for(std::size_t i = 0; i < n; ++i) {
         render_one(rendering);
     }
 }
 
 template<typename F>
-void game_loop(F rendering) { // Closes automatically when escape is pressed.
+void game_loop(F rendering) const { // Closes automatically when escape is pressed.
     while(!glfwWindowShouldClose(this->window_handle)){
         render_one(rendering);
     }
 }
 #+end_src
+
 
 ** Usage
 
