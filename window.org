@@ -26,14 +26,14 @@ class window
     GLFWmonitor* monitor_handle;
 
     const std::string& title() const {return title_;}
-    unsigned int width() const {return width_;}
-    unsigned int height() const {return height_;}
+    std::size_t width() const {return width_;}
+    std::size_t height() const {return height_;}
 
     <<window/public>>
 
   private:
     std::string title_;
-    unsigned int width_, height_;
+    std::size_t width_, height_;
 };
 #+end_src
 #+depends:window :cpp glad/glad.h GLFW/glfw3.h stdexcept
