@@ -13,9 +13,9 @@
 
 * Window
 
-The first step is to be able to display an empty window.
-The main characteristics of a window are its width, height and title.
-We will use glfw[fn::See https://www.glfw.org/.] to create a window, so we need to store a handle to the window and monitor used.
+GLFW (https://www.glfw.org) is used to create a window, so we need to store a handle to the window and monitor used.
+
+Below is the main structure of this class, the rest will be defined as the =window/public= code block.
 
 #+name: window
 #+begin_src cpp :noweb no-export
@@ -32,19 +32,17 @@ class window
     <<window/public>>
 
   private:
-    std::string title_;
+    const std::string title_;
     std::size_t width_, height_;
 };
 #+end_src
 #+depends:window :cpp glad/glad.h GLFW/glfw3.h stdexcept
 
-
 ** Titled constructor
 
 #+begin_src cpp :noweb no-export :noweb-ref window/public
-window(const std::string& title, unsigned int width, unsigned int height):
-    title_(title), width_(width), height_(height),
-    window_handle(nullptr), monitor_handle(nullptr)
+window(const std::string& title, std::size_t w, std::size_t h):
+    window_handle(nullptr), monitor_handle(nullptr), title_(title), width_(w), height_(h)
 {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -94,10 +92,9 @@ The OpenGL viewport must be adjusted to fit the window when the user resizes the
 This requires to register a callback, and below is the method that will technically handle this callback:
 
 #+begin_src cpp :noweb-ref window/public
-void resize_viewport(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-    width_ = width;
-    height_ = height;
+void resize_viewport(GLFWwindow* ignore, int width, int height) {
+    width_ = width; height_ = height;
+    glViewport(0, 0, width_, height_);
 }
 #+end_src
 
@@ -113,7 +110,6 @@ auto callback = [](GLFWwindow* handle, int width, int height) {
 };
 glfwSetFramebufferSizeCallback(window_handle, callback);
 #+end_src
-
 
 ** Destructor
 
