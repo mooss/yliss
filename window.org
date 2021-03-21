@@ -122,7 +122,6 @@ We only have to tell glfw to liberate the resources it has allocated.
 }
 #+end_src
 
-
 ** Empty window test
 
 #+begin_src cpp :noweb no-export :eval yes :flags -I include -ldl -lGL -lglfw src/glad.c
@@ -201,7 +200,6 @@ void game_loop(F rendering) const { // Closes automatically when escape is press
 }
 #+end_src
 
-
 ** Usage
 
 The following draws absolutely nothing, but it does it handily:
@@ -239,6 +237,8 @@ struct render_buffer {
     std::vector<unsigned char> storage=std::vector<unsigned char>(0);
 
     render_buffer(const window& source) { grab(source); }
+    render_buffer(GLsizei w, GLsizei h, GLsizei c):
+        channels(c) { resize(w, h); }
 
     void resize(GLsizei w, GLsizei h) {
         width=w; height=h; stride = channels * width;
@@ -289,7 +289,7 @@ Concerning the =stb_image_write= dependency, I had to make it a noweb dependency
 #+name: stb_image_write
 #+begin_src cpp
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include <stb/stb_image_write.h>
 #+end_src
 
 ** Compression
@@ -316,7 +316,7 @@ static unsigned char* gibson_stbi_zlib_compress(
 }
 #define STBIW_ZLIB_COMPRESS gibson_stbi_zlib_compress
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include <stb/stb_image_write.h>
 #+end_src
 #+depends:stb_image_write<compressed> :cpp miniz.c
 
@@ -325,10 +325,49 @@ This means that the additional compression or lack thereof is hardcoded in this 
 I need to start thinking about a mechanism to pick alternative implementations.
 I think this angled braces syntax is a good starting point, meaning that =stb_image_write<compressed>= is declared as being an alternative implementation of the reference =stb_image_write=.
 
+** Resizing
+
+My main use case for screen captures is to include them in compiled html or pdf documents, so I don't need and don't want to keep them at full resolution.
+Once again stb has me covered with the header =stb_image_resize.h=.
+
+#+name: resize_render_buffer
+#+begin_src cpp
+render_buffer resize_render_buffer(const render_buffer& buffer, GLsizei w, GLsizei h) {
+    render_buffer resized(w, h, buffer.channels);
+    stbir_resize_uint8(
+        buffer.data(), buffer.width, buffer.height, buffer.stride,
+        resized.data(), resized.width, resized.height, resized.stride,
+        buffer.channels
+    );
+    return resized;
+}
+#+end_src
+#+depends:resize_render_buffer :noweb render_buffer stb_image_resize
+
+The handling of the =stb_image_resize= dependency is the same as with =stb_image_write=:
+#+name: stb_image_resize
+#+begin_src cpp
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include <stb/stb_image_resize.h>
+#+end_src
+
+Finally, below is a specialised implementation of =save_screenshot= to always save images scaled to 720p.
+#+name: save_screenshot<720p>
+#+begin_src cpp
+void save_screenshot(const window& source, const std::string& destination) {
+    write_render_buffer(
+        resize_render_buffer(render_buffer(source), 1280, 720),
+        destination
+    );
+}
+#+end_src
+#+depends:save_screenshot<720p> :noweb window render_buffer write_render_buffer resize_render_buffer :cpp string
+
 ** Lazy functions
 
 The helpers in this section make it a little less cumbersome to capture and save the desired frame.
 The =gl_= prefix here stands for game loop.
+
 
 #+name: gl_screen_nth
 #+begin_src cpp
@@ -343,7 +382,7 @@ void gl_screen_nth(
     source.game_loop(render);
 }
 #+end_src
-#+depends:gl_screen_nth :noweb save_screenshot lazy_window :cpp iostream
+#+depends:gl_screen_nth :noweb save_screenshot<720p> lazy_window :cpp iostream
 
 #+name: gl_screen_first
 #+begin_src cpp

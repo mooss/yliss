@@ -5,7 +5,6 @@
 Some files from external dependencies are included directly in this repository.
 The projects from which files were borrowed are the following:
  - glad (https://glad.dav1d.de) :: Since this is an OpenGL loader generator, I figured that the best way to use it would be to directly include the generated code.
- - stb (https://github.com/nothings/stb) :: I only need a file and this seems to be the expected usage for this library anyway.
 
 ** Documents generation
 

@@ -1,3 +1,6 @@
 [submodule "litlib"]
 	path = litlib
 	url = https://github.com/mooss/litlib.git
+[submodule "stb"]
+	path = include/stb
+	url = https://github.com/nothings/stb.git
