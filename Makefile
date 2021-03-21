@@ -13,10 +13,13 @@ pdf: $(ORG_SOURCES:%=%.pdf)
 ###############################
 .PHONY: glm_retrieval submodules_retrieval dependencies
 
-dependencies: glm_retrieval submodules_retrieval
+dependencies: glm_retrieval miniz_retrieval submodules_retrieval
 
 glm_retrieval:
-	./script/get-glm.sh
+	./script/retrieve-dependency.sh https://github.com/g-truc/glm/releases/download/0.9.9.8 glm-0.9.9.8 7z include/glm ':to_include glm/glm'
+
+miniz_retrieval:
+	./script/retrieve-dependency.sh https://github.com/richgel999/miniz/releases/download/2.1.0 miniz-2.1.0 zip include/miniz.c ':to_include miniz.h miniz.c'
 
 submodules_retrieval:
 	git submodule init
@@ -26,4 +29,4 @@ submodules_retrieval:
 # Various utilities #
 #####################
 clean:
-	rm -fr glm litlib *.pdf 
+	rm -fr include/{miniz.{c,h},glm} litlib *.pdf

@@ -248,7 +248,7 @@ void save_screenshot(const window& source, const std::string& destination) {
     );
 }
 #+end_src
-#+depends:save_screenshot :noweb window stb_image_write :cpp string vector glad/glad.h
+#+depends:save_screenshot :noweb window stb_image_write<compressed> :cpp string vector glad/glad.h
 
 Concerning the =stb_image_write= dependency, I had to make it a noweb dependency rather than a C++ dependency because this was the only way to =#define= the mandatory =STB_IMAGE_WRITE_IMPLEMENTATION= before the inclusion.
 #+name: stb_image_write
@@ -257,16 +257,66 @@ Concerning the =stb_image_write= dependency, I had to make it a noweb dependency
 #include <stb_image_write.h>
 #+end_src
 
-The following helper makes it a little less cumbersome to capture and save the first frame rendered:
-#+name: game_loop_screen_first
+** Compression
+
+Images can be compressed further by using an external compressing function via =STBIW_ZLIB_COMPRESS=.
+
+I've taken code from https://blog.gibson.sh/2015/07/18/comparing-png-compression-ratios-of-stb_image_write-lodepng-miniz-and-libpng to use the miniz compression library.
+I just had to add a =static_cast= around =malloc= because C++ was having none of it.
+
+#+name: stb_image_write<compressed>
+#+begin_src cpp
+static unsigned char* gibson_stbi_zlib_compress(
+    unsigned char *data, int data_len,
+    int *out_len, int quality
+) {
+    mz_ulong buflen = mz_compressBound(data_len);
+    unsigned char* buf = static_cast<unsigned char*>(malloc(buflen));
+    if(buf == nullptr || mz_compress2(buf, &buflen, data, data_len, quality) != 0) {
+        free(buf);
+        return nullptr;
+    }
+    *out_len = buflen;
+    return buf;
+}
+#define STBIW_ZLIB_COMPRESS gibson_stbi_zlib_compress
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+#+end_src
+#+depends:stb_image_write<compressed> :cpp miniz.c
+
+To switch between the miniz and the pure stb version, edit the =#+depends:save_screenshot= dependency declaration line above to use respectively =stb_image_write<compressed>= or =stb_image_write=.
+This means that the additional compression or lack thereof is hardcoded in this file.
+I need to start thinking about a mechanism to pick alternative implementations.
+I think this angled braces syntax is a good starting point, meaning that =stb_image_write<compressed>= is declared as being an alternative implementation of the reference =stb_image_write=.
+
+** Lazy functions
+
+The helpers in this section make it a little less cumbersome to capture and save the desired frame.
+The =gl_= prefix here stands for game loop.
+
+#+name: gl_screen_nth
 #+begin_src cpp
 template<typename Callable>
-void game_loop_screen_first(
-    const lazy_window& source, const std::string& destination, Callable render
+void gl_screen_nth(
+    const lazy_window& source, const std::string& destination,
+    Callable render, std::size_t n
 ) {
-    source.render_one(render);
+    source.render_n(n, render);
     save_screenshot(source, destination);
+    std::cout << "[[file:" << destination << "]]\n";
     source.game_loop(render);
 }
 #+end_src
-#+depends:game_loop_screen_first :noweb save_screenshot lazy_window
+#+depends:gl_screen_nth :noweb save_screenshot lazy_window :cpp iostream
+
+#+name: gl_screen_first
+#+begin_src cpp
+template<typename Callable>
+void gl_screen_first(
+    const lazy_window& source, const std::string& destination, Callable render
+) {
+    gl_screen_nth(source, destination, render, 1);
+}
+#+end_src
+#+depends:gl_screen_first :noweb gl_screen_nth lazy_window
