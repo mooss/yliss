@@ -226,29 +226,63 @@ I thought that being able to take screenshots of the OpenGL scene being rendered
 I'm amazed by this thing.
 
 Some preprocessing is needed to first extract the pixels into a buffer but my work was cut out for me thanks to this post on the subject: https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/.
-I adapted it to the =window= class to make the following function:
+I adapted it to the =window= class and organized it around the struct =render_buffer=.
 
-#+name: save_screenshot
+It's a struct because I needed to pass around not only the buffer but also some metadata.
+The more advanced features such as saving to a file are free functions and not member functions because those features imply additional dependencies and I prefer to only pay for what I use.
+That is because I cannot yet "inject" noweb blocks into other blocks and therefore any additional member function has to be hardcoded into the class along with its dependencies.
+
+#+name: render_buffer
 #+begin_src cpp
-void save_screenshot(const window& source, const std::string& destination) {
-    GLsizei channels = 3;
-    GLsizei stride = channels * source.width();
-    stride += (stride % 4) ? (4 - stride % 4): 0; // Make stride a multiple of 4 (for alignment).
-    GLsizei buffer_size = stride * source.height();
-    std::vector<char> buffer(buffer_size);
+struct render_buffer {
+    GLsizei channels=3, stride=0, width=0, height=0;
+    std::vector<char> storage=std::vector<char>(0);
+    render_buffer(const window& source) {
+        grab(source);
+    }
 
-    glPixelStorei(GL_PACK_ALIGNMENT, 4);
-    glReadBuffer(GL_FRONT);
-    glReadPixels(0, 0, source.width(), source.height(), GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+    void resize(GLsizei w, GLsizei h) {
+        width=w; height=h; stride = channels * width;
+        // Make stride a multiple of 4, for alignment purposes.
+        stride += (stride % 4) ? (4 - stride % 4): 0;
+        storage.resize(stride * height);
+    }
 
+    char* data() { return storage.data(); }
+    const char* data() const { return storage.data(); }
+
+    void grab(const window& source) {
+        resize(source.width(), source.height());
+        glPixelStorei(GL_PACK_ALIGNMENT, 4);
+        glReadBuffer(GL_FRONT);
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data());
+    }
+};
+#+end_src
+#+depends:render_buffer :noweb window :cpp vector
+
+Write a =render_buffer= to a file with stb:
+#+name: write_render_buffer
+#+begin_src cpp
+void write_render_buffer(const render_buffer& buffer, const std::string& destination) {
     stbi_flip_vertically_on_write(true);
     stbi_write_png(
-        destination.c_str(), source.width(), source.height(),
-        channels, buffer.data(), stride
+        destination.c_str(), buffer.width, buffer.height,
+        buffer.channels, buffer.data(), buffer.stride
     );
 }
 #+end_src
-#+depends:save_screenshot :noweb window stb_image_write<compressed> :cpp string vector glad/glad.h
+#+depends:write_render_buffer :noweb render_buffer stb_image_write<compressed> :cpp string
+
+Shortcut to directly write a screenshot from a =window=:
+#+name: save_screenshot
+#+begin_src cpp
+void save_screenshot(const window& source, const std::string& destination) {
+    render_buffer buffer(source);
+    write_render_buffer(buffer, destination);
+}
+#+end_src
+#+depends:save_screenshot :noweb window render_buffer write_render_buffer :cpp string
 
 Concerning the =stb_image_write= dependency, I had to make it a noweb dependency rather than a C++ dependency because this was the only way to =#define= the mandatory =STB_IMAGE_WRITE_IMPLEMENTATION= before the inclusion.
 #+name: stb_image_write
@@ -285,7 +319,7 @@ static unsigned char* gibson_stbi_zlib_compress(
 #+end_src
 #+depends:stb_image_write<compressed> :cpp miniz.c
 
-To switch between the miniz and the pure stb version, edit the =#+depends:save_screenshot= dependency declaration line above to use respectively =stb_image_write<compressed>= or =stb_image_write=.
+To switch between the miniz and the pure stb version, edit the =#+depends:write_render_buffer= dependency declaration line above to use respectively =stb_image_write<compressed>= or =stb_image_write=.
 This means that the additional compression or lack thereof is hardcoded in this file.
 I need to start thinking about a mechanism to pick alternative implementations.
 I think this angled braces syntax is a good starting point, meaning that =stb_image_write<compressed>= is declared as being an alternative implementation of the reference =stb_image_write=.
