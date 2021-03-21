@@ -1,8 +1,10 @@
 #+title: C++ OpenGL geometric primitives
+#+author: mooss
 
 # No :wrap for this file because I can't disable it when I need to (uniform generation).
-#+property: header-args :eval never :main no :exports both
-
+# :exports both does not work with pandoc when set at this level, it must be set manually in the code block header-args.
+#+property: header-args :eval never :main no :exports both :noweb no-export
+#+property: header-args:cpp+ :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
 * Various TODOs :noexport:
 ** TODO Add an =#include:= (or something) notation to include.pl to make it possible to recursively include org mode files relatively to the file being processed.
 ** TODO Syntax to declare that a block is purely destined to be used by org and not by include.pl
@@ -64,7 +66,6 @@ What's implied here is that the user of the code blocks below knows what to expe
 
 I tried to make as many things =const= as possible for those OpenGL primitives, this way once the objects are constructed, they are set in stone and annoying mistakes can be avoided.
 Of course, those things will be "unconsted" when needed.
-
 
 ** Shader
 
@@ -460,15 +461,19 @@ struct uniform4f {
 #+end_src
 
 
+
+
 * Examples
 
-All the examples below are adapted the excellent OpenGL tutorial at =learnopengl.com=.
-
+All the examples below are adapted from the excellent OpenGL tutorial at =learnopengl.com=.
+A screenshot of the scene is saved and generated with each example to give an idea of what the result looks like.
 
 ** Drawing plain figures
 
 The examples in the next two subsection are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
 They are about using barebones fragment and vertex shaders to draw simple figures on the screen.
+
+The next two code blocks are respectively the vertex and fragment shaders that will be used in this section.
 
 #+name: basic_vs
 #+begin_src glsl
@@ -486,14 +491,14 @@ void main() {
 out vec4 color;
 
 void main() {
-    color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+    color = vec4(1.0f, 0.2f, 0.1f, 1.0f);
 }
 #+end_src
 
 *** Drawing a triangle with =vertices=
 
-#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vec_vertices")>>
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices")>>
 
 int main(){
     const char *vs_str =
@@ -512,7 +517,7 @@ int main(){
          0.0,  0.5, 0.0
     }, {3});
 
-    lazy.game_loop([&]{
+    gl_screen_first(lazy, "images/screencaps/triangle_vertices.png", [&]{
         basic_shader.use();
         triangle_vao.bind();
         triangle.draw();
@@ -523,13 +528,15 @@ int main(){
 
 #+RESULTS:
 :results:
+[[file:images/screencaps/triangle_vertices.png]]
 :end:
 
 *** Drawing a rectangle with =indexes=
 
 Same thing as above, except we use =indexes= (and therefore =EBO=)as well as =vertices= to draw the two triangles forming a rectangle.
-#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vec_vertices indexes")>>
+
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices indexes")>>
 
 int main(){
     const char *vs_str =
@@ -553,7 +560,7 @@ int main(){
             1, 2, 3  // Second triangle.
     });
 
-    lazy.game_loop([&]{
+    gl_screen_first(lazy, "images/screencaps/rectangle_indexes.png", [&]{
         basic_shader.use();
         rectangle_vao.bind();
         rectangle_indexes.draw();
@@ -564,6 +571,7 @@ int main(){
 
 #+RESULTS:
 :results:
+[[file:images/screencaps/rectangle_indexes.png]]
 :end:
 
 
@@ -588,8 +596,8 @@ void main() {
 
 The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform4f= to update the value of =cpu_color= every time a frame is drawn.
 
-#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vec_vertices uniform4f :cpp cmath")>>
+#+begin_src cpp :eval no-export :exports both 
+<<include(":noweb lazy_window gl_screen_nth VAO shader_program vec_vertices uniform4f :cpp cmath")>>
 
 int main(){
     const char *vs_str =
@@ -609,20 +617,24 @@ int main(){
          0.0,  0.5, 0.0
     }, {3});
 
-    lazy.game_loop([&]{
+    gl_screen_nth(lazy, "images/screencaps/shifting_color.png", [&]{
         float green = sin(glfwGetTime() * 3) * .07f + .75f;
         color_cpu.send(.1, green, .8, 1.);
         shifting_shader.use();
         triangle_vao.bind();
         triangle.draw();
-    });
+    }, 10); // The first frame renders black, even though the uniform has been sent before the
+            // shader is used and the first frame has been drawn before.
     return 0;
 }
 #+end_src
 
 #+RESULTS:
 :results:
+[[file:images/screencaps/shifting_color.png]]
 :end:
+
+The screen capture is not very interesting here because it does not show the shifting colors but I still included it for good mesure.
 
 *** Sending colors as sub-vertices
 
@@ -660,8 +672,8 @@ The main difference with previous examples is that, to send the positions and th
 This means that two vertex attributes composed of 3 elements are defined next to each other.
 The first one at location 0 is handled as the position in the vertex shader, whereas the second one at location 1 is handled as the color.
 
-#+begin_src cpp :noweb no-export :eval no-export :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window VAO shader_program vec_vertices")>>
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices")>>
 
 int main(){
     const char *vs_str =
@@ -681,7 +693,7 @@ int main(){
             0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f  // Top.
     }, {3, 3});
 
-    lazy.game_loop([&]{
+    gl_screen_first(lazy, "images/screencaps/color_as_attribute.png", [&]{
         basic_shader.use();
         triangle_vao.bind();
         triangle.draw();
@@ -692,4 +704,5 @@ int main(){
 
 #+RESULTS:
 :results:
+[[file:images/screencaps/color_as_attribute.png]]
 :end:
