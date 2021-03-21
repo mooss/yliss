@@ -236,10 +236,9 @@ That is because I cannot yet "inject" noweb blocks into other blocks and therefo
 #+begin_src cpp
 struct render_buffer {
     GLsizei channels=3, stride=0, width=0, height=0;
-    std::vector<char> storage=std::vector<char>(0);
-    render_buffer(const window& source) {
-        grab(source);
-    }
+    std::vector<unsigned char> storage=std::vector<unsigned char>(0);
+
+    render_buffer(const window& source) { grab(source); }
 
     void resize(GLsizei w, GLsizei h) {
         width=w; height=h; stride = channels * width;
@@ -248,8 +247,8 @@ struct render_buffer {
         storage.resize(stride * height);
     }
 
-    char* data() { return storage.data(); }
-    const char* data() const { return storage.data(); }
+    unsigned char* data() { return storage.data(); }
+    const unsigned char* data() const { return storage.data(); }
 
     void grab(const window& source) {
         resize(source.width(), source.height());
@@ -260,6 +259,8 @@ struct render_buffer {
 };
 #+end_src
 #+depends:render_buffer :noweb window :cpp vector
+
+I'm using =unsigned char= as the type underlying the buffer because that is what stb uses.
 
 Write a =render_buffer= to a file with stb:
 #+name: write_render_buffer
