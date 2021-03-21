@@ -686,12 +686,15 @@ int main(){
     lazy_window lazy("Triangle", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     VAO triangle_vao{};
-    auto triangle = vec_vertices<GLfloat>({
-         // Positions         // Colors           //
-            0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, // Bottom right.
-           -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f, // Bottom left.
-            0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f  // Top.
-    }, {3, 3});
+    auto triangle = vec_vertices<GLfloat>(
+        // Vertices:
+        // Positions         // Colors               //
+        {  0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,    // Bottom right.
+          -0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    // Bottom left.
+           0.0f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f  }, // Top.
+        // Vertices layout:
+        {  3 /* Positions */,   3 /* Colors   */  }
+    );
 
     gl_screen_first(lazy, "images/screencaps/color_as_attribute.png", [&]{
         basic_shader.use();
