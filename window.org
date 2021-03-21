@@ -1,5 +1,5 @@
 #+title: C++ OpenGL window
-#+author: Félix Jamet
+#+author: mooss
 
 #+property: header-args :eval never :main no
 
@@ -28,6 +28,7 @@ class window
     const std::string& title() const {return title_;}
     std::size_t width() const {return width_;}
     std::size_t height() const {return height_;}
+    bool should_close() const {return glfwWindowShouldClose(window_handle);}
 
     <<window/public>>
 
@@ -99,7 +100,7 @@ void resize_viewport(GLFWwindow* ignore, int width, int height) {
 #+end_src
 
 Note that this method triggers a modification of the =width_= and =height_= attributes of =window=, hence why it is a method and not a free function.
-Sadly, a method pointer cannot be trivially transformed into a function pointer, which is why =glfwSetWindowUserPointer= and =glfwGetWindowUserPointer= must be used to transmit the =this= pointer to a captureless lambda delegating the work to the =resize_viewport=.
+Sadly, a method pointer cannot be trivially transformed into a function pointer, which is why =glfwSetWindowUserPointer= and =glfwGetWindowUserPointer= must be used to transmit the =this= pointer to a captureless lambda delegating the work to =resize_viewport=.
 
 This technique was explained here: https://stackoverflow.com/a/28660673.
 
@@ -113,7 +114,7 @@ glfwSetFramebufferSizeCallback(window_handle, callback);
 
 ** Destructor
 
-We only have to tell glfw to liberate the resources it has allocated.
+We only have to tell GLFW to liberate the resources it has allocated.
 #+begin_src cpp :noweb-ref "window/public"
 ~window()
 {
@@ -153,7 +154,10 @@ int main(){
 * Lazy window
 
 The goal of this section is to provide some boilerplate that can help with experimentation but does not necessarily have its place inside a proper window class.
-Here, it allows us to make a window with a default white background, that simply closes when pressing escape and that has an handy =game_loop= that can be given a lambda to start drawing with opengl.
+
+** Basic structure
+
+At its core, =lazy_window= is a window with a default grey background that simply closes when pressing escape.
 
 #+name: lazy_window
 #+begin_src cpp
@@ -167,7 +171,7 @@ struct lazy_window: public window {
         window(title, width, height)
     {
         glfwSetKeyCallback(this->window_handle, escape_close);
-        glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+        glClearColor(.5f, .5f, .5f, 0.0f);
     }
 
     <<lazy_window/public>>;
@@ -175,26 +179,28 @@ struct lazy_window: public window {
 #+end_src
 #+depends:lazy_window :noweb window
 
-Packaged within =lazy_window= are the following rendering functions.
+** Rendering methods
+
+Packaged within =lazy_window= are the following rendering methods:
 #+begin_src cpp :noweb-ref lazy_window/public
-template<typename F>
-void render_one(F rendering) const { // Great for OpenGL calls debugging via LOG_AND_CALL.
+template<typename F> // Great for OpenGL calls debugging via LOG_AND_CALL.
+void render_one(F rendering) const {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     rendering();
     glfwSwapBuffers(this->window_handle);
     glfwPollEvents();
 }
 
-template<typename F>
-void render_n(std::size_t n, F rendering) const { // Useful to observe quickly the result of some asjustment.
-    for(std::size_t i = 0; i < n; ++i) {
+template<typename F> // Useful to observe quickly the result of some adjustment.
+void render_n(std::size_t n, F rendering) const {
+    for(std::size_t i = 0; i < n && !should_close(); ++i) {
         render_one(rendering);
     }
 }
 
-template<typename F>
-void game_loop(F rendering) const { // Closes automatically when escape is pressed.
-    while(!glfwWindowShouldClose(this->window_handle)){
+template<typename F> // Renders frames until escape is pressed.
+void game_loop(F rendering) const {
+    while(!should_close()){
         render_one(rendering);
     }
 }
@@ -223,12 +229,14 @@ int main(){
 I thought that being able to take screenshots of the OpenGL scene being rendered would be very difficult while keeping external dependencies small, but thankfully stb (https://github.com/nothings/stb) has a header ready for this.
 I'm amazed by this thing.
 
+** Render buffer
+
 Some preprocessing is needed to first extract the pixels into a buffer but my work was cut out for me thanks to this post on the subject: https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/.
 I adapted it to the =window= class and organized it around the struct =render_buffer=.
 
 It's a struct because I needed to pass around not only the buffer but also some metadata.
 The more advanced features such as saving to a file are free functions and not member functions because those features imply additional dependencies and I prefer to only pay for what I use.
-That is because I cannot yet "inject" noweb blocks into other blocks and therefore any additional member function has to be hardcoded into the class along with its dependencies.
+I cannot yet "inject" noweb blocks into other blocks and therefore any additional member function has to be hardcoded into the class along with its dependencies.
 
 #+name: render_buffer
 #+begin_src cpp
@@ -236,9 +244,9 @@ struct render_buffer {
     GLsizei channels=3, stride=0, width=0, height=0;
     std::vector<unsigned char> storage=std::vector<unsigned char>(0);
 
-    render_buffer(const window& source) { grab(source); }
+    render_buffer(const window& source) {grab(source);}
     render_buffer(GLsizei w, GLsizei h, GLsizei c):
-        channels(c) { resize(w, h); }
+        channels(c) {resize(w, h);}
 
     void resize(GLsizei w, GLsizei h) {
         width=w; height=h; stride = channels * width;
@@ -247,8 +255,8 @@ struct render_buffer {
         storage.resize(stride * height);
     }
 
-    unsigned char* data() { return storage.data(); }
-    const unsigned char* data() const { return storage.data(); }
+    unsigned char* data() {return storage.data();}
+    const unsigned char* data() const {return storage.data();}
 
     void grab(const window& source) {
         resize(source.width(), source.height());
@@ -327,7 +335,7 @@ I think this angled braces syntax is a good starting point, meaning that =stb_im
 
 ** Resizing
 
-My main use case for screen captures is to include them in compiled html or pdf documents, so I don't need and don't want to keep them at full resolution.
+My main use case for screen captures is to include them in compiled HTML or PDF documents, so I don't need and don't want to keep them at full resolution.
 Once again stb has me covered with the header =stb_image_resize.h=.
 
 #+name: resize_render_buffer
@@ -367,7 +375,6 @@ void save_screenshot(const window& source, const std::string& destination) {
 
 The helpers in this section make it a little less cumbersome to capture and save the desired frame.
 The =gl_= prefix here stands for game loop.
-
 
 #+name: gl_screen_nth
 #+begin_src cpp
