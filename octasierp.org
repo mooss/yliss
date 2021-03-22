@@ -3,13 +3,6 @@
 #+property: header-args:cpp :eval never :main no :noweb no-export
 #+property: header-args:python :noweb no-export :results output :wrap "src text"
 
-* Lithel configuration :noexport:
-** TODO Minipage blocks
-#+lithel: :minipage "src text"
-Force a minipage on text source blocks because they are used for quarters and squarified nets textual representation and should not be spread across pages.
-
-This is not yet implemented on lithel.
-
 * Prelude
 ** About mathematical rigour
 
