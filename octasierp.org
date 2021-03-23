@@ -1,3 +1,4 @@
+#+title: Octasierp: a solid foundation
 #+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export :eval never
 #+property: header-args:bash :eval never
 #+property: header-args:cpp :eval never :main no :noweb no-export
