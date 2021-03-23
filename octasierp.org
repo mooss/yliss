@@ -7,8 +7,7 @@
 * Prelude
 ** About mathematical rigour
 
-The maths presented here will be hand-wavy most of the time and a lot of it will not be formally proved because I'm a lazy bastard who mostly want to program.
-So do not expect much rigour.
+I'll be sometimes hand-wavy with the maths here both because I don't want to bother and because I don't know much about it.
 
 ** About C++ developpment
 
