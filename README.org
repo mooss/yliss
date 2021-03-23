@@ -17,10 +17,13 @@ Notable missing elements are:
  - Display code block names.
  - Display code blocks dependencies.
  - Optionally comment noweb inclusions.
+ - Export some code blocks within minipages.
 
 ** TODO Tangler
 
-This project needs a tangler, one that is written in C/C++ and that supports =noweb-ref= so that rules out Worgle at least.
+A tangler is a program that can extract source code blocks from a literate document and gather (tangle) them into their destination file.
+
+This project needs one, ideally one that is written in C/C++ without external dependencies and one that supports =noweb-ref= so that rules out Worgle at least.
 
 ** Sources
 
