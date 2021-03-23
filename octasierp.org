@@ -803,7 +803,7 @@ for degree in range(4):
 #+end_src
 
 The code above is then called by a bash script who annotates and stitches the images together with imagemagick's =mogrify= and =montage=:
-#+begin_src bash :tangle script/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash"
+#+begin_src bash :tangle script/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash" :eval no-export
 python3 script/octasierp_net_0-3.py
 
 function make_montage(){
@@ -831,6 +831,10 @@ version=squa
 vertical=1250
 make_montage
 #+end_src
+
+#+RESULTS:
+:results:
+:end:
 
 ** Animate octahedron net to quasi grid
 
