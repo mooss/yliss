@@ -211,7 +211,7 @@ result[0] = first[:2] + 'A' + first[3:-3] + 'B' + first[-2:]
 result[2] = result[2][:-1] + 'C'
 result[6] = result[2][:-1] + 'D'
 
-# Terribly cool hack, don't do this at home.
+# Terribly cool hack, don't try this at home.
 top = [0] * 5
 <<Add axis to SquareNet representation>>
 print('\n'.join(result))
@@ -277,7 +277,7 @@ Beyond those two cases we just resolved lurks a third one, the corners.
 Even though they technically belong to the borders, the rotation mecanism would still make them shared between quarters because there would be two corners per quarter while there is the same number of corners and quarters (4).
 To solve this last issue, we'll just say that the bottom right corner belongs to quarter 0 and as always, this rule applies by rotation to the other quarters.
 
-Here is the updated example from the previous session reflecting the changes we just made, with =v= characters representing a redundant point[fn::The canonical counterparts of those points are still represented with an =x=.]:
+Here is the updated example from the previous section reflecting the changes we just made, with =v= characters representing a redundant point[fn::The canonical counterparts of those points are still represented with an =x=.]:
 #+begin_src python :exports results
 display_redundant=True
 <<Octasierp redundancy example>>
@@ -324,6 +324,7 @@ x-x-x-x-X-x-x-x-x
 At first I tried to find other representations but found no other fitting my needs.
 Then I thought about at least trying to make the arms point the other way but this contradicted the intuitive representation I had in mind so I finally decided to not let a hideous historical artifact affect a technical decision.
 If you are offended by this decision I'm sorry about it.
+
 
 * Memory representation
 
@@ -447,6 +448,7 @@ bindeg(8,3) = 0
 
 The binary degree function will be fundamental to point indexation in an octasierp and can probably be optimised using =<strings.h>='s =ffs= (find first set).
 
+
 * Diagrams generation
 
 The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
@@ -457,7 +459,7 @@ pip install --user gizeh moviepy
 #+end_src
 
 
-Images are saved in the =images= folder and the scripts are supposed to be executed from the root of the project like so:
+Images are saved in the =images= folder and the scripts are supposed to be executed (that is to say after they have been tangled) from the root of the project like so:
 #+begin_src bash
 ./script/your-favorite-script.sh
 #+end_src
@@ -875,6 +877,7 @@ clip.write_videofile('images/net_to_square_degree{}.mp4'.format(degree), fps=fps
 #+name: Octahedron as quasi square
 [[file:images/octahedron_net_as_square.png]]
 
+
 * Textual representation
 :PROPERTIES:
 :CUSTOM_ID: textual_quarter
@@ -955,7 +958,7 @@ if self.redundant is not False\
 ** Generate a raw representation
 
 This method is the core of the text representation logic.
-Its role is to create a string where every character except =\\n= maps to the real corresponding point.
+Its role is to create a string where every character except =\n= maps to the real corresponding point.
 It should not be called by an end user, as it still needs to be prettyfied and it has its own =appearance= argument which restricts the representation to one specific degree of appearance.
 The assembly steps required will be the subject of the next sections.
 
@@ -1409,6 +1412,7 @@ print(SquareNet(2, [0, 2], show_axis=True))
 Note that this representation will break if we ever try to include gradations greater than 9, because it assumes that gradations are single-digit numbers.
 The last degree for which a correct axis can be made is therefore degree 3 with its gradations going from -8 to 8.
 It would be possible to make it work with higher degrees but degree 3 covers my needs regarding this feature.
+
 
 * References
  - https://en.wikipedia.org/wiki/Find_first_set#CTZ
