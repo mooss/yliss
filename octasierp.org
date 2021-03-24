@@ -2,7 +2,7 @@
 #+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export :eval never
 #+property: header-args:bash :eval never
 #+property: header-args:cpp :eval never :main no :noweb no-export
-#+property: header-args:python :noweb no-export :results output :wrap "src text"
+#+property: header-args:python :noweb no-export :results output :wrap "src text :minipage"
 
 * Prelude
 ** About mathematical rigour
@@ -103,7 +103,7 @@ print('           degree = 2           ' + between + '            degree = 3')
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 x---------------x---------------x                         x-------x-------x-------x-------x
 |               |               |                         |               |               |
 |               |               |                         |               |               |
@@ -223,7 +223,7 @@ display_redundant='x'
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
    ^
 +4 |  x-A-x-x-x-x-x-B-x
 +3 |  x x x x x x x x x
@@ -284,7 +284,7 @@ display_redundant=True
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
    ^
 +4 |  v-A-v-v-x-x-x-B-x
 +3 |  x x x x x x x x v
@@ -309,7 +309,7 @@ print(SquareNet(2, '*'))
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 +-------x-x-x-x-x
 x x x x x x x x |
 x x x x x x x x |
@@ -434,7 +434,7 @@ int main(){
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 bindeg(0,3) = 0
 bindeg(1,3) = 3
 bindeg(2,3) = 2
@@ -1164,7 +1164,7 @@ print('\n'.join(Quarter(2).raw(2)))
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 +x-x+
 |xxx|
 |x x|
@@ -1196,7 +1196,7 @@ print('\n'.join(horizontal_compensation(Quarter(2).raw(2))))
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 +-x---x-+
 | x x x |
 | x   x |
@@ -1216,7 +1216,7 @@ for degree in range(2, 5):
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 +-x---x-+
 | x x x |
 | x   x |
@@ -1335,7 +1335,7 @@ print(SquareNet(2, 2, quarters={0, 1, 2, 3}, display_redundant=True))
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 +-v---v-+-x---x-+
 x x x x x x x x v
 | x   x | x   x |
@@ -1397,7 +1397,7 @@ print(SquareNet(2, [0, 2], show_axis=True))
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
    ^
 +4 |  +-------x-x---x-x
 +3 |  x x x x x x x x |
