@@ -581,13 +581,15 @@ This function is not defined when $degree = 0$ so this needs to be addressed as 
 After playing a bit with the $minFactor$ value, it looks like .25 is a good value.
 
 #+begin_src jupyter-python
-def decrease_size_linearly(degree, min_factor=.25):
+def decrease_size_linearly(degree, min_factor=.25, scale=1):
     def result(current):
         if degree == 0:
             return 1
-        return current * (min_factor - 1) / degree + 1
+        return (current * (min_factor - 1) / degree + 1) * scale
     return result
 #+end_src
+
+I added a =scale= parameter to easily be able to make things bigger while keeping the linear relationship between degrees.
 
 ** Triangle
 :PROPERTIES:
@@ -728,7 +730,7 @@ Everything that does not depend on =progress= is computed in =__init__=:
 #+name: Octanet/__init__
 #+begin_src jupyter-python
 def __init__(
-        self, scale, degree=0, points=None, lines=None
+        self, scale, degree=0, points=None, lines=None, surface_parameters={}
 ):
     self.degree = degree
     self.side = int(50 * scale) # Bugs may arise at very low scale.
@@ -752,6 +754,7 @@ def __init__(
         'height': height + 2 * vertical_margin,
         'bg_color': (1, 1, 1)
     }
+    self.surface_parameters.update(surface_parameters)
 
     triangle = Triangle(degree, stroke_width, points=points, lines=lines)
     self.triangles = triangle.generate
@@ -838,31 +841,65 @@ make_montage
 :results:
 :end:
 
-** Animate octahedron net to quasi grid
+** Logo creation
 
-#+begin_src jupyter-python :tangle script/animations.py :results silent :eval no-export
+Yliss's logo is an octasierp net at degree 3 with big colorful points and no lines.
+To achieve the big points, =decrease_size_linearly= is scaled 3 times and is slightly abused by initialising it with a degree of 4.
+This makes the linear size decrease slightly less prononced.
+
+#+name: Yliss logo definition
+#+begin_src python :tangle script/animations.py :results silent :eval no
 <<Octanet>>
 
 degree = 3
-animation = Octanet(
-    scale=10, degree=degree,
-    lines=Geometry(degree, color_palette=[colors.black, colors.canard, colors.purple, colors.orange])
+no_display = Geometry(0, color_palette=[colors.air])
+light=[colors.canard, colors.purple, colors.orange, colors.evergrey]
+points_geometry = Geometry(
+    degree,
+    color_palette=light,
+    size_policy=decrease_size_linearly(degree=4, scale=3)
 )
-animation.make_surface().write_to_png('images/octahedron_net.png')
-animation.make_surface(1).write_to_png('images/octahedron_net_as_square.png')
+yliss_logo = Octanet(
+    scale=15, degree=degree,
+    lines=no_display,
+    points=points_geometry,
+    surface_parameters={'bg_color': colors.black}
+)
+#+end_src
+
+The definition above is reused to generate the proper logo, in its octahedral shape but also its quasi-squaregrid equivalent:
+#+begin_src python :results silent
+<<Yliss logo definition>>
+yliss_logo.make_surface().write_to_png('images/octahedron_net.png')
+yliss_logo.make_surface(1).write_to_png('images/octahedron_net_as_square.png')
+#+end_src
+
+#+name: Octahedron net
+[[file:images/octahedron_net.png]]
+
+#+name: Octahedron as quasi square
+[[file:images/octahedron_net_as_square.png]]
+
+Finally, using the same definition, an animation from octahedron to quasi-squarenet is stitched together:
+
+#+begin_src python :results silent
+<<Yliss logo definition>>
 
 animation_duration = 1.5
 freeze_duration = .5
 total_duration = animation_duration + freeze_duration
 fps = 30
 def generate_frame(time):
-    return animation.make_surface(time / animation_duration).get_npimage()
+    return yliss_logo.make_surface(time / animation_duration).get_npimage()
 
 from multiprocessing import Pool
 pool = Pool()
 
 import numpy as np
-frames = list(pool.map(generate_frame, np.linspace(0, animation_duration, int(fps * animation_duration))))
+frames = list(pool.map(
+    generate_frame,
+    np.linspace(0, animation_duration, int(fps * animation_duration))
+))
 pool.close()
 pool.join()
 
@@ -876,12 +913,6 @@ from moviepy.editor import VideoClip
 clip = VideoClip(next_frame, duration=total_duration)
 clip.write_videofile('images/net_to_square_degree{}.mp4'.format(degree), fps=fps)
 #+end_src
-
-#+name: Octahedron net
-[[file:images/octahedron_net.png]]
-
-#+name: Octahedron as quasi square
-[[file:images/octahedron_net_as_square.png]]
 
 
 * Textual representation
