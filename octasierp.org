@@ -526,7 +526,7 @@ palette_psyche = [
 ]
 #+end_src
 
-** Geometric primitives
+** Basic =Geometry=
 :PROPERTIES:
 :header-args:jupyter-python+: :noweb-ref "Geometric primitives"
 :END:
@@ -537,8 +537,8 @@ For the moment, geometric primitives only have two caracteristics at a given deg
  - their size as a factor by which to multiply a reference size.
 
 Thus, =Geometry= is initialised with:
- - a color palette (a list of colors), and
- - a size policy (a function $f : \mathbb{N} \rightarrow \mathbb{R}^+$).
+ - A color palette (a list of colors).
+ - A size policy (a function  $f : \mathbb{N} \rightarrow \mathbb{R}^+$ associating a subdivision degree to a desired size).
 
 The geometry parameters for degree $d$ can then simply be obtained with square brackets indexing (like =geometry[d]=), thanks to the method =__getitem__=.
 
@@ -576,9 +576,9 @@ Since we want to decrease the size linearly, we also know that $factor_{current}
 \end{equation*}
 
 We finally obtain the function $factor_{current} = \frac{minFactor - 1}{degree} \times current + 1$.
-This function is not defined when $degree = 0$ so this need to be addressed as a special case.
+This function is not defined when $degree = 0$ so this needs to be addressed as a special case.
 
-After playing a bit with $minFactor$ value, it looks like .25 is a good value.
+After playing a bit with the $minFactor$ value, it looks like .25 is a good value.
 
 #+begin_src jupyter-python
 def decrease_size_linearly(degree, min_factor=.25):
@@ -601,7 +601,7 @@ A =Triangle= represents one of the triangles of an octasierp net, its properties
 | -- =points=:        | =Geometry= object describing how points are to be drawn |
 | -- =lines=:         | =Geometry= object describing how lines are to be drawn  |
 
-A =Triangle= has no coordinate of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle, whereas =geometry= does the recursive calculations regarding all the points and lines of the final figure.
+A =Triangle= has no coordinates of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle, whereas =geometry= does the recursive calculations regarding all the points and lines of the final figure.
 
 #+begin_src jupyter-python :noweb-ref "Triangle"
 import gizeh as gz
@@ -634,6 +634,7 @@ class Triangle(object):
 :PROPERTIES:
 :header-args:jupyter-python+: :noweb-ref "Initiate triangle geometry"
 :END:
+
 We use the =Geometry= object instanciated in the constructor to get the color and deduce the line width at the current degree, making sure that it is at least 1.
 
 #+begin_src jupyter-python
@@ -675,7 +676,7 @@ if current == self.degree:
 #+end_src
 
 Otherwise, we make recursive calls to =geometry=, using the midpoints of the three original points.
-The order of the points and of the lines is important because the graphical elements are drawn in the order of their apparition and we want to make sure that the earliest subdivisions are written over the subsequent ones.
+The order of the points and of the lines is important because the graphical elements are drawn in the order of their apparition and we want to make sure that the earliest subdivisions are drawn over the subsequent ones.
 #+begin_src jupyter-python
 ab = midpoint(a, b)
 ac = midpoint(a, c)
@@ -706,59 +707,25 @@ def midpoint(left, right):
 import math
 
 class Octanet(object):
-    <<Computations independant of progress>>
-
-    <<Net construction according to progress>>
-
     def make_surface(self, progress=0):
         surface = gz.Surface(**self.surface_parameters)
         self.make_net(progress).draw(surface)
         return surface
+
+    <<Octanet/__init__>>
+
+    <<Octanet/make_net>>
 #+end_src
 
-*** Net construction according to progress
-
-=Octanet='s evolution is tracked through the =progress= parameter of =make_net=:
- - when $progress = 0$, it's octahedron net shaped,
- - when $progress = 1$ it's quasi-squaregrid shaped, and
- - when $0 < progress < 1$ the shape is deduced by interpolating the value of the central angle.
-A triangle is then generated at the desired degree of subdivision and rotated to form the first quarter of the figure.
-Finally this quarter is cloned and rotated three times to form the complete figure.
-
-#+name: Net construction according to progress
-#+begin_src jupyter-python
-def make_net(self, progress):
-    vertical_correction = progress * self.side / 2
-    angle = math.pi / 3 + progress * (math.pi / 6)
-
-    y_a = self.y_a - vertical_correction
-    y_b = self.y_b - vertical_correction
-    a = (self.x_ab, y_a)
-    b = (self.x_ab, y_b)
-
-    cosa = math.cos(angle)
-    sina = math.sin(angle)
-
-    x_c = -sina * (y_b - y_a) + self.x_ab
-    y_c = cosa * (y_b - y_a) + y_a
-    c = (x_c, y_c)
-
-    t1 = self.triangles(a, b, c)
-    twin_point = ((self.x_ab + x_c) / 2, (y_b + y_c) / 2)
-    t2 = t1.rotate(math.pi, twin_point)
-
-    first_quarter = gz.Group([t1, t2])
-    second_quarter = first_quarter.rotate(-angle, a)
-    third_quarter = first_quarter.rotate(-2 * angle, a)
-    fourth_quarter = first_quarter.rotate(angle, a)
-
-    return gz.Group([first_quarter, second_quarter, third_quarter, fourth_quarter])
-#+end_src
+The evolution of an =Octanet= from an octahedron to a quasi-squaregrid is tracked through the =progress= parameter of =make_surface=:
+ - When $progress = 0$, it is octahedron net shaped.
+ - When $progress = 1$, it is quasi-squaregrid shaped.
+ - When $0 < progress < 1$, its shape is deduced by interpolating the value of the central angle.
 
 *** Computations independant of progress
 
 Everything that does not depend on =progress= is computed in =__init__=:
-#+name: Computations independant of progress
+#+name: Octanet/__init__
 #+begin_src jupyter-python
 def __init__(
         self, scale, degree=0, points=None, lines=None
@@ -788,6 +755,41 @@ def __init__(
 
     triangle = Triangle(degree, stroke_width, points=points, lines=lines)
     self.triangles = triangle.generate
+#+end_src
+
+*** Net construction according to progress
+
+=make_net= uses basic trigonometry to compute the coordinate of the first quarter at the desired =progress= value.
+This quarter is then cloned and rotated three times to form the complete figure.
+
+#+name: Octanet/make_net
+#+begin_src jupyter-python
+def make_net(self, progress):
+    vertical_correction = progress * self.side / 2
+    angle = math.pi / 3 + progress * (math.pi / 6)
+
+    y_a = self.y_a - vertical_correction
+    y_b = self.y_b - vertical_correction
+    a = (self.x_ab, y_a)
+    b = (self.x_ab, y_b)
+
+    cosa = math.cos(angle)
+    sina = math.sin(angle)
+
+    x_c = -sina * (y_b - y_a) + self.x_ab
+    y_c = cosa * (y_b - y_a) + y_a
+    c = (x_c, y_c)
+
+    t1 = self.triangles(a, b, c)
+    twin_point = ((self.x_ab + x_c) / 2, (y_b + y_c) / 2)
+    t2 = t1.rotate(math.pi, twin_point)
+
+    first_quarter = gz.Group([t1, t2])
+    second_quarter = first_quarter.rotate(-angle, a)
+    third_quarter = first_quarter.rotate(-2 * angle, a)
+    fourth_quarter = first_quarter.rotate(angle, a)
+
+    return gz.Group([first_quarter, second_quarter, third_quarter, fourth_quarter])
 #+end_src
 
 ** Illustration: degrees 0 through 3
