@@ -607,13 +607,13 @@ A =Triangle= has no coordinates of its own because the coordinates of its consti
 In =__init__=, a value of =0= is used to represent the default geometry which is a color palette of black and a size policy of linear decrease.
 =None= is not used because it means to not draw anything.
 
-#+begin_src jupyter-python :noweb-ref "Triangle"
+#+begin_src python :noweb-ref "Triangle"
 import gizeh as gz
 
 <<Geometric primitives>>
 
 class Triangle(object):
-    def __init__(self, degree, initial_width, points_geometry=0, lines_geometry=0):
+    def __init__(self, degree, initial_width, points_geometry=0, lines_geometry=0, background_color=None):
         self.degree = degree
         self.initial_width = initial_width
         if points_geometry == 0:
@@ -624,9 +624,12 @@ class Triangle(object):
             self.lines_geometry = Geometry(degree)
         else:
             self.lines_geometry = lines_geometry
+        self.background_color = background_color
 
     def generate(self, a, b, c):
         points, lines = self.geometry(a, b, c)
+        if self.background_color is not None:
+            lines.insert(0, self.make_background(a, b, c))
         return gz.Group(lines + points)
 
     def geometry(self, a, b, c, current=0):
@@ -637,7 +640,7 @@ class Triangle(object):
     <<Triangle/>>
 #+end_src
 
-*** Lines and points generation
+*** Lines, points and background generation
 
 The lines characteristics at a given level are deduced from the dedicated geometry object:
 #+begin_src python :noweb-ref Triangle/
@@ -647,7 +650,8 @@ def make_lines(self, a, b, c, current):
     color, factor = self.lines_geometry[current]
     width = max(1, self.initial_width * factor)
     return [gz.polyline(
-        [a, b, c, a],
+        [a, b, c],
+        close_path=True,
         stroke_width=width,
         stroke=color
     )]
@@ -656,7 +660,7 @@ def make_lines(self, a, b, c, current):
 A similar approach is done for points, with two differences:
  1. They are scaled a bit ($\times 1.2$) because they are used to hide the corners of lines.
  2. They are generated via translation.
-#+begin_src jupyter-python :noweb-ref Triangle/
+#+begin_src python :noweb-ref Triangle/
 def make_points(self, a, b, c, current):
     if self.points_geometry is None:
         return []
@@ -665,6 +669,18 @@ def make_points(self, a, b, c, current):
     point = gz.circle(r=width, fill=color)
     return list(map(point.translate, (a, b, c)))
 #+end_src
+
+Background generation is similar to lines generation, except that the lines are drawn and the fill color is set to =background_color=.
+#+begin_src python :noweb-ref Triangle/
+def make_background(self, a, b, c):
+    return gz.polyline(
+        [a, b, c],
+        close_path=True,
+        stroke_width=0,
+        fill=self.background_color
+    )
+#+end_src
+
 
 *** Subdivise triangle
 :PROPERTIES:
@@ -731,7 +747,8 @@ Everything that does not depend on =progress= is computed in =__init__=:
 #+name: Octanet/__init__
 #+begin_src jupyter-python
 def __init__(
-        self, scale, degree=0, points_geometry=0, lines_geometry=0, surface_parameters={}
+        self, scale, degree=0, points_geometry=0, lines_geometry=0,
+        triangle_background=None, surface_parameters={}
 ):
     self.degree = degree
     self.side = int(50 * scale) # Bugs may arise at very low scale.
@@ -757,7 +774,11 @@ def __init__(
     }
     self.surface_parameters.update(surface_parameters)
 
-    triangle = Triangle(degree, stroke_width, points_geometry=points_geometry, lines_geometry=lines_geometry)
+    triangle = Triangle(
+        degree, stroke_width,
+        points_geometry=points_geometry, lines_geometry=lines_geometry,
+        background_color=triangle_background
+    )
     self.triangles = triangle.generate
 #+end_src
 
@@ -863,7 +884,8 @@ yliss_logo = Octanet(
     scale=15, degree=degree,
     lines_geometry=None,
     points_geometry=colorful_oversized,
-    surface_parameters={'bg_color': colors.black}
+    triangle_background=colors.black,
+    surface_parameters={'bg_color': colors.air}
 )
 #+end_src
 
