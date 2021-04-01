@@ -1,8 +1,7 @@
 #+title: Octasierp: a solid foundation
-#+property: header-args:jupyter-python :session sierp :results silent :tangle no :noweb no-export :eval never
 #+property: header-args:bash :eval never
 #+property: header-args:cpp :eval never :main no :noweb no-export
-#+property: header-args:python :noweb no-export :results output :wrap "src text :minipage"
+#+property: header-args:python :noweb no-export :results output :wrap "src text :minipage" :eval never
 
 * Prelude
 ** About mathematical rigour
@@ -84,7 +83,7 @@ This representation is strongly reminiscent of the Peirce quincuncial projection
 
 The figure [[montage_squa_degree_0-3]] provides a nice means of visualisation, but since it's an image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of the implementation.
 See below the textual equivalent of figure [[montage_squa_degree_0-3]] [fn::=x= are points, =-= are horizontal lines, =|= are vertical lines and =+= are corners. The representations have been scaled to all appear at the same size, that is normally not the case.]:
-#+begin_src python :exports results
+#+begin_src python :exports results :eval no-export
 <<Textual squarified net>>
 between = ' ' * 25
 def construct(degree):
@@ -203,7 +202,7 @@ Thus we deduce that $\vert points_{d+1} \vert = 2 \times 2^d + 1 \Leftrightarrow
 A peculiar caracteristic of the squarified-net-inspired coordinate system is that there is a redundancy at the edges, where the four corners act as a center of symmetry.
 For example, at degree 2 the points $A = (-3, 4)$ and $B = (3, 4)$ are the same, as well as the points $C = (4, 2)$ and $D = (4, -2)$:
 #+name: Octasierp redundancy example
-#+begin_src python :eval never :exports none
+#+begin_src python :exports none
 <<Textual squarified net>>
 result = SquareNet(2, [0, 1, 2], display_redundant=display_redundant).repr()
 first = result[0]
@@ -217,7 +216,7 @@ top = [0] * 5
 print('\n'.join(result))
 #+end_src
 
-#+begin_src python :exports results
+#+begin_src python :exports results :eval no-export
 display_redundant='x'
 <<Octasierp redundancy example>>
 #+end_src
@@ -278,7 +277,7 @@ Even though they technically belong to the borders, the rotation mecanism would 
 To solve this last issue, we'll just say that the bottom right corner belongs to quarter 0 and as always, this rule applies by rotation to the other quarters.
 
 Here is the updated example from the previous section reflecting the changes we just made, with =v= characters representing a redundant point[fn::The canonical counterparts of those points are still represented with an =x=.]:
-#+begin_src python :exports results
+#+begin_src python :exports results :eval no-export
 display_redundant=True
 <<Octasierp redundancy example>>
 #+end_src
@@ -303,7 +302,7 @@ display_redundant=True
 *** About the resemblance
 
 I must address the fact that the representation without redundant points bears an unfortunate resemblance with a swastika:
-#+begin_src python :exports results
+#+begin_src python :exports results :eval no-export
 <<Textual squarified net>>
 print(SquareNet(2, '*'))
 #+end_src
@@ -466,13 +465,13 @@ Images are saved in the =images= folder and the scripts are supposed to be execu
 
 ** Colors
 :PROPERTIES:
-:header-args:jupyter-python+: :noweb-ref "Colors"
+:header-args:python+: :noweb-ref "Colors"
 :END:
 
 I use a =SimpleNamespace= to store some colors that I want to use (the names are probably innacurate).
 The obvious alternative would be to use a =class= but that would be tedious to initialize, or a =dict= but I want to be able to access members through the dot operator.
 
-#+begin_src jupyter-python
+#+begin_src python
 from types import SimpleNamespace
 colors = SimpleNamespace(
     canard=(0, .6, .6),
@@ -494,7 +493,7 @@ colors = SimpleNamespace(
 
 Here are some color palettes:
 
-#+begin_src jupyter-python
+#+begin_src python
 palette_colorful = [
     (colors.canard, colors.turquoise),
     (colors.purple, colors.violet),
@@ -528,7 +527,7 @@ palette_psyche = [
 
 ** Basic =Geometry=
 :PROPERTIES:
-:header-args:jupyter-python+: :noweb-ref "Geometric primitives"
+:header-args:python+: :noweb-ref "Geometric primitives"
 :END:
 
 The class =Geometry= is here to provide an abstraction about the way a subdivided object is to be drawn.
@@ -542,7 +541,7 @@ Thus, =Geometry= is initialised with:
 
 The geometry parameters for degree $d$ can then simply be obtained with square brackets indexing (like =geometry[d]=), thanks to the method =__getitem__=.
 
-#+begin_src jupyter-python
+#+begin_src python
 class Geometry(object):
     def __init__(self,
                  degree,
@@ -580,7 +579,7 @@ This function is not defined when $degree = 0$ so this needs to be addressed as 
 
 After playing a bit with the $minFactor$ value, it looks like .25 is a good value.
 
-#+begin_src jupyter-python
+#+begin_src python
 def decrease_size_linearly(degree, min_factor=.25, scale=1):
     def result(current):
         if degree == 0:
@@ -593,7 +592,7 @@ I added a =scale= parameter to easily be able to make things bigger while keepin
 
 ** Triangle
 :PROPERTIES:
-:header-args:jupyter-python+: :eval never
+:header-args:python+: :eval never
 :END:
 
 A =Triangle= represents one of the triangles of an octasierp net, its properties are:
@@ -684,19 +683,19 @@ def make_background(self, a, b, c):
 
 *** Subdivise triangle
 :PROPERTIES:
-:header-args:jupyter-python+: :noweb-ref "Subdivise triangle"
+:header-args:python+: :noweb-ref "Subdivise triangle"
 :END:
 
 Now that the geometric elements have been dealt with, only the recursive calls - or lack thereof - remains.
 The generation is over when the maximal degree has been reached:
-#+begin_src jupyter-python
+#+begin_src python
 if current == self.degree:
     return points, lines
 #+end_src
 
 Otherwise, we make recursive calls to =geometry=, using the midpoints of the three original points.
 The order of the points and of the lines is important because the graphical elements are drawn in the order of their apparition and we want to make sure that the earliest subdivisions are drawn over the subsequent ones.
-#+begin_src jupyter-python
+#+begin_src python
 ab = midpoint(a, b)
 ac = midpoint(a, c)
 bc = midpoint(b, c)
@@ -708,7 +707,7 @@ return points, lines
 #+end_src
 
 With =midpoint= being defined as:
-#+begin_src jupyter-python :noweb-ref "Triangle"
+#+begin_src python :noweb-ref "Triangle"
 def midpoint(left, right):
     return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
 #+end_src
@@ -719,7 +718,7 @@ def midpoint(left, right):
 =make_surface= is the interface for the external world to generate the gizeh surface containing the desired octanet.
 
 #+name: Octanet
-#+begin_src jupyter-python
+#+begin_src python
 <<Triangle>>
 <<Colors>>
 
@@ -745,7 +744,7 @@ The evolution of an =Octanet= from an octahedron to a quasi-squaregrid is tracke
 
 Everything that does not depend on =progress= is computed in =__init__=:
 #+name: Octanet/__init__
-#+begin_src jupyter-python
+#+begin_src python
 def __init__(
         self, scale, degree=0, points_geometry=0, lines_geometry=0,
         triangle_background=None, surface_parameters={}
@@ -788,7 +787,7 @@ def __init__(
 This quarter is then cloned and rotated three times to form the complete figure.
 
 #+name: Octanet/make_net
-#+begin_src jupyter-python
+#+begin_src python
 def make_net(self, progress):
     vertical_correction = progress * self.side / 2
     angle = math.pi / 3 + progress * (math.pi / 6)
@@ -820,7 +819,7 @@ def make_net(self, progress):
 ** Illustration: degrees 0 through 3
 
 We use the =Octanet= class defined above to create the 8 images corresponding to the degrees 0 through 3 of the octahedron and the quasi-square version:
-#+begin_src jupyter-python :tangle script/octasierp_net_0-3.py
+#+begin_src python :tangle script/octasierp_net_0-3.py :eval no-export
 <<Octanet>>
 
 for degree in range(4):
@@ -870,7 +869,7 @@ To achieve the big points, =decrease_size_linearly= is scaled 3 times and is sli
 This makes the linear size decrease slightly less prononced.
 
 #+name: Yliss logo definition
-#+begin_src python :tangle script/animations.py :results silent :eval no
+#+begin_src python :tangle script/animations.py
 <<Octanet>>
 
 degree = 3
@@ -890,7 +889,7 @@ yliss_logo = Octanet(
 #+end_src
 
 The definition above is reused to generate the proper logo, in its octahedral shape but also its quasi-squaregrid equivalent:
-#+begin_src python :results silent
+#+begin_src python :results silent :eval no-export
 <<Yliss logo definition>>
 yliss_logo.make_surface().write_to_png('images/octahedron_net.png')
 yliss_logo.make_surface(1).write_to_png('images/octahedron_net_as_square.png')
@@ -904,7 +903,7 @@ yliss_logo.make_surface(1).write_to_png('images/octahedron_net_as_square.png')
 
 Finally, using the same definition, an animation from octahedron to quasi-squarenet is stitched together:
 
-#+begin_src python :results silent
+#+begin_src python :results silent :eval no-export
 <<Yliss logo definition>>
 
 animation_duration = 1.5
