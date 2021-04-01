@@ -1226,7 +1226,7 @@ print('\n'.join(Quarter(2).raw(2)))
 ox-x+
 #+end_src
 
-Vertical compensation is the last step to produce the final representation so we are ready to return:
+Horizontal compensation is the last step to produce the final representation so we are ready to return:
 #+name: Apply horizontal compensation
 #+begin_src python
 return horizontal_compensation(assembly)
