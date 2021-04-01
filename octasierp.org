@@ -604,6 +604,8 @@ A =Triangle= represents one of the triangles of an octasierp net, its properties
 | -- =lines=:         | =Geometry= object describing how lines are to be drawn  |
 
 A =Triangle= has no coordinates of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle, whereas =geometry= does the recursive calculations regarding all the points and lines of the final figure.
+In =__init__=, a value of =0= is used to represent the default geometry which is a color palette of black and a size policy of linear decrease.
+=None= is not used because it means to not draw anything.
 
 #+begin_src jupyter-python :noweb-ref "Triangle"
 import gizeh as gz
@@ -611,14 +613,14 @@ import gizeh as gz
 <<Geometric primitives>>
 
 class Triangle(object):
-    def __init__(self, degree, initial_width, points_geometry=None, lines_geometry=None):
+    def __init__(self, degree, initial_width, points_geometry=0, lines_geometry=0):
         self.degree = degree
         self.initial_width = initial_width
-        if points_geometry is None:
+        if points_geometry == 0:
             self.points_geometry = Geometry(degree)
         else:
             self.points_geometry = points_geometry
-        if lines_geometry is None:
+        if lines_geometry == 0:
             self.lines_geometry = Geometry(degree)
         else:
             self.lines_geometry = lines_geometry
@@ -640,6 +642,8 @@ class Triangle(object):
 The lines characteristics at a given level are deduced from the dedicated geometry object:
 #+begin_src python :noweb-ref Triangle/
 def make_lines(self, a, b, c, current):
+    if self.lines_geometry is None:
+        return []
     color, factor = self.lines_geometry[current]
     width = max(1, self.initial_width * factor)
     return [gz.polyline(
@@ -654,6 +658,8 @@ A similar approach is done for points, with two differences:
  2. They are generated via translation.
 #+begin_src jupyter-python :noweb-ref Triangle/
 def make_points(self, a, b, c, current):
+    if self.points_geometry is None:
+        return []
     color, factor = self.points_geometry[current]
     width = max(1, self.initial_width * factor * 1.2)
     point = gz.circle(r=width, fill=color)
@@ -725,7 +731,7 @@ Everything that does not depend on =progress= is computed in =__init__=:
 #+name: Octanet/__init__
 #+begin_src jupyter-python
 def __init__(
-        self, scale, degree=0, points_geometry=None, lines_geometry=None, surface_parameters={}
+        self, scale, degree=0, points_geometry=0, lines_geometry=0, surface_parameters={}
 ):
     self.degree = degree
     self.side = int(50 * scale) # Bugs may arise at very low scale.
@@ -847,17 +853,16 @@ This makes the linear size decrease slightly less prononced.
 <<Octanet>>
 
 degree = 3
-no_display = Geometry(0, color_palette=[colors.air])
 light=[colors.canard, colors.purple, colors.orange, colors.evergrey]
-points_geometry = Geometry(
+colorful_oversized = Geometry(
     degree,
     color_palette=light,
     size_policy=decrease_size_linearly(degree=4, scale=3)
 )
 yliss_logo = Octanet(
     scale=15, degree=degree,
-    lines_geometry=no_display,
-    points_geometry=points_geometry,
+    lines_geometry=None,
+    points_geometry=colorful_oversized,
     surface_parameters={'bg_color': colors.black}
 )
 #+end_src
