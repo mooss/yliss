@@ -611,58 +611,53 @@ import gizeh as gz
 <<Geometric primitives>>
 
 class Triangle(object):
-    def __init__(self, degree, initial_width, points=None, lines=None):
+    def __init__(self, degree, initial_width, points_geometry=None, lines_geometry=None):
         self.degree = degree
         self.initial_width = initial_width
-        if points is None:
-            self.points = Geometry(degree)
+        if points_geometry is None:
+            self.points_geometry = Geometry(degree)
         else:
-            self.points = points
-        if lines is None:
-            self.lines = Geometry(degree)
+            self.points_geometry = points_geometry
+        if lines_geometry is None:
+            self.lines_geometry = Geometry(degree)
         else:
-            self.lines = lines
+            self.lines_geometry = lines_geometry
 
     def generate(self, a, b, c):
         points, lines = self.geometry(a, b, c)
         return gz.Group(lines + points)
 
     def geometry(self, a, b, c, current=0):
-        <<Initiate triangle geometry>>
+        lines = self.make_lines(a, b, c, current)
+        points = self.make_points(a, b, c, current)
         <<Subdivise triangle>>
+
+    <<Triangle/>>
 #+end_src
 
-*** Initiate triangle geometry
-:PROPERTIES:
-:header-args:jupyter-python+: :noweb-ref "Initiate triangle geometry"
-:END:
+*** Lines and points generation
 
-We use the =Geometry= object instanciated in the constructor to get the color and deduce the line width at the current degree, making sure that it is at least 1.
-
-#+begin_src jupyter-python
-color, factor = self.lines[current]
-width = max(1, self.initial_width * factor)
+The lines characteristics at a given level are deduced from the dedicated geometry object:
+#+begin_src python :noweb-ref Triangle/
+def make_lines(self, a, b, c, current):
+    color, factor = self.lines_geometry[current]
+    width = max(1, self.initial_width * factor)
+    return [gz.polyline(
+        [a, b, c, a],
+        stroke_width=width,
+        stroke=color
+    )]
 #+end_src
 
-The initial triangle is simply three lines joining the three points, kept in a list that will eventually hold the subsequent triangles.
-#+begin_src jupyter-python
-lines = [gz.polyline(
-    [a, b, c, a],
-    stroke_width=width,
-    stroke=color
-)]
-#+end_src
-
-The same idea is repeated to create an initial point, scaled a bit ($\times 1.2$) because their original use is to hide the corners of lines:
-#+begin_src jupyter-python
-color, factor = self.points[current]
-width = max(1, self.initial_width * factor * 1.2)
-point = gz.circle(r=width, fill=color)
-#+end_src
-
-This point was spawned at the default location of (0, 0), we use it to create the vertices of our triangle by translation:
-#+begin_src jupyter-python
-points = list(map(point.translate, (a, b, c)))
+A similar approach is done for points, with two differences:
+ 1. They are scaled a bit ($\times 1.2$) because they are used to hide the corners of lines.
+ 2. They are generated via translation.
+#+begin_src jupyter-python :noweb-ref Triangle/
+def make_points(self, a, b, c, current):
+    color, factor = self.points_geometry[current]
+    width = max(1, self.initial_width * factor * 1.2)
+    point = gz.circle(r=width, fill=color)
+    return list(map(point.translate, (a, b, c)))
 #+end_src
 
 *** Subdivise triangle
@@ -730,7 +725,7 @@ Everything that does not depend on =progress= is computed in =__init__=:
 #+name: Octanet/__init__
 #+begin_src jupyter-python
 def __init__(
-        self, scale, degree=0, points=None, lines=None, surface_parameters={}
+        self, scale, degree=0, points_geometry=None, lines_geometry=None, surface_parameters={}
 ):
     self.degree = degree
     self.side = int(50 * scale) # Bugs may arise at very low scale.
@@ -756,7 +751,7 @@ def __init__(
     }
     self.surface_parameters.update(surface_parameters)
 
-    triangle = Triangle(degree, stroke_width, points=points, lines=lines)
+    triangle = Triangle(degree, stroke_width, points_geometry=points_geometry, lines_geometry=lines_geometry)
     self.triangles = triangle.generate
 #+end_src
 
@@ -861,8 +856,8 @@ points_geometry = Geometry(
 )
 yliss_logo = Octanet(
     scale=15, degree=degree,
-    lines=no_display,
-    points=points_geometry,
+    lines_geometry=no_display,
+    points_geometry=points_geometry,
     surface_parameters={'bg_color': colors.black}
 )
 #+end_src
