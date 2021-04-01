@@ -5,12 +5,6 @@
 # :exports both does not work with pandoc when set at this level, it must be set manually in the code block header-args.
 #+property: header-args :eval never :main no :exports both :noweb no-export
 #+property: header-args:cpp+ :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
-* Various TODOs :noexport:
-** TODO Add an =#include:= (or something) notation to include.pl to make it possible to recursively include org mode files relatively to the file being processed.
-** TODO Syntax to declare that a block is purely destined to be used by org and not by include.pl
-#+litlib-ignore
-perhaps ?
-
 
 * Prelude :noexport:
 
