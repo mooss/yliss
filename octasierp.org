@@ -1,4 +1,5 @@
 #+title: Octasierp: a solid foundation
+#+author: mooss
 #+property: header-args:bash :eval never
 #+property: header-args:cpp :eval never :main no :noweb no-export
 #+property: header-args:python :noweb no-export :results output :wrap "src text :minipage" :eval never
@@ -450,7 +451,7 @@ The binary degree function will be fundamental to point indexation in an octasie
 
 * Diagrams generation
 
-The diagrams are generated in python, using =gizeh= for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
+The diagrams are generated in python, using Gizeh for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
 
 They can be installed via pip:
 #+begin_src bash :eval never
@@ -680,7 +681,6 @@ def make_background(self, a, b, c):
     )
 #+end_src
 
-
 *** Subdivise triangle
 :PROPERTIES:
 :header-args:python+: :noweb-ref "Subdivise triangle"
@@ -714,8 +714,14 @@ def midpoint(left, right):
 
 ** Octasierp net
 
-=Octanet= represent the net of an octasierp through its evolution to a quasi-squaregrid.
-=make_surface= is the interface for the external world to generate the gizeh surface containing the desired octanet.
+=Octanet= represent the net of an octasierp through its evolution from an octahedron to a quasi-squaregrid.
+This evolution will be tracked through a =progress= parameter:
+ - When $progress = 0$, it is octahedron net shaped.
+ - When $progress = 1$, it is quasi-squaregrid shaped.
+ - When $0 < progress < 1$, its shape is deduced by interpolating the value of the central angle.
+
+Below is the basic structure of this class and its dependencies.
+The sections below will fill the missing parts in =<<Before Octanet>>= and =<<Octanet/>>=.
 
 #+name: Octanet
 #+begin_src python
@@ -724,27 +730,17 @@ def midpoint(left, right):
 
 import math
 
+<<Before Octanet>>
+
 class Octanet(object):
-    def make_surface(self, progress=0):
-        surface = gz.Surface(**self.surface_parameters)
-        self.make_net(progress).draw(surface)
-        return surface
-
-    <<Octanet/__init__>>
-
-    <<Octanet/make_net>>
+    <<Octanet/>>
 #+end_src
 
-The evolution of an =Octanet= from an octahedron to a quasi-squaregrid is tracked through the =progress= parameter of =make_surface=:
- - When $progress = 0$, it is octahedron net shaped.
- - When $progress = 1$, it is quasi-squaregrid shaped.
- - When $0 < progress < 1$, its shape is deduced by interpolating the value of the central angle.
 
 *** Computations independant of progress
 
 Everything that does not depend on =progress= is computed in =__init__=:
-#+name: Octanet/__init__
-#+begin_src python
+#+begin_src python :noweb-ref Octanet/
 def __init__(
         self, scale, degree=0, points_geometry=0, lines_geometry=0,
         triangle_background=None, surface_parameters={}
@@ -786,8 +782,7 @@ def __init__(
 =make_net= uses basic trigonometry to compute the coordinate of the first quarter at the desired =progress= value.
 This quarter is then cloned and rotated three times to form the complete figure.
 
-#+name: Octanet/make_net
-#+begin_src python
+#+begin_src python :noweb-ref Octanet/
 def make_net(self, progress):
     vertical_correction = progress * self.side / 2
     angle = math.pi / 3 + progress * (math.pi / 6)
@@ -816,6 +811,51 @@ def make_net(self, progress):
     return gz.Group([first_quarter, second_quarter, third_quarter, fourth_quarter])
 #+end_src
 
+*** Surface creation and export
+
+=draw= creates a Gizeh surface, draws the =Octanet= on it and returns it.
+This Gizeh surface can be manipulated directly, or can be directly saved to a png.
+#+begin_src python :noweb-ref Octanet/
+def draw(self, progress=0):
+    surface = gz.Surface(**self.surface_parameters)
+    self.make_net(progress).draw(surface)
+    return surface
+
+def write_to_png(self, filename, progress=0):
+    self.draw(progress).write_to_png(filename)
+#+end_src
+
+Writing to svg requires a different surface, not given directly by Gizeh.
+#+begin_src python :noweb-ref Octanet/
+def write_to_svg(self, filename, progress=0):
+    surface = SVGSurface(filename, **self.surface_parameters)
+    self.make_net(progress).draw(surface)
+    surface.finish()
+#+end_src
+
+Below is defined the surface in question.
+This is almost copy-pasted from Gizeh's own =PDFSurface=.
+#+begin_src python :noweb-ref "Before Octanet"
+import cairocffi as cairo
+class SVGSurface(object):
+    def __init__(self, filename, width, height, bg_color=None):
+        self.width = width
+        self.height = height
+        self._cairo_surface = cairo.SVGSurface(filename, width, height)
+        if bg_color is not None:
+            gz.rectangle(2 * width, 2 * height, fill=bg_color).draw(self)
+
+    def get_new_context(self):
+        return cairo.Context(self._cairo_surface)
+
+    def flush(self):
+        self._cairo_surface.flush()
+
+    def finish(self):
+        self._cairo_surface.finish()
+#+end_src
+
+
 ** Illustration: degrees 0 through 3
 
 We use the =Octanet= class defined above to create the 8 images corresponding to the degrees 0 through 3 of the octahedron and the quasi-square version:
@@ -824,12 +864,12 @@ We use the =Octanet= class defined above to create the 8 images corresponding to
 
 for degree in range(4):
     net = Octanet(scale=10, degree=degree)
-    net.make_surface(0).write_to_png('net_octa_degree_{}.png'.format(degree))
-    net.make_surface(1).write_to_png('net_squa_degree_{}.png'.format(degree))
+    net.write_to_png('net_octa_degree_{}.png'.format(degree), 0)
+    net.write_to_png('net_squa_degree_{}.png'.format(degree), 1)
 #+end_src
 
 The code above is then called by a bash script who annotates and stitches the images together with imagemagick's =mogrify= and =montage=:
-#+begin_src bash :tangle script/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash" :eval no-export
+#+begin_src bash :tangle script/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash" :eval no-export :results silent
 python3 script/octasierp_net_0-3.py
 
 function make_montage(){
@@ -858,10 +898,6 @@ vertical=1250
 make_montage
 #+end_src
 
-#+RESULTS:
-:results:
-:end:
-
 ** Logo creation
 
 Yliss's logo is an octasierp net at degree 3 with big colorful points and no lines.
@@ -880,7 +916,7 @@ colorful_oversized = Geometry(
     size_policy=decrease_size_linearly(degree=4, scale=3)
 )
 yliss_logo = Octanet(
-    scale=15, degree=degree,
+    scale=10, degree=degree,
     lines_geometry=None,
     points_geometry=colorful_oversized,
     triangle_background=colors.black,
@@ -888,20 +924,36 @@ yliss_logo = Octanet(
 )
 #+end_src
 
-The definition above is reused to generate the proper logo, in its octahedral shape but also its quasi-squaregrid equivalent:
+The definition above is reused to generate the proper logo, in its octahedral shape but also its quasi-squaregrid equivalent.
 #+begin_src python :results silent :eval no-export
 <<Yliss logo definition>>
-yliss_logo.make_surface().write_to_png('images/octahedron_net.png')
-yliss_logo.make_surface(1).write_to_png('images/octahedron_net_as_square.png')
+yliss_logo.write_to_svg('images/octahedron_logo.svg', 0)
+yliss_logo.write_to_svg('images/square_logo.svg', 1)
+yliss_logo.write_to_png('images/octahedron_logo.png', 0)
+yliss_logo.write_to_png('images/square_logo.png', 1)
 #+end_src
 
-#+name: Octahedron net
-[[file:images/octahedron_net.png]]
+#+caption: Octahedron net
+[[file:images/octahedron_logo.png]]
 
-#+name: Octahedron as quasi square
-[[file:images/octahedron_net_as_square.png]]
+#+caption: Octahedron as quasi square
+[[file:images/square_logo.png]]
 
-Finally, using the same definition, an animation from octahedron to quasi-squarenet is stitched together:
+The logos are generated in svg and png.
+I originally planned to use the svg version since it is scalable but I went against it because I felt it was too big:
+#+begin_src bash :exports both :eval yes :wrap "src text"
+du -sh images/{octahedron,square}_logo.{svg,png} | sort -rh
+#+end_src
+
+#+RESULTS:
+#+begin_src text
+776K	images/octahedron_logo.svg
+640K	images/square_logo.svg
+200K	images/octahedron_logo.png
+100K	images/square_logo.png
+#+end_src
+
+Finally, using the same logo definition, an animation from octahedron to quasi-squarenet is stitched together:
 
 #+begin_src python :results silent :eval no-export
 <<Yliss logo definition>>
@@ -911,7 +963,7 @@ freeze_duration = .5
 total_duration = animation_duration + freeze_duration
 fps = 30
 def generate_frame(time):
-    return yliss_logo.make_surface(time / animation_duration).get_npimage()
+    return yliss_logo.draw(time / animation_duration).get_npimage()
 
 from multiprocessing import Pool
 pool = Pool()
