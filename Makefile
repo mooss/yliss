@@ -34,5 +34,10 @@ LitLib: litlib
 #####################
 # Various utilities #
 #####################
+.PHONY: clean purge
+
 clean:
-	rm -fr include/{miniz.{c,h},glm} *.pdf litlib
+	rm -fr include/{miniz.{c,h},glm} *.pdf
+
+purge: clean
+	rm -fr litlib include/stb
