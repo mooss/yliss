@@ -1,4 +1,9 @@
-* yliss
+* Yliss
+
+This is supposed to become one day a procedural planet generator.
+For now, this is mostly a literate programing OpenGL sandbox (see [[file:geometric_primitives.org]], [[file:window.org]]) and a pretty logo generator (see [[file:octasierp.org]] and the picture below).
+
+[[file:images/octahedron_logo.png]]
 
 ** Files included from other projects
 
@@ -8,15 +13,16 @@ The projects from which files were borrowed are the following:
 
 ** Documents generation
 
-Currently, pdfs can be generated with =make pdf=, although some resources are missing because they are supposed to be generated with code that can't currently be tangled, as explained in the next section.
+Currently, pdfs can be generated with =make pdf=.
 
-These resources can be generated within emacs.
-
-Beyond that, proper document generation would require some work, either in the form of pandoc filters or of a custom pre-processing step.
-Notable missing elements are:
+While those pdfs read ok, document generation is missing some features.
+Some work is still needed either in the form of pandoc filters or of custom pre-processing steps.
+Notable missing features are:
  - Display code block names.
  - Display code blocks dependencies.
  - Optionally comment noweb inclusions.
+
+Here are features that have been implemented:
  - Export some code blocks within minipages.
 
 ** TODO Tangler
@@ -24,6 +30,8 @@ Notable missing elements are:
 A tangler is a program that can extract source code blocks from a literate document and gather (tangle) them into their destination file.
 
 This project needs one, ideally one that is written in C/C++ without external dependencies and one that supports =noweb-ref= so that rules out Worgle at least.
+
+Currently lithel's =include.pl= has been adapted to perform some tangling duties but this whole script is an ugly hack that will come back to haunt me.
 
 ** Sources
 
