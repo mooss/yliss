@@ -480,7 +480,7 @@ void main() {
 }
 #+end_src
 
-#+name: basic_fs
+#+name: red_fs
 #+begin_src glsl
 #version 330 core
 out vec4 color;
@@ -500,7 +500,7 @@ int main(){
         <<shader("basic_vs")>>
         ;
     const char *fs_str =
-        <<shader("basic_fs")>>
+        <<shader("red_fs")>>
         ;
 
     lazy_window lazy("Triangle", 640u, 480u);
@@ -538,7 +538,7 @@ int main(){
         <<shader("basic_vs")>>
         ;
     const char *fs_str =
-        <<shader("basic_fs")>>
+        <<shader("red_fs")>>
         ;
 
     lazy_window lazy("Rectangle", 640u, 480u);
