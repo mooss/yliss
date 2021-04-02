@@ -704,3 +704,64 @@ int main(){
 :results:
 [[file:images/screencaps/color_as_attribute.png]]
 :end:
+
+
+* GLM utils
+
+** Printing
+
+The operator overload below can be used to print a glm matrix:
+#+name: <<glm/mat
+#+begin_src cpp
+template<glm::length_t Col, glm::length_t Row, typename T, glm::qualifier Q>
+std::ostream& operator<<(std::ostream& os, const glm::mat<Col, Row, T, Q>& container) {
+    size_t size = Col * Row;
+    os << "[";
+    if(size > 0) {
+        auto data = glm::value_ptr(container);
+        size_t row = 0;
+        for(; row < Row - 1; ++row) {
+            for(size_t column = 0; column < Col; ++column) {
+                os << " " << *(data + Row * column + row) << ",";
+            }
+            os << "\n ";
+        }
+
+        // The last row is a special case since it does not end with a ",".
+        row = Row - 1;
+        for(size_t column = 0; column < Col -1; ++column) {
+            os << " " << *(data + Row * column + row) << ",";
+        }
+        os << " " << *(data + size - 1) << " ";
+    }
+    os << "]";
+    return os;
+}
+#+end_src
+#+depends:<<glm/mat :cpp ostream glm/gtc/type_ptr.hpp
+
+As can be seen in the usage example below, values are not aligned prettily but this will do for now.
+#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both
+<<include(":noweb <<glm/mat :cpp iostream")>>
+int main() {
+    glm::mat4 identity(1.0f);
+    std::cout << "Identity transformation:\n" << identity << "\n\n";
+    auto downscale_half = glm::scale(identity, glm::vec3(0.5, 0.5, 0.5));
+    std::cout << "Downscale half:\n" << downscale_half << "\n";
+}
+#+end_src
+
+#+RESULTS:
+:results:
+Identity transformation:
+[ 1, 0, 0, 0,
+  0, 1, 0, 0,
+  0, 0, 1, 0,
+  0, 0, 0, 1 ]
+
+Downscale half:
+[ 0.5, 0, 0, 0,
+  0, 0.5, 0, 0,
+  0, 0, 0.5, 0,
+  0, 0, 0, 1 ]
+:end:
