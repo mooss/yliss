@@ -424,9 +424,10 @@ letter_to_type = {
 def gen_uniform(code):
     number = int(code[0]); assert 0 < number <= 4
     letter = code[1];
+    suffix = "_" + code
     signature = ', '.join(letter_to_type[letter] + ' ' + param for param in param_names[:number])
     call = ', '.join(param_names[:number])
-    print(template.format(code, code, code, signature, code, call))
+    print(template.format(suffix, suffix, suffix, signature, code, call))
 
 targets = ('4f',)
 
@@ -440,11 +441,11 @@ for t in targets:
 #+RESULTS:
 *** Generated uniforms
 
-#+name: uniform4f
+#+name: uniform_4f
 #+begin_src cpp
-struct uniform4f {
+struct uniform_4f {
     const GLint location;
-    uniform4f(const GLchar* name, shader_program const& program):
+    uniform_4f(const GLchar* name, shader_program const& program):
         location(glGetUniformLocation(program.id, name))
     {}
 
@@ -588,10 +589,10 @@ void main() {
 }
 #+end_src
 
-The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform4f= to update the value of =cpu_color= every time a frame is drawn.
+The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform_4f= to update the value of =cpu_color= every time a frame is drawn.
 
 #+begin_src cpp :eval no-export :exports both 
-<<include(":noweb lazy_window gl_screen_nth VAO shader_program vec_vertices uniform4f :cpp cmath")>>
+<<include(":noweb lazy_window gl_screen_nth VAO shader_program vec_vertices uniform_4f :cpp cmath")>>
 
 int main(){
     const char *vs_str =
@@ -603,7 +604,7 @@ int main(){
 
     lazy_window lazy("Triangle", 640u, 480u);
     shader_program shifting_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
-    uniform4f color_cpu("color_cpu", shifting_shader);
+    uniform_4f color_cpu("color_cpu", shifting_shader);
     VAO triangle_vao{};
     auto triangle = vec_vertices<GLfloat>({
         -0.5, -0.5, 0.0,
