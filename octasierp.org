@@ -598,10 +598,10 @@ I added a =scale= parameter to easily be able to make things bigger while keepin
 
 A =Triangle= represents one of the triangles of an octasierp net, its properties are:
 #+attr_latex: :float left :center nil
-| -- =degree=:        | The degree of subdivision.                              |
-| -- =initial_width=: | The width of the first element.                         |
-| -- =points=:        | =Geometry= object describing how points are to be drawn |
-| -- =lines=:         | =Geometry= object describing how lines are to be drawn  |
+| -- =degree=:          | The degree of subdivision.                              |
+| -- =initial_width=:   | The width of the first element.                         |
+| -- =points_geometry=: | =Geometry= object describing how points are to be drawn |
+| -- =lines_geometry=:  | =Geometry= object describing how lines are to be drawn  |
 
 A =Triangle= has no coordinates of its own because the coordinates of its constituent points will be used in =generate=, whose role is to create a Gizeh object representing the geometry of the triangle, whereas =geometry= does the recursive calculations regarding all the points and lines of the final figure.
 In =__init__=, a value of =0= is used to represent the default geometry which is a color palette of black and a size policy of linear decrease.
@@ -736,7 +736,6 @@ class Octanet(object):
     <<Octanet/>>
 #+end_src
 
-
 *** Computations independant of progress
 
 Everything that does not depend on =progress= is computed in =__init__=:
@@ -855,7 +854,6 @@ class SVGSurface(object):
         self._cairo_surface.finish()
 #+end_src
 
-
 ** Illustration: degrees 0 through 3
 
 We use the =Octanet= class defined above to create the 8 images corresponding to the degrees 0 through 3 of the octahedron and the quasi-square version:
@@ -941,12 +939,12 @@ yliss_logo.write_to_png('images/square_logo.png', 1)
 
 The logos are generated in svg and png.
 I originally planned to use the svg version since it is scalable but I went against it because I felt it was too big:
-#+begin_src bash :exports both :eval yes :wrap "src text"
+#+begin_src bash :exports both :eval yes :wrap "src text :minipage"
 du -sh images/{octahedron,square}_logo.{svg,png} | sort -rh
 #+end_src
 
 #+RESULTS:
-#+begin_src text
+#+begin_src text :minipage
 776K	images/octahedron_logo.svg
 640K	images/square_logo.svg
 200K	images/octahedron_logo.png

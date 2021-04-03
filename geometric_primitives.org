@@ -755,7 +755,10 @@ int main(){
 
 ** Printing
 
-The operator overload below can be used to print a glm matrix:
+The operator overload below can be used to print a GLM matrix.
+It is built based on the knowledge that GLM matrices are column-major and that in such a representation, for a matrix with $C$ columns and $R$ rows, the element at column $c$ and row $r$ is located at the offset $R \times c + r$.
+The rest is just formatting details to ensure that the separators are well placed.
+
 #+name: <<glm/mat
 #+begin_src cpp
 template<glm::length_t Col, glm::length_t Row, typename T, glm::qualifier Q>
@@ -786,7 +789,7 @@ std::ostream& operator<<(std::ostream& os, const glm::mat<Col, Row, T, Q>& conta
 #+depends:<<glm/mat :cpp ostream glm/gtc/type_ptr.hpp
 
 As can be seen in the usage example below, values are not aligned prettily but this will do for now.
-#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both
+#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both :wrap "src text :minipage"
 <<include(":noweb <<glm/mat :cpp iostream")>>
 int main() {
     glm::mat4 identity(1.0f);
@@ -797,7 +800,7 @@ int main() {
 #+end_src
 
 #+RESULTS:
-:results:
+#+begin_src text :minipage
 Identity transformation:
 [ 1, 0, 0, 0,
   0, 1, 0, 0,
@@ -809,4 +812,4 @@ Downscale half:
   0, 0.5, 0, 0,
   0, 0, 0.5, 0,
   0, 0, 0, 1 ]
-:end:
+#+end_src
