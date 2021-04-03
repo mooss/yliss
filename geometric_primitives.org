@@ -396,51 +396,83 @@ Uniform can be used to share data between the CPU and shader programs.
 Lots of different data types can be shared this way, via =glUniform*= functions.
 For example, =glUniform4f= can be used to send a vector of 4 floats.
 
-Since I wanted the convenience of having a small wrapper, I made the code block below to generate uniforms as needed.
-The generation is static, therefore the block's =targets= must be updated and executed when new uniforms are needed.
-The ancient "Generated uniforms" section must also be removed.
-This code block will eventually need to be updated for matrices and other variants.
+The code block below uses LitLib's Pycgen and Pyogen to generate the necessary uniform variants.
+It is a big code block but I think it's pretty easy to understand once the following bases are covered:
+ - A =Pycgen= instance in the variable =cpp= stores the indentation level when used as a context manager (via Python's =with= keyword).
+ - Calling this instance prints its arguments with the current indentation level.
+ - A simple coding scheme is used to encode the nature of the struct to generate.
+   For example, the code =m4f= represents a matrix of $4 \times 4$ floats.
+   Incidentally, this code is also used to name the generated struct.
 
-#+begin_src python :eval no-export :results output raw
-template = """#+name: uniform{}
-,#+begin_src cpp
-struct uniform{} {{
-    const GLint location;
-    uniform{}(const GLchar* name, shader_program const& program):
-        location(glGetUniformLocation(program.id, name))
-    {{}}
+#+begin_src python :eval no-export :results output raw :exports both
+<<include(":noweb Pycgen Pyogen")>>
 
-    void send({}) {{
-        glUniform{}(location, {});
-    }}
-}};
-,#+end_src"""
+cpp = Pycgen()
 
-param_names = ['x', 'y', 'z', 'w']
-letter_to_type = {
-    'f': 'float'
+type_dispatcher = {
+    'f': 'GLfloat',
+    'i': 'Glint',
+    'ui': 'Gluint'
 }
 
-def gen_uniform(code):
-    number = int(code[0]); assert 0 < number <= 4
-    letter = code[1];
-    suffix = "_" + code
-    signature = ', '.join(letter_to_type[letter] + ' ' + param for param in param_names[:number])
-    call = ', '.join(param_names[:number])
-    print(template.format(suffix, suffix, suffix, signature, code, call))
+def varnames(cardinality):
+    return ['x', 'y', 'z', 'w'][:cardinality]
 
-targets = ('4f',)
+def arglist(cardinality, typename):
+    return '(' + ', '.join(
+        type_dispatcher[typename] + ' ' + el
+        for el in varnames(cardinality)
+    ) + ')'
+
+def decode(code):
+    cardinality = int(code[0]); assert 0 < cardinality <= 4,\
+        'Code `{}` has an invalid cardinality.'.format(code)
+    typename = code[1:]; assert typename in type_dispatcher,\
+        'Code `{}` has an invalid typename.'.format(code)
+    return cardinality, typename
+
+def common(name):
+    cpp(
+        'const GLint location;',
+        name + '(const GLchar* name, shader_program const& program):',
+        '    location(glGetUniformLocation(program.id, name))',
+        '{}'
+    )
+
+def vec_uniform(code):
+    cardinality, typename = decode(code)
+    name='uniform_' + code
+    with Pyogen('src cpp', name=name, depends=':noweb shader_program'):
+        with cpp.struct(name):
+            common(name)
+            with cpp.par('void send' + arglist(cardinality, typename)):
+                cpp('glUniform4f(location, ' + ', '.join(varnames(cardinality)) + ');')
+
+def mat_uniform(code):
+    assert code[0] == 'm'
+    cardinality, typename = decode(code[1:])
+    name = 'uniform_' + code
+    with Pyogen('src cpp', name=name, depends=':noweb shader_program :cpp cassert span'):
+        with cpp.struct(name):
+            common(name)
+            with cpp.par('void send(const std::span<const GLfloat>& content)'):
+                cpp('assert(content.size() == ' + str(cardinality * cardinality) + ');')
+                cpp('glUniformMatrix' + code[1:] + 'v(location, 1, GL_FALSE, content.data());')
+
+def uniform(code):
+    if code[0] == 'm':
+        mat_uniform(code)
+    else:
+        vec_uniform(code)
+    print()
 
 print('*** Generated uniforms')
-print()
-for t in targets:
-    gen_uniform(t)
-    print()
+uniform('4f')
+uniform('m4f')
 #+end_src
 
 #+RESULTS:
 *** Generated uniforms
-
 #+name: uniform_4f
 #+begin_src cpp
 struct uniform_4f {
@@ -448,14 +480,27 @@ struct uniform_4f {
     uniform_4f(const GLchar* name, shader_program const& program):
         location(glGetUniformLocation(program.id, name))
     {}
-
-    void send(float x, float y, float z, float w) {
+    void send(GLfloat x, GLfloat y, GLfloat z, GLfloat w) {
         glUniform4f(location, x, y, z, w);
     }
 };
 #+end_src
+#+depends:uniform_4f :noweb shader_program
 
-
+#+name: uniform_m4f
+#+begin_src cpp
+struct uniform_m4f {
+    const GLint location;
+    uniform_m4f(const GLchar* name, shader_program const& program):
+        location(glGetUniformLocation(program.id, name))
+    {}
+    void send(const std::span<const GLfloat>& content) {
+        assert(content.size() == 16);
+        glUniformMatrix4fv(location, 1, GL_FALSE, content.data());
+    }
+};
+#+end_src
+#+depends:uniform_m4f :noweb shader_program :cpp cassert span
 
 
 * Examples
