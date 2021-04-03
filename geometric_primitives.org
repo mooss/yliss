@@ -759,6 +759,98 @@ int main(){
 :end:
 
 
+* Transformations
+
+The class =transform= is merely a convenient shortcut for GLM transformations.
+The transformation methods (=rotate_rad=, =rotate_deg= and =scale=) return =*this= to make them chainable.
+Finally, a conversion operator to =std::span= makes sending a transformation to the gpu a breeze.
+
+#+name: transform
+#+begin_src cpp
+class transform {
+  public:
+    transform& rotate_rad(float angle, const glm::vec3& axis) {
+        matrix_ = glm::rotate(matrix_, angle, axis);
+        return *this;
+    }
+    transform& rotate_deg(float angle, const glm::vec3& axis) {
+        return rotate_rad(glm::radians(angle), axis);
+    }
+
+    transform& scale(const glm::vec3& magnitude) {
+        matrix_ = glm::scale(matrix_, magnitude);
+        return *this;
+    }
+
+    operator auto() const {
+        return std::span{glm::value_ptr(matrix_), 16};
+    }
+
+  private:
+    glm::mat4 matrix_{1.};
+};
+#+end_src
+#+depends:transform :cpp span glm/gtc/matrix_transform.hpp glm/gtc/type_ptr.hpp
+
+The following code block does what is needed to draw a triangle and to slightly disencumber my examples.
+#+name: lazy_model
+#+begin_src cpp
+lazy_window lazy("Yliss lazy example", 640u, 480u);
+shader_program lazy_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+VAO lazy_vao{};
+auto lazy_model = vec_vertices<GLfloat>({
+    -0.5, -0.5, 0.0,
+     0.5, -0.5, 0.0,
+     0.0,  0.5, 0.0
+}, {3});
+#+end_src
+#+depends:lazy_model :noweb lazy_window shader_program VAO vec_vertices
+
+To experiment with transformations, this vertex shader applies a given transformation matrix to its original position:
+#+name: transform_vs
+#+begin_src glsl
+#version 330 core
+layout (location = 0) in vec3 position;
+uniform mat4 transformation;
+
+void main() {
+    gl_Position = transformation * vec4(position, 1.0f);
+}
+#+end_src
+
+All is put together here by sending a custom transformation to the shader using =uniform_m4f= and =transform=.
+The image is not included because I plan to change =lazy_model= to a 3d shape soon and I don't want to waste space with useless screen captures.
+
+#+begin_src cpp :eval no-export :exports both
+const char *vs_str =
+    <<shader("transform_vs")>>
+    ;
+const char *fs_str =
+    <<shader("red_fs")>>
+    ;
+<<include(":noweb lazy_model uniform_m4f transform gl_screen_first")>>
+
+int main() {
+    lazy_shader.use();
+    uniform_m4f transform_u("transformation", lazy_shader);
+    transform_u.send(transform()
+                     .rotate_deg(90, {0, 0, 1})
+                     .scale({.5, .5, 1}));
+
+    gl_screen_first(lazy, "images/screencaps/dont_commit.png", [&]{
+        lazy_shader.use();
+        lazy_vao.bind();
+        lazy_model.draw();
+    });
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/dont_commit.png]]
+:end:
+
+
 * GLM utils
 
 ** Printing
