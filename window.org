@@ -170,6 +170,8 @@ struct lazy_window: public window {
     lazy_window(const std::string& title, unsigned int width, unsigned int height):
         window(title, width, height)
     {
+        glEnable(GL_DEPTH_TEST); // TODO: eventually move this kind of OpenGL settings
+                                 // enabling/disabling into its own class.
         glfwSetKeyCallback(this->window_handle, escape_close);
         glClearColor(.5f, .5f, .5f, 0.0f);
     }

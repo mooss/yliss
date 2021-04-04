@@ -784,9 +784,64 @@ int main(){
 
 * Transformations
 
-The class =transform= is merely a convenient shortcut for GLM transformations.
-The transformation methods (=rotate_rad=, =rotate_deg= and =scale=) return =*this= to make them chainable.
+This section will tackle more involved OpenGL subjects, linked to the theme of transformations.
+The first subsection will be about matrix transformation proper, that is to say the usage of matrix multiplication properties to transform (i.e. scale, rotate and translate) 3d objects.
+The subsequent sections will build upon this foundation to introduce the model, view and projection matrices as well as cameras.
+Once again, this section is based on the tutorial at [[https://learnopengl.com][learnopengl.com]].
+
+But first, in an attempt to normalise and disencumber the examples, the next code block prepares what is needed to draw a colorful cube.
+This was adapted from some old code lying around so the order of indexes and vertices doesn't correspond to anything and perhaps doesn't make much sense.
+Four colors are used for the cube vertices, with every opposite pair of vertices sharing the same color.
+
+I seem to remember that there is some kind of convention in OpenGL about the order of vertices meaning something about the orientation of the normal but I can't be bother to find out so I'll come back to it later if I feel like it.
+Without the depth test enabled, the cube renders weirdly (i.e. some things that are supposed to be behind are rendered in front).
+I'm not sure if that is a result of this conventional order of vertices.
+What's important is that the cube renders in a colorful manner kind of reminescent of the PS1 boot logo, as will be seen in the first example that uses it.
+
+#+name: colorful_example
+#+begin_src cpp
+lazy_window lazy("Yliss colorful example", 640u, 480u);
+shader_program colorful_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+VAO colorful_vao{};
+auto colorful_vertices = vec_vertices<GLfloat>({
+     // Positions    // Colors
+        .5,  .5,  .5,   1, 1, 0, // Yellow.
+       -.5,  .5,  .5,   1, 0, 1, // Magenta.
+        .5,  .5, -.5,   1, 1, 1, // White.
+       -.5,  .5, -.5,   0, 1, 1, // Cyan.
+        .5, -.5,  .5,   0, 1, 1, // Cyan.
+       -.5, -.5,  .5,   1, 1, 1, // White.
+       -.5, -.5, -.5,   1, 1, 0, // Yellow.
+        .5, -.5, -.5,   1, 0, 1  // Magenta.
+}, {3, 3});
+auto colorful_indexes = indexes({
+        3, 2, 6,
+        2, 6, 7,
+        6, 7, 4,
+        7, 4, 2,
+        4, 2, 0,
+        2, 0, 3,
+        0, 3, 1,
+        3, 1, 6,
+        1, 6, 5,
+        6, 5, 4,
+        5, 4, 1,
+        4, 1, 0
+});
+#+end_src
+#+depends:colorful_example :noweb lazy_window shader_program VAO vec_vertices indexes
+
+** Matrix transformations
+
+Matrices have the very useful property of being able to store and combine 3d transformations like scaling, rotating and translating.
+GLM provides functions to perform those operations.
+The class =transform= is nothing more than convenient syntactic sugar for those functions.
+
+The transformation methods return =*this= to make them chainable.
 Finally, a conversion operator to =std::span= makes sending a transformation to the gpu a breeze.
+
+No normalisation of the axes is performed, even though GLM seems to recommend it.
+For now it's up to the caller.
 
 #+name: transform
 #+begin_src cpp
@@ -805,6 +860,11 @@ class transform {
         return *this;
     }
 
+    transform& translate(const glm::vec3& translation) {
+        matrix_ = glm::translate(matrix_, translation);
+        return *this;
+    }
+
     operator auto() const {
         return std::span{glm::value_ptr(matrix_), 16};
     }
@@ -815,64 +875,60 @@ class transform {
 #+end_src
 #+depends:transform :cpp span glm/gtc/matrix_transform.hpp glm/gtc/type_ptr.hpp
 
-The following code block prepares what will be needed to draw a triangle and slightly disencumber my examples.
-#+name: lazy_model
-#+begin_src cpp
-lazy_window lazy("Yliss lazy example", 640u, 480u);
-shader_program lazy_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
-VAO lazy_vao{};
-auto lazy_model = vec_vertices<GLfloat>({
-    -0.5, -0.5, 0.0,
-     0.5, -0.5, 0.0,
-     0.0,  0.5, 0.0
-}, {3});
-#+end_src
-#+depends:lazy_model :noweb lazy_window shader_program VAO vec_vertices
-
-To experiment with transformations, this vertex shader applies a given transformation matrix to its original position:
-#+name: transform_vs
+To experiment with transformations, this vertex shader transmits the input color it received to the fragment shader and applies a given transformation matrix to its original position:
+#+name: colorattr_transform_vs
 #+begin_src glsl
 #version 330 core
 layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 color_in;
+out vec3 color_fs;
 uniform mat4 transformation;
 
 void main() {
     gl_Position = transformation * vec4(position, 1.0f);
+    color_fs = color_in;
 }
 #+end_src
 
 All is put together here by sending a custom transformation to the shader using =uniform_m4f= and =transform=.
-The image is not included because I plan to change =lazy_model= to a 3d shape soon and I don't want to waste space with useless screen captures.
 
 #+begin_src cpp :eval no-export :exports both
 const char *vs_str =
-    <<shader("transform_vs")>>
+    <<shader("colorattr_transform_vs")>>
     ;
 const char *fs_str =
-    <<shader("red_fs")>>
+    <<shader("color_as_attribute_fs")>>
     ;
-<<include(":noweb lazy_model uniform_m4f transform gl_screen_first")>>
+<<include(":noweb colorful_example uniform_m4f transform gl_screen_first")>>
 
 int main() {
-    lazy_shader.use();
-    uniform_m4f transform_u("transformation", lazy_shader);
-    transform_u.send(transform()
-                     .rotate_deg(90, {0, 0, 1})
-                     .scale({.5, .5, 1}));
+    colorful_shader.use();
+    uniform_m4f transform_u("transformation", colorful_shader);
+    auto transformation = transform()
+        .translate({-.3, 0, 0})
+        .scale({.5, .5, 1})
+        .rotate_deg(45, {0, 0, 1});
+    transform_u.send(transformation);
 
-    gl_screen_first(lazy, "images/screencaps/dont_commit.png", [&]{
-        lazy_shader.use();
-        lazy_vao.bind();
-        lazy_model.draw();
+    gl_screen_first(lazy, "images/screencaps/cube_transformation.png", [&]{
+        colorful_shader.use();
+        colorful_vao.bind();
+        colorful_indexes.draw();
+        // Keep rotating a bit every frame.
+        transformation.rotate_rad(.015, {.5, .5, 0});
+        transform_u.send(transformation);
     });
 }
 #+end_src
 
 #+RESULTS:
 :results:
-[[file:images/screencaps/dont_commit.png]]
+[[file:images/screencaps/cube_transformation.png]]
 :end:
 
+** TODO Model, view and projection matrices
+
+** TODO Cameras
 
 * GLM utils
 
