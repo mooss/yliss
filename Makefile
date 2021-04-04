@@ -1,7 +1,7 @@
 ################
 # PDF creation #
 ################
-ORG_SOURCES := octasierp plate_tectonics window geometric_primitives
+ORG_SOURCES := octasierp plate_tectonics window graphics
 
 .PHONY: pdf
 pdf: $(ORG_SOURCES:%=%.pdf)

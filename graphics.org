@@ -1,4 +1,4 @@
-#+title: C++ OpenGL geometric primitives
+#+title: C++ OpenGL graphics utilities
 #+author: mooss
 
 # No :wrap for this file because I can't disable it when I need to (uniform generation).
@@ -12,15 +12,16 @@
 
 #+name: include
 #+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
-./litlib/include.pl "window.org litlib/cpp.org geometric_primitives.org" "$args"
+./litlib/include.pl "window.org litlib/cpp.org graphics.org" "$args"
 #+end_src
 
 Specialised block for shaders (makes things slightly more readable):
 
 #+name: shader
 #+begin_src bash :var noweb="" :results output :wrap "src text" :eval no-export
-./litlib/include.pl "geometric_primitives.org" ":noweb $noweb :c-string"
+./litlib/include.pl "graphics.org" ":noweb $noweb :c-string"
 #+end_src
+
 
 ** Log the output of OpenGL commands
 
@@ -51,12 +52,14 @@ To adapt the regexes above, remember that backslashes must be escaped because th
 It should be possible to make the logging calls work for initialisation lists by adding a templated =log_and_call= function.
 
 
-* OpenGL objects
+* OpenGL primitives
 
-Here are defined various OpenGL objects that let us draw things.
-I'm a bit lax with the dependencies declaration here because technically the blocks here are using OpenGL functions but they are not supposed to include those functions themselves.
+In this section are defined various OpenGL-related objects that let us draw things.
+The building blocks defined here are relying on each other to do their work, this means that there is no obvious way to show their usefulness independantly.
+Therefore, usage examples are gathered in the next section, after all has been defined.
 
-What's implied here is that the user of the code blocks below knows what to expect and is using them in the proper context, that is to say after window has been included.
+I'm a bit lax with the dependencies declaration here because technically the blocks defined in this section are using OpenGL functions but they are not supposed to include those functions themselves.
+What's implied here is that the user of the code blocks below knows what to expect and is using them in the proper context, that is to say after =window= or any other kind of OpenGL including mechanism has been included.
 
 I tried to make as many things =const= as possible for those OpenGL primitives, this way once the objects are constructed, they are set in stone and annoying mistakes can be avoided.
 Of course, those things will be "unconsted" when needed.
@@ -512,7 +515,7 @@ uniform.send(4, 8, 15, 16, 23, 42);
 And not the other way around.
 
 
-* Examples
+* OpenGL primitives examples
 
 All the examples below are adapted from the excellent OpenGL tutorial at =learnopengl.com=.
 A screenshot of the scene is saved and generated with each example to give an idea of what the result looks like.

@@ -1,7 +1,7 @@
 * Yliss
 
 This is supposed to become one day a procedural planet generator.
-For now, this is mostly a literate programing OpenGL sandbox (see [[file:geometric_primitives.org]], [[file:window.org]]) and a pretty logo generator (see [[file:octasierp.org]] and the picture below).
+For now, this is mostly a literate programing OpenGL sandbox (see [[file:graphics.org]], [[file:window.org]]) and a pretty logo generator (see [[file:octasierp.org]] and the picture below).
 
 [[file:images/octahedron_logo.png]]
 
