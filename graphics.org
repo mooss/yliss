@@ -968,7 +968,7 @@ std::ostream& operator<<(std::ostream& os, const glm::mat<Col, Row, T, Q>& conta
 #+depends:<<glm/mat :cpp ostream glm/gtc/type_ptr.hpp
 
 As can be seen in the usage example below, values are not aligned prettily but this will do for now.
-#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both :wrap "src text :minipage"
+#+begin_src cpp :eval no-export :flags -Wall -std=c++11 :noweb no-export :exports both :wrap "src text :minipage"
 <<include(":noweb <<glm/mat :cpp iostream")>>
 int main() {
     glm::mat4 identity(1.0f);
@@ -991,4 +991,37 @@ Downscale half:
   0, 0.5, 0, 0,
   0, 0, 0.5, 0,
   0, 0, 0, 1 ]
+#+end_src
+
+*** Vectors
+
+Thankfully, printing vectors is much easier since the =ostream::<<= operator defined for span can be reused.
+
+#+name: <<glm/vec
+#+begin_src cpp
+template<glm::length_t Length, typename T, glm::qualifier Q>
+std::ostream& operator<<(std::ostream& os, const glm::vec<Length, T, Q>& container) {
+    os << std::span(glm::value_ptr(container), Length);
+    return os;
+}
+#+end_src
+#+depends:<<glm/vec :noweb <<span :cpp ostream glm/gtc/type_ptr.hpp span
+
+Usage:
+#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both :wrap "src text"
+<<include(":noweb <<glm/vec print-function")>>
+int main() {
+    glm::vec3 xy{1, 1, 0};
+    print{"Raw:", xy};
+    print{"Normalised:", glm::normalize(xy)};
+    glm::vec2 lo{4, 8}; glm::vec4 st{15, 16, 23, 42};
+    print{lo, st};
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text
+Raw: [1, 1, 0]
+Normalised: [0.707107, 0.707107, 0]
+[4, 8] [15, 16, 23, 42]
 #+end_src
