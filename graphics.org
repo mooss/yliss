@@ -2,7 +2,7 @@
 #+author: mooss
 
 # No :wrap for this file because I can't disable it when I need to (uniform generation).
-# :exports both does not work with pandoc when set at this level, it must be set manually in the code block header-args.
+# `:exports both` does not work with pandoc when set at this level, it must be set manually in the code block header-args.
 #+property: header-args :eval never :main no :exports both :noweb no-export
 #+property: header-args:cpp+ :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
 
@@ -66,20 +66,27 @@ Of course, those things will be "unconsted" when needed.
 
 ** Shader
 
+A design principle used in shader-related classes is to build everything early and to fail immediately when an error occurs.
+For =shader_base=, this principle manifests itself by an immediate compilation of the shader in the constructor followed by a call to =ensure_success= that will throw should a compilation error have occured.
+
 Apparently, shaders are supposed to be deleted once they are linked, hence the custom desctuctor.
+This means that =shader_base= objects should only be used as temporary objects and should perhaps not be copyable.
+I will see at some point if this becomes a problem.
+I don't want to ==delete= the copy constructor and assignment operator yet because I want to have a feature in the include script that does it for me at some point.
+Having this slightly unfinished code is a useful reminder to eventually implement this feature.
 
 #+name: shader_base
 #+begin_src cpp
-class shader {
+class shader_base {
   public:
     const GLuint id;
 
-    ~shader() {
+    ~shader_base() {
         glDeleteShader(id);
     }
 
   protected:
-    shader(const char* source, int type):
+    shader_base(const char* source, int type):
         id(glCreateShader(type))
     {
         glShaderSource(id, 1, &source, nullptr);
@@ -87,6 +94,7 @@ class shader {
         ensure_success();
     }
 
+  private:
     bool compiled() const {
         int success;
         glGetShaderiv(id, GL_COMPILE_STATUS, &success);
@@ -112,8 +120,8 @@ class shader {
 
 #+name: vertex_shader
 #+begin_src cpp
-struct vertex_shader: public shader {
-    vertex_shader(const char* source): shader(source, GL_VERTEX_SHADER) {}
+struct vertex_shader: public shader_base {
+    vertex_shader(const char* source): shader_base(source, GL_VERTEX_SHADER) {}
 };
 #+end_src
 #+depends:vertex_shader :noweb shader_base
@@ -122,19 +130,24 @@ struct vertex_shader: public shader {
 
 #+name: fragment_shader
 #+begin_src cpp
-struct fragment_shader: public shader {
-    fragment_shader(const char* source): shader(source, GL_FRAGMENT_SHADER) {}
+struct fragment_shader: public shader_base {
+    fragment_shader(const char* source): shader_base(source, GL_FRAGMENT_SHADER) {}
 };
 #+end_src
 #+depends:fragment_shader :noweb shader_base
 
 *** Shader program
 
+A shader program links together a vertex shader and a fragment shader.
+The build immediately, fail early principle is used here once again, this time for the linking step.
+
+Rvalue references are used for the =vertex_shader= and =fragment_shader= parameters to enforce the idea that those are only temporary objects that should be destroyed as soon as they are used.
+
 #+name: shader_program
 #+begin_src cpp
 class shader_program {
   public:
-    shader_program(const vertex_shader& vs, const fragment_shader& fs):
+    shader_program(const vertex_shader&& vs, const fragment_shader&& fs):
         id(glCreateProgram())
     {
         glAttachShader(id, vs.id);
@@ -162,7 +175,7 @@ class shader_program {
         return std::string(buffer, 512);
     }
 
-    void ensure_success() {
+    void ensure_success() const {
         if(!linked()) {
             throw std::runtime_error(info_log());
         }
@@ -241,7 +254,7 @@ class EBO: public opengl_buffer {
 ** VAO (Vertex Array Object)
 
 VAOs function is to remember various calls made on data held by VBOs.
-Once a VAO is bound, it remembers that state changes caused by various subsequent OpenGL calls.
+Once a VAO is bound, it remembers state changes caused by various subsequent OpenGL calls.
 Those states changes can be enacted again later by simply bounding the VAO, acting like a sort of shortcut.
 
 #+name: VAO
@@ -270,9 +283,7 @@ class VAO {
 
 ** Vertices and indexes
 
-The =vertices= and =indexes= classes are a wrapper around respectively =VBO= and =EBO= adding a =draw= method.
-=vertices= is more complex because it also handles vertex attributes and because I tried to make it generic under the assumption that I might eventually need to send other things than =std::vector<GLfloat>=.
-In retrospect, this might be an overkill.
+The =vertices= and =indexes= classes are a wrapper around respectively =VBO= and =EBO=, adding a =draw= method.
 
 Utilities common to =vertices= and =indexes=:
 #+name: vertindex_common
@@ -341,6 +352,7 @@ The =layout= parameter is used to deduce the required values of each vertex attr
 In particular, by virtue of how =layout= is constructed, the sub-vertices must have the same order in the layout as in the shader.
 Going back to the previous example, it would not be possible to swap the position and the color without also inverting their order in the shader.
 
+As promised, the layout is defined following the order of =layout=:
 #+name: Process vertices layout
 #+begin_src cpp
 std::size_t offset = 0;
@@ -395,14 +407,15 @@ class indexes {
 
 ** Uniform
 
-Uniform can be used to share data between the CPU and shader programs.
+Uniforms can be used to share data between the CPU and shader programs.
 Lots of different data types can be shared this way, via =glUniform*= functions.
 For example, =glUniform4f= can be used to send a vector of 4 floats.
 
 The code block below uses LitLib's Pycgen and Pyogen to generate the necessary uniform variants.
 It is a big code block but I think it's pretty easy to understand once the following bases are covered:
- - A =Pycgen= instance in the variable =cpp= stores the indentation level when used as a context manager (via Python's =with= keyword).
- - Calling this instance prints its arguments with the current indentation level.
+ - A =Pycgen= instance in the variable =cpp= stores the indentation level which can be increased when =cpp= is used as a context manager (via Python's =with= keyword).
+   Once the context is exited (after the =with= block), the indentation level is automatically decreased and curly braces opened via =cpp.par= or =cpp.struct= are automatically closed.
+ - Calling =cpp= prints its arguments with the current indentation level.
  - A simple coding scheme is used to encode the nature of the struct to generate.
    For example, the code =m4f= represents a matrix of $4 \times 4$ floats.
    Incidentally, this code is also used to name the generated struct.
@@ -434,7 +447,7 @@ def decode(code):
         'Code `{}` has an invalid typename.'.format(code)
     return cardinality, typename
 
-def common(name):
+def location_ctor(name):
     cpp(
         'const GLint location;',
         name + '(const GLchar* name, shader_program const& program):',
@@ -447,7 +460,7 @@ def vec_uniform(code):
     name='uniform_' + code
     with Pyogen('src cpp', name=name, depends=':noweb shader_program'):
         with cpp.struct(name):
-            common(name)
+            location_ctor(name)
             with cpp.par('void send' + arglist(cardinality, typename)):
                 cpp('glUniform4f(location, ' + ', '.join(varnames(cardinality)) + ');')
 
@@ -457,7 +470,7 @@ def mat_uniform(code):
     name = 'uniform_' + code
     with Pyogen('src cpp', name=name, depends=':noweb shader_program :cpp cassert span'):
         with cpp.struct(name):
-            common(name)
+            location_ctor(name)
             with cpp.par('void send(const std::span<const GLfloat>& content)'):
                 cpp('assert(content.size() == ' + str(cardinality * cardinality) + ');')
                 cpp('glUniformMatrix' + code[1:] + 'v(location, 1, GL_FALSE, content.data());')
@@ -522,7 +535,7 @@ A screenshot of the scene is saved and generated with each example to give an id
 
 ** Drawing plain figures
 
-The examples in the next two subsection are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
+The examples in the next two subsections are coming from the Hello-Triangle section of =learnopengl.com= (https://learnopengl.com/Getting-started/Hello-Triangle).
 They are about using barebones fragment and vertex shaders to draw simple figures on the screen.
 
 The next two code blocks are respectively the vertex and fragment shaders that will be used in this section.
@@ -549,6 +562,13 @@ void main() {
 
 *** Drawing a triangle with =vertices=
 
+There is not much to say here, this is the most minimalistic way I have to draw something.
+It still requires some setup but it is as easy and convenient as I could make it.
+The screen-capturing game loop function of [[window.org]] is put to good use to:
+ - Save the capture.
+ - Print the capture's filename as an org link.
+ - Setup a game loop using the given lambda.
+
 #+begin_src cpp :eval no-export :exports both
 <<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices")>>
 
@@ -560,7 +580,7 @@ int main(){
         <<shader("red_fs")>>
         ;
 
-    lazy_window lazy("Triangle", 640u, 480u);
+    lazy_window lazy("Red triangle", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     VAO triangle_vao{};
     auto triangle = vec_vertices<GLfloat>({
@@ -585,7 +605,7 @@ int main(){
 
 *** Drawing a rectangle with =indexes=
 
-Same thing as above, except we use =indexes= (and therefore =EBO=)as well as =vertices= to draw the two triangles forming a rectangle.
+Same thing as above, except we use =indexes= (and therefore =EBO=) as well as =vertices= to draw the two triangles forming a rectangle.
 
 #+begin_src cpp :eval no-export :exports both
 <<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices indexes")>>
@@ -598,7 +618,7 @@ int main(){
         <<shader("red_fs")>>
         ;
 
-    lazy_window lazy("Rectangle", 640u, 480u);
+    lazy_window lazy("Red rectangle", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     VAO rectangle_vao{};
     auto rectangle_vertices = vec_vertices<GLfloat>({
@@ -633,7 +653,7 @@ The next examples are adapted from the Shaders section (https://learnopengl.com/
 
 *** Drawing a color-shifting triangle with =uniform=
 
-The following shader colors pixels according to the content of the uniform =cpu_color=:
+The following shader colors pixels according to the content of the uniform =color_cpu=:
 
 #+name: color_shifting_fs
 #+begin_src glsl
@@ -646,7 +666,7 @@ void main() {
 }
 #+end_src
 
-The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform_4f= to update the value of =cpu_color= every time a frame is drawn.
+The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform_4f= to update the value of =color_cpu= every time a frame is drawn.
 
 #+begin_src cpp :eval no-export :exports both 
 <<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices uniform_4f :cpp cmath")>>
@@ -659,7 +679,7 @@ int main(){
         <<shader("color_shifting_fs")>>
         ;
 
-    lazy_window lazy("Triangle", 640u, 480u);
+    lazy_window lazy("Triangle with shifting color", 640u, 480u);
     shader_program shifting_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     uniform_4f color_cpu("color_cpu", shifting_shader);
     VAO triangle_vao{};
@@ -734,12 +754,12 @@ int main(){
         <<shader("color_as_attribute_fs")>>
         ;
 
-    lazy_window lazy("Triangle", 640u, 480u);
+    lazy_window lazy("Triangle with color attributes", 640u, 480u);
     shader_program basic_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
     VAO triangle_vao{};
     auto triangle = vec_vertices<GLfloat>(
         // Vertices:
-        // Positions         // Colors               //
+        // Positions         // Colors
         {  0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,    // Bottom right.
           -0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    // Bottom left.
            0.0f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f  }, // Top.
@@ -795,7 +815,7 @@ class transform {
 #+end_src
 #+depends:transform :cpp span glm/gtc/matrix_transform.hpp glm/gtc/type_ptr.hpp
 
-The following code block does what is needed to draw a triangle and to slightly disencumber my examples.
+The following code block prepares what will be needed to draw a triangle and slightly disencumber my examples.
 #+name: lazy_model
 #+begin_src cpp
 lazy_window lazy("Yliss lazy example", 640u, 480u);
