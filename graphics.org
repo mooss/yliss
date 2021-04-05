@@ -837,13 +837,12 @@ Matrices have the very useful property of being able to store and combine 3d tra
 GLM provides functions to perform those operations.
 The class =transform= is nothing more than convenient syntactic sugar for those functions.
 
-The transformation methods return =*this= to make them chainable.
-Finally, a conversion operator to =std::span= makes sending a transformation to the gpu a breeze.
-
 #+name: transform
 #+begin_src cpp
 class transform {
   public:
+    glm::mat4 matrix_{1.f};
+
     transform& rotate_rad(float angle, const glm::vec3& axis) {
         return rotate_rad_impl(angle, glm::normalize(axis));
     }
@@ -866,8 +865,6 @@ class transform {
     }
 
   private:
-    glm::mat4 matrix_{1.};
-
     transform& rotate_rad_impl(float angle, const glm::vec3& axis) {
         matrix_ = glm::rotate(matrix_, angle, axis);
         return *this;
@@ -875,6 +872,18 @@ class transform {
 };
 #+end_src
 #+depends:transform :noweb glm/to_span
+
+Some remarks about =transform=:
+ - The transformation methods return =*this= to make them chainable.
+ - Having a public default-initialised =matrix_= makes it possible to manually initialise it to whatever we want, like this for example:
+   #+begin_src cpp
+glm::mat4 nonsensical_matrix{12.f};
+transform nonsensical_transformation{nonsensical_matrix};
+   #+end_src
+   The trailing underscore is here to signify that even though this is a public field, it should not be modified.
+ - Rotation axes are normalised, as recommended by GLM.
+ - The conversion operator to =std::span= makes sending a transformation to the gpu a breeze.
+\\
 
 To experiment with transformations, this vertex shader transmits the input color it received to the fragment shader and applies a given transformation matrix to its original position:
 #+name: colorattr_transform_vs
