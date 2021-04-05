@@ -461,7 +461,7 @@ def vec_uniform(code):
     with Pyogen('src cpp', name=name, depends=':noweb shader_program'):
         with cpp.struct(name):
             location_ctor(name)
-            with cpp.par('void send' + arglist(cardinality, typename)):
+            with cpp.par('void send' + arglist(cardinality, typename) + ' const'):
                 cpp('glUniform4f(location, ' + ', '.join(varnames(cardinality)) + ');')
 
 def mat_uniform(code):
@@ -471,7 +471,7 @@ def mat_uniform(code):
     with Pyogen('src cpp', name=name, depends=':noweb shader_program :cpp cassert span'):
         with cpp.struct(name):
             location_ctor(name)
-            with cpp.par('void send(const std::span<const GLfloat>& content)'):
+            with cpp.par('void send(const std::span<const GLfloat>& content) const'):
                 cpp('assert(content.size() == ' + str(cardinality * cardinality) + ');')
                 cpp('glUniformMatrix' + code[1:] + 'v(location, 1, GL_FALSE, content.data());')
 
@@ -496,7 +496,7 @@ struct uniform_4f {
     uniform_4f(const GLchar* name, const shader_program& program):
         location(glGetUniformLocation(program.id, name))
     {}
-    void send(GLfloat x, GLfloat y, GLfloat z, GLfloat w) {
+    void send(GLfloat x, GLfloat y, GLfloat z, GLfloat w) const {
         glUniform4f(location, x, y, z, w);
     }
 };
@@ -510,7 +510,7 @@ struct uniform_m4f {
     uniform_m4f(const GLchar* name, const shader_program& program):
         location(glGetUniformLocation(program.id, name))
     {}
-    void send(const std::span<const GLfloat>& content) {
+    void send(const std::span<const GLfloat>& content) const {
         assert(content.size() == 16);
         glUniformMatrix4fv(location, 1, GL_FALSE, content.data());
     }
