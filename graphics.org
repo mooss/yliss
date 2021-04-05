@@ -932,8 +932,61 @@ int main() {
 
 * GLM utils
 
+** Conversion
+
+This next code block converts GLM matrices and vectors to =std::span=.
+
+I'm a bit confused about const qualifiers.
+In particular I wonder if an additional set of =to_span= functions is needed to handle specifically =const span<const T>= and =span<const T>= or if this is already handled by the two functions below or if this is not even relevant.
+
+#+name: glm/to_span
+#+begin_src cpp
+template<glm::length_t Col, glm::length_t Row, typename T, glm::qualifier Q>
+const auto to_span(const glm::mat<Col, Row, T, Q>& container) {
+    return std::span(glm::value_ptr(container), Col * Row);
+}
+
+template<glm::length_t Length, typename T, glm::qualifier Q>
+const auto to_span(const glm::vec<Length, T, Q>& container) {
+    return std::span(glm::value_ptr(container), Length);
+}
+
+// Same thing, without the const qualifiers.
+template<glm::length_t Col, glm::length_t Row, typename T, glm::qualifier Q>
+auto to_span(glm::mat<Col, Row, T, Q>& container) {
+    return std::span(glm::value_ptr(container), Col * Row);
+}
+
+template<glm::length_t Length, typename T, glm::qualifier Q>
+auto to_span(glm::vec<Length, T, Q>& container) {
+    return std::span(glm::value_ptr(container), Length);
+}
+#+end_src
+#+depends:glm/to_span :cpp span glm/gtc/type_ptr.hpp
+
+Usage
+#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export
+<<include(":noweb glm/to_span <<span print-function")>>
+int main() {
+    glm::mat4 identity(1.0f);
+    glm::vec2 lo{4, 8};
+    glm::vec4 st{15, 16, 23, 42};
+    print{"Identity 4x4 matrix:", to_span(identity)};
+    print{"lo st:", to_span(lo), to_span(st)};
+}
+#+end_src
+
+#+RESULTS:
+:results:
+Identity 4x4 matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+lo st: [4, 8] [15, 16, 23, 42]
+:end:
+
+
+
 ** Printing
 
+*** Matrices
 The operator overload below can be used to print a GLM matrix.
 It is built based on the knowledge that GLM matrices are column-major and that in such a representation, for a matrix with $C$ columns and $R$ rows, the element at column $c$ and row $r$ is located at the offset $R \times c + r$.
 The rest is just formatting details to ensure that the separators are well placed.
@@ -1001,11 +1054,11 @@ Thankfully, printing vectors is much easier since the =ostream::<<= operator def
 #+begin_src cpp
 template<glm::length_t Length, typename T, glm::qualifier Q>
 std::ostream& operator<<(std::ostream& os, const glm::vec<Length, T, Q>& container) {
-    os << std::span(glm::value_ptr(container), Length);
+    os << to_span(container);
     return os;
 }
 #+end_src
-#+depends:<<glm/vec :noweb <<span :cpp ostream glm/gtc/type_ptr.hpp span
+#+depends:<<glm/vec :noweb <<span glm/to_span :cpp ostream
 
 Usage:
 #+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both :wrap "src text"
