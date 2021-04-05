@@ -29,6 +29,7 @@ class window
     std::size_t width() const {return width_;}
     std::size_t height() const {return height_;}
     bool should_close() const {return glfwWindowShouldClose(window_handle);}
+    float aspect() const {return (float) width_ / (float) height_;}
 
     <<window/public>>
 

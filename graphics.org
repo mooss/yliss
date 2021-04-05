@@ -936,9 +936,128 @@ int main() {
 [[file:images/screencaps/cube_transformation.png]]
 :end:
 
-** TODO Model, view and projection matrices
+
+** Model, view and projection matrices
+
+The model, view and projection matrices are transformation matrices each doing their own step to go from an isolated model to something ready to be drawn:
+ - Model transforms local space (where the model is defined in isolation with the other assets) to world space (where all the assets are gathered).
+   In other words, it places the model in the world.
+ - View transforms world space to view space (where the scene is located, where the camera is looking at).
+ - Projection transforms view space to clip space (where only what must be rendered is located, the rest being clipped off).
+# TODO: Verify the above with other source, I don't think I understood everything I needed.
+
+Those matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long):
+# TODO: This struct is a bit long and shoud be cut in half and a bit more explanations should be provided.
+#+name: movipr
+#+begin_src cpp
+struct movipr {
+    struct transform_uniform {
+        transform transformation;
+        uniform_m4f uniform;
+
+        transform_uniform(transform&& t, const std::string& name, const shader_program& shader):
+            transformation(std::move(t)), uniform(name.c_str(), shader)
+        {}
+
+        void send() const {
+            uniform.send(transformation);
+        }
+    };
+
+    transform_uniform model;
+    transform_uniform view;
+    transform_uniform projection;
+
+    struct keyword_arguments {
+        mandatory<float> aspect;
+        float fov{45};
+        float near{1};
+        float far{100};
+        std::string model{"model"};
+        std::string view{"view"};
+        std::string projection{"projection"};
+    };
+
+    movipr(
+        transform mo, transform vi, keyword_arguments&& kwargs,
+        const shader_program& shader
+    ) : model(std::move(mo), kwargs.model, shader),
+        view(std::move(vi), kwargs.view, shader),
+        projection(
+            transform{glm::perspective(glm::radians(kwargs.fov), *kwargs.aspect, kwargs.near, kwargs.far)},
+            kwargs.projection, shader
+        )
+    {
+        shader.use();
+        send_all();
+    }
+
+    void send_all() const {
+        model.send(); view.send(); projection.send();
+    }
+};
+#+end_src
+#+depends:movipr :noweb transform uniform_m4f shader_program mandatory :cpp string glm/ext/matrix_clip_space.hpp glm/trigonometric.hpp
+
+The following vertex shader receives those matrices and applies them to the position:
+#+name: model_view_projection_vs
+#+begin_src glsl
+#version 330 core
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 color_in;
+out vec3 color_fs;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * view * model * vec4(position, 1.0f);
+    color_fs = color_in;
+}
+#+end_src
+
+Finally, =movipr= is used to define rudimentary model, view and projection matrices, thus rendering something that looks less like the squashed lozenge of the previous example and more like a cube viewed from a certain perspective.
+#+begin_src cpp :eval no-export :exports both
+const char *vs_str =
+    <<shader("model_view_projection_vs")>>
+    ;
+const char *fs_str =
+    <<shader("color_as_attribute_fs")>>
+    ;
+<<include(":noweb colorful_example movipr transform gl_screen_first")>>
+
+int main() {
+    movipr viper(
+        transform().translate({-.5, 0, 0})
+                   .scale({.5, .5, .5})
+                   .rotate_deg(45, {0, 0, 1})
+                   .rotate_deg(270, {0, 1, 0})
+                   .rotate_deg(90, {1, 0, 1}),
+        transform().translate({0, 0, -2}),
+        {.aspect = lazy.aspect()},
+        colorful_shader
+    );
+
+    gl_screen_first(lazy, "images/screencaps/cc_model_view_projection.png", [&]{
+        colorful_shader.use();
+        colorful_vao.bind();
+        colorful_indexes.draw();
+        // Keep rotating a bit every frame.
+        viper.model.transformation.rotate_rad(-.015, {1, 0, 1});
+        viper.model.send();
+    });
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/cc_model_view_projection.png]]
+:end:
+
 
 ** TODO Cameras
+
 
 * GLM utils
 
