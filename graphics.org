@@ -862,7 +862,7 @@ class transform {
     }
 
     operator auto() const {
-        return std::span{glm::value_ptr(matrix_), 16};
+        return to_span(matrix_);
     }
 
   private:
@@ -874,7 +874,7 @@ class transform {
     }
 };
 #+end_src
-#+depends:transform :cpp span glm/gtc/matrix_transform.hpp glm/gtc/type_ptr.hpp
+#+depends:transform :noweb glm/to_span
 
 To experiment with transformations, this vertex shader transmits the input color it received to the fragment shader and applies a given transformation matrix to its original position:
 #+name: colorattr_transform_vs
