@@ -450,7 +450,7 @@ def decode(code):
 def location_ctor(name):
     cpp(
         'const GLint location;',
-        name + '(const GLchar* name, shader_program const& program):',
+        name + '(const GLchar* name, const shader_program& program):',
         '    location(glGetUniformLocation(program.id, name))',
         '{}'
     )
@@ -493,7 +493,7 @@ uniform('m4f')
 #+begin_src cpp
 struct uniform_4f {
     const GLint location;
-    uniform_4f(const GLchar* name, shader_program const& program):
+    uniform_4f(const GLchar* name, const shader_program& program):
         location(glGetUniformLocation(program.id, name))
     {}
     void send(GLfloat x, GLfloat y, GLfloat z, GLfloat w) {
@@ -507,7 +507,7 @@ struct uniform_4f {
 #+begin_src cpp
 struct uniform_m4f {
     const GLint location;
-    uniform_m4f(const GLchar* name, shader_program const& program):
+    uniform_m4f(const GLchar* name, const shader_program& program):
         location(glGetUniformLocation(program.id, name))
     {}
     void send(const std::span<const GLfloat>& content) {
