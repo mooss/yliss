@@ -871,7 +871,7 @@ class transform {
     }
 };
 #+end_src
-#+depends:transform :noweb glm/to_span
+#+depends:transform :noweb glm/to_span :cpp glm/gtc/matrix_transform.hpp
 
 Some remarks about =transform=:
  - The transformation methods return =*this= to make them chainable.
