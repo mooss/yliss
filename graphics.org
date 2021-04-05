@@ -840,19 +840,15 @@ The class =transform= is nothing more than convenient syntactic sugar for those 
 The transformation methods return =*this= to make them chainable.
 Finally, a conversion operator to =std::span= makes sending a transformation to the gpu a breeze.
 
-No normalisation of the axes is performed, even though GLM seems to recommend it.
-For now it's up to the caller.
-
 #+name: transform
 #+begin_src cpp
 class transform {
   public:
     transform& rotate_rad(float angle, const glm::vec3& axis) {
-        matrix_ = glm::rotate(matrix_, angle, axis);
-        return *this;
+        return rotate_rad_impl(angle, glm::normalize(axis));
     }
     transform& rotate_deg(float angle, const glm::vec3& axis) {
-        return rotate_rad(glm::radians(angle), axis);
+        return rotate_rad_impl(glm::radians(angle), glm::normalize(axis));
     }
 
     transform& scale(const glm::vec3& magnitude) {
@@ -871,6 +867,11 @@ class transform {
 
   private:
     glm::mat4 matrix_{1.};
+
+    transform& rotate_rad_impl(float angle, const glm::vec3& axis) {
+        matrix_ = glm::rotate(matrix_, angle, axis);
+        return *this;
+    }
 };
 #+end_src
 #+depends:transform :cpp span glm/gtc/matrix_transform.hpp glm/gtc/type_ptr.hpp
@@ -915,7 +916,7 @@ int main() {
         colorful_vao.bind();
         colorful_indexes.draw();
         // Keep rotating a bit every frame.
-        transformation.rotate_rad(.015, {.5, .5, 0});
+        transformation.rotate_rad(.015, {1, 1, 0});
         transform_u.send(transformation);
     });
 }
