@@ -796,7 +796,7 @@ Four colors are used for the cube vertices, with every opposite pair of vertices
 I seem to remember that there is some kind of convention in OpenGL about the order of vertices meaning something about the orientation of the normal but I can't be bother to find out so I'll come back to it later if I feel like it.
 Without the depth test enabled, the cube renders weirdly (i.e. some things that are supposed to be behind are rendered in front).
 I'm not sure if that is a result of this conventional order of vertices.
-What's important is that the cube renders in a colorful manner kind of reminescent of the PS1 boot logo, as will be seen in the first example that uses it.
+What's important is that the cube renders in a colorful manner kind of reminiscent of the PS1 boot logo, as will be seen in the first example that uses it.
 
 #+name: colorful_example
 #+begin_src cpp
