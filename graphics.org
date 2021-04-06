@@ -993,8 +993,8 @@ struct keyword_arguments {
 };
 
 movipr(
-    transform mo, transform vi, keyword_arguments&& kwargs,
-    const shader_program& shader
+    transform mo, transform vi, const shader_program& shader,
+    keyword_arguments&& kwargs
 ) : model(std::move(mo), kwargs.model, shader),
     view(std::move(vi), kwargs.view, shader),
     projection(
@@ -1043,8 +1043,8 @@ int main() {
                    .rotate_deg(270, {0, 1, 0})
                    .rotate_deg(90, {1, 0, 1}),
         transform().translate({0, 0, -2}),
-        {.aspect = lazy.aspect()},
-        colorful_shader
+        colorful_shader,
+        {.aspect = lazy.aspect()}
     );
 
     gl_screen_first(lazy, "images/screencaps/cc_model_view_projection.png", [&]{
