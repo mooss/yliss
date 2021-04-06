@@ -787,7 +787,7 @@ int main(){
 This section will tackle more involved OpenGL subjects, linked to the theme of transformations.
 The first subsection will be about matrix transformation proper, that is to say the usage of matrix multiplication properties to transform (i.e. scale, rotate and translate) 3d objects.
 The subsequent sections will build upon this foundation to introduce the model, view and projection matrices as well as cameras.
-Once again, this section is based on the tutorial at [[https://learnopengl.com][learnopengl.com]].
+Once again, this section is based on the tutorial at [[https://learnopengl.com][learnopengl.com]], more specifically on the [[https://learnopengl.com/Getting-started/Transformations][Transformations]], [[https://learnopengl.com/Getting-started/Coordinate-Systems][Coordinate Systems]] and [[https://learnopengl.com/Getting-started/Camera][Camera]] chapters.
 
 But first, in an attempt to normalise and disencumber the examples, the next code block prepares what is needed to draw a colorful cube.
 This was adapted from some old code lying around so the order of indexes and vertices doesn't correspond to anything and perhaps doesn't make much sense.
