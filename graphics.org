@@ -372,7 +372,7 @@ Using this allows to create the vectors in place with a braced syntax.
 #+name: vec_vertices
 #+begin_src cpp
 template<typename T>
-vertices<T> vec_vertices(const std::vector<T>& content, const std::vector<std::size_t>& layout){
+vertices<T> vec_vertices(const std::vector<T>& content, const std::vector<std::size_t>& layout) {
     return vertices<T>(content, layout);
 }
 #+end_src
@@ -944,10 +944,10 @@ The model, view and projection matrices are transformation matrices each doing t
    In other words, it places the model in the world.
  - View transforms world space to view space (where the scene is located, where the camera is looking at).
  - Projection transforms view space to clip space (where only what must be rendered is located, the rest being clipped off).
-# TODO: Verify the above with other source, I don't think I understood everything I needed.
+# TODO: Verify the above with other sources, I don't think I understood everything I needed.
 
-Those matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long):
-# TODO: This struct is a bit long and shoud be cut in half and a bit more explanations should be provided.
+Those matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long).
+The main part of =movipr= is simply storage for the model, view and projection matrices, using the amalgamated struct =transform_uniform=:
 #+name: movipr
 #+begin_src cpp
 struct movipr {
@@ -968,36 +968,44 @@ struct movipr {
     transform_uniform view;
     transform_uniform projection;
 
-    struct keyword_arguments {
-        mandatory<float> aspect;
-        float fov{45};
-        float near{1};
-        float far{100};
-        std::string model{"model"};
-        std::string view{"view"};
-        std::string projection{"projection"};
-    };
-
-    movipr(
-        transform mo, transform vi, keyword_arguments&& kwargs,
-        const shader_program& shader
-    ) : model(std::move(mo), kwargs.model, shader),
-        view(std::move(vi), kwargs.view, shader),
-        projection(
-            transform{glm::perspective(glm::radians(kwargs.fov), *kwargs.aspect, kwargs.near, kwargs.far)},
-            kwargs.projection, shader
-        )
-    {
-        shader.use();
-        send_all();
-    }
-
     void send_all() const {
         model.send(); view.send(); projection.send();
     }
+
+    <<movipr/public>>
 };
 #+end_src
 #+depends:movipr :noweb transform uniform_m4f shader_program mandatory :cpp string glm/ext/matrix_clip_space.hpp glm/trigonometric.hpp
+
+The rest of movipr is merely the initialisation of =model=, =view= and =projection=.
+In an attempt to make =movipr= easy to use and concise, the "designated keywords arguments" pattern is used.
+It is justified by the fact that reasonable default values can be defined for most parameters.
+In fact the only parameter without reasonably defined default values in the =aspect= ratio, hence why it is marked as =mandatory=.
+#+begin_src cpp :noweb-ref movipr/public
+struct keyword_arguments {
+    mandatory<float> aspect;
+    float fov{45};
+    float near{1};
+    float far{100};
+    std::string model{"model"};
+    std::string view{"view"};
+    std::string projection{"projection"};
+};
+
+movipr(
+    transform mo, transform vi, keyword_arguments&& kwargs,
+    const shader_program& shader
+) : model(std::move(mo), kwargs.model, shader),
+    view(std::move(vi), kwargs.view, shader),
+    projection(
+        transform{glm::perspective(glm::radians(kwargs.fov), *kwargs.aspect, kwargs.near, kwargs.far)},
+        kwargs.projection, shader
+    )
+{
+    shader.use();
+    send_all();
+}
+#+end_src
 
 The following vertex shader receives those matrices and applies them to the position:
 #+name: model_view_projection_vs
