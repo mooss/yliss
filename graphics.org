@@ -899,7 +899,6 @@ void main() {
 #+end_src
 
 All is put together here by sending a custom transformation to the shader using =uniform_m4f= and =transform=.
-
 #+begin_src cpp :eval no-export :exports both
 const char *vs_str =
     <<shader("colorattr_transform_vs")>>
@@ -934,6 +933,9 @@ int main() {
 [[file:images/screencaps/cube_transformation.png]]
 :end:
 
+Note that the image above really is a cube.
+I choosed to pick an angle where only a side was visible because it was pretty.
+For an image with more of a 3d feeling, see the next example.
 
 ** Model, view and projection matrices
 
