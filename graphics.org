@@ -323,7 +323,7 @@ template<typename T>
 class vertices {
   public:
     vertices(const std::span<const T> content, const std::span<const std::size_t> layout):
-        stride_(lit::sum(layout)), count_(content.size() / stride_)
+        stride_(sum(layout)), count_(content.size() / stride_)
     {
         if(layout.size() == 0)
             throw std::runtime_error("Empty vertex layouts are illegal.");
