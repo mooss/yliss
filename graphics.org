@@ -869,7 +869,7 @@ class transform {
     }
 };
 #+end_src
-#+depends:transform :noweb glm/to_span :cpp glm/gtc/matrix_transform.hpp
+#+depends:transform :noweb to_span/glm :cpp glm/gtc/matrix_transform.hpp
 
 Some remarks about =transform=:
  - The transformation methods return =*this= to make them chainable.
@@ -1076,7 +1076,7 @@ This next code block converts GLM matrices and vectors to =std::span=.
 I'm a bit confused about const qualifiers.
 In particular I wonder if an additional set of =to_span= functions is needed to handle specifically =const span<const T>= and =span<const T>= or if this is already handled by the two functions below or if this is not even relevant.
 
-#+name: glm/to_span
+#+name: to_span/glm
 #+begin_src cpp
 template<glm::length_t Col, glm::length_t Row, typename T, glm::qualifier Q>
 const auto to_span(const glm::mat<Col, Row, T, Q>& container) {
@@ -1099,11 +1099,11 @@ auto to_span(glm::vec<Length, T, Q>& container) {
     return std::span(glm::value_ptr(container), Length);
 }
 #+end_src
-#+depends:glm/to_span :cpp span glm/gtc/type_ptr.hpp
+#+depends:to_span/glm :cpp span glm/gtc/type_ptr.hpp
 
 Usage
 #+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export
-<<include(":noweb glm/to_span <<span print-function")>>
+<<include(":noweb to_span/glm <<span print-function")>>
 int main() {
     glm::mat4 identity(1.0f);
     glm::vec2 lo{4, 8};
@@ -1195,7 +1195,7 @@ std::ostream& operator<<(std::ostream& os, const glm::vec<Length, T, Q>& contain
     return os;
 }
 #+end_src
-#+depends:<<glm/vec :noweb <<span glm/to_span :cpp ostream
+#+depends:<<glm/vec :noweb <<span to_span/glm :cpp ostream
 
 Usage:
 #+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both :wrap "src text"
