@@ -24,27 +24,31 @@ class window
   public:
     GLFWwindow* window_handle;
     GLFWmonitor* monitor_handle;
+    struct size {
+        int width, height;
+        float aspect() const {return (float) width / (float) height;}
+    };
 
     const std::string& title() const {return title_;}
-    std::size_t width() const {return width_;}
-    std::size_t height() const {return height_;}
+    int width() const {return size_->width;}
+    int height() const {return size_->height;}
     bool should_close() const {return glfwWindowShouldClose(window_handle);}
-    float aspect() const {return (float) width_ / (float) height_;}
+    float aspect() const {return size_->aspect();}
 
     <<window/public>>
 
   private:
     const std::string title_;
-    std::size_t width_, height_;
+    observable<size> size_;
 };
 #+end_src
-#+depends:window :cpp glad/glad.h GLFW/glfw3.h stdexcept
+#+depends:window :noweb observable :cpp glad/glad.h GLFW/glfw3.h stdexcept
 
 ** Titled constructor
 
 #+begin_src cpp :noweb no-export :noweb-ref window/public
-window(const std::string& title, std::size_t w, std::size_t h):
-    window_handle(nullptr), monitor_handle(nullptr), title_(title), width_(w), height_(h)
+window(const std::string& title, int w, int h):
+    window_handle(nullptr), monitor_handle(nullptr), title_(title), size_({.width=w, .height=h})
 {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -61,7 +65,7 @@ If =monitor_handle='s value is =nullptr=, this is not a problem because when =gl
 The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
  
 #+begin_src cpp :noweb-ref "window/Titled constructor"
-window_handle = glfwCreateWindow(width_, height_, title.c_str(), monitor_handle, nullptr);
+window_handle = glfwCreateWindow(size_->width, size_->height, title.c_str(), monitor_handle, nullptr);
 if(window_handle == nullptr){
     glfwTerminate();
     throw std::runtime_error("Failed to create glfw window");
@@ -95,12 +99,12 @@ This requires to register a callback, and below is the method that will technica
 
 #+begin_src cpp :noweb-ref window/public
 void resize_viewport(GLFWwindow* ignore, int width, int height) {
-    width_ = width; height_ = height;
-    glViewport(0, 0, width_, height_);
+    size_ = size({.width=width, .height=height});
+    glViewport(0, 0, size_->width, size_->height);
 }
 #+end_src
 
-Note that this method triggers a modification of the =width_= and =height_= attributes of =window=, hence why it is a method and not a free function.
+Note that this method triggers a modification of the =window='s size, hence why it is a method and not a free function.
 Sadly, a method pointer cannot be trivially transformed into a function pointer, which is why =glfwSetWindowUserPointer= and =glfwGetWindowUserPointer= must be used to transmit the =this= pointer to a captureless lambda delegating the work to =resize_viewport=.
 
 This technique was explained here: https://stackoverflow.com/a/28660673.
@@ -112,6 +116,15 @@ auto callback = [](GLFWwindow* handle, int width, int height) {
 };
 glfwSetFramebufferSizeCallback(window_handle, callback);
 #+end_src
+
+The following can be used from the outside to be notified of changes in window sizes:
+#+begin_src cpp :noweb-ref window/public
+template<typename Observer>
+auto observe_size(Observer&& observer) {
+    return size_.observe(observer);
+}
+#+end_src
+
 
 ** Destructor
 
