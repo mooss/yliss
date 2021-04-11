@@ -937,6 +937,7 @@ Note that the image above really is a cube.
 I choosed to pick an angle where only a side was visible because it was pretty.
 For an image with more of a 3d feeling, see the next example.
 
+
 ** Model, view and projection matrices
 
 The model, view and projection matrices are transformation matrices each doing their own step to go from an isolated model to something ready to be drawn:
@@ -947,7 +948,7 @@ The model, view and projection matrices are transformation matrices each doing t
 # TODO: Verify the above with other sources, I don't think I understood everything I needed.
 
 Those matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long).
-The main part of =movipr= is simply storage for the model, view and projection matrices, using the amalgamated struct =transform_uniform=:
+The first of =movipr= is simply storage for the model, view and projection matrices, using the amalgamated struct =transform_uniform=:
 #+name: movipr
 #+begin_src cpp
 struct movipr {
@@ -955,8 +956,9 @@ struct movipr {
         transform transformation;
         uniform_m4f uniform;
 
-        transform_uniform(transform&& t, const std::string& name, const shader_program& shader):
-            transformation(std::move(t)), uniform(name.c_str(), shader)
+        template<typename Transform>
+        transform_uniform(Transform&& t, const std::string& name, const shader_program& shader):
+            transformation(std::forward<Transform>(t)), uniform(name.c_str(), shader)
         {}
 
         void send() const {
@@ -977,37 +979,84 @@ struct movipr {
 #+end_src
 #+depends:movipr :noweb transform uniform_m4f shader_program mandatory :cpp string glm/ext/matrix_clip_space.hpp glm/trigonometric.hpp
 
-The rest of movipr is merely the initialisation of =model=, =view= and =projection=.
-In an attempt to make =movipr= easy to use and concise, the "designated keywords arguments" pattern is used.
+*** Construction parameters
+
+In an attempt to make =movipr= easy to use and concise (for the user), the designated keywords arguments pattern is used.
 It is justified by the fact that reasonable default values can be defined for most parameters.
-In fact the only parameter without reasonably defined default values in the =aspect= ratio, hence why it is marked as =mandatory=.
+The keyword arguments are separated in two group, the first group is dedicated to the projection parameter (only the perspective projection is supported).
+The only parameter without reasonably defined default values is the =aspect= ratio, hence why it is marked as =mandatory=.
 #+begin_src cpp :noweb-ref movipr/public
-struct keyword_arguments {
+struct perspective_projection {
     mandatory<float> aspect;
     float fov{45};
     float near{1};
     float far{100};
+    auto make() const {
+        return glm::perspective(glm::radians(fov), *aspect, near, far);
+    }
+};
+perspective_projection projection_parameters;
+#+end_src
+# TODO: use shared_ptr for view and projection and make a "half duplicate" factory.
+
+An instance of perspective projection can be constructed like shown below, and a construction attempt without a value for =aspect= will not compile.
+#+begin_src cpp
+perspective_projection params{.aspect=4./3., .fov=80};
+#+end_src
+
+The other construction parameters are the variable names for the model, view and projection uniforms.
+#+begin_src cpp :noweb-ref movipr/public
+struct variables {
     std::string model{"model"};
     std::string view{"view"};
     std::string projection{"projection"};
 };
+#+end_src
 
+*** Constructors
+
+The perfect forwarding used for the transform parameters will be useful to define transformations in place using =transform='s translation, scaling and rotation methods.
+Because those methods return references to =transform= but transformations matrices should be moved in other cases.
+#+begin_src cpp :noweb-ref movipr/public
+template<class Transform>
 movipr(
-    transform mo, transform vi, const shader_program& shader,
-    keyword_arguments&& kwargs
-) : model(std::move(mo), kwargs.model, shader),
-    view(std::move(vi), kwargs.view, shader),
-    projection(
-        transform{glm::perspective(glm::radians(kwargs.fov), *kwargs.aspect, kwargs.near, kwargs.far)},
-        kwargs.projection, shader
-    )
+    Transform&& mo, Transform&& vi, const shader_program& shader,
+    const perspective_projection& proj, const variables& names
+): model(std::forward<Transform>(mo), names.model, shader),
+   view(std::forward<Transform>(vi), names.view, shader),
+   projection(transform{proj.make()}, names.projection, shader),
+   projection_parameters(proj)
 {
     shader.use();
     send_all();
 }
 #+end_src
 
-The following vertex shader receives those matrices and applies them to the position:
+I had to make an additional constructor to use the default value for the variable names.
+For some reason defining the last argument of the other constructor to src_cpp[]{const variables& names=variables()} didn't compile.
+Perhaps I forgot something about C++ syntax but I thought it was valid.
+#+begin_src cpp :noweb-ref movipr/public
+template<typename Transform>
+movipr(
+    Transform&& mo, Transform&& vi, const shader_program& shader,
+    const perspective_projection& proj
+): movipr(std::forward<Transform>(mo), std::forward<Transform>(vi), shader, proj, variables{})
+{}
+#+end_src
+
+*** Update
+
+The projection matrix can be updated with =refresh_projection= after the projection parameters have been changed.
+#+begin_src cpp :noweb-ref movipr/public
+void refresh_projection() {
+    projection.transformation = transform{projection_parameters.make()};
+    projection.send();
+}
+#+end_src
+
+*** Usage
+
+The following vertex shader receives the model, view and projection matrices and applies them to the position:
 #+name: model_view_projection_vs
 #+begin_src glsl
 #version 330 core
@@ -1025,7 +1074,8 @@ void main() {
 }
 #+end_src
 
-Finally, =movipr= is used to define rudimentary model, view and projection matrices, thus rendering something that looks less like the squashed lozenge of the previous example and more like a cube viewed from a certain perspective.
+Model, view and projection matrices can be defined via a =movipr=, thus rendering something that looks less like the squashed lozenge of the previous example and more like a cube viewed from a certain perspective.
+A window size observer is also setup to update the projection's aspect ratio when the window is resized.
 #+begin_src cpp :eval no-export :exports both
 const char *vs_str =
     <<shader("model_view_projection_vs")>>
@@ -1046,6 +1096,11 @@ int main() {
         colorful_shader,
         {.aspect = lazy.aspect()}
     );
+
+    auto size_sub = lazy.observe_size([&viper](auto const& size) {
+        viper.projection_parameters.aspect = size.aspect();
+        viper.refresh_projection();
+    });
 
     gl_screen_first(lazy, "images/screencaps/cc_model_view_projection.png", [&]{
         colorful_shader.use();
