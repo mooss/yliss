@@ -201,10 +201,10 @@ Packaged within =lazy_window= are the following rendering methods:
 #+begin_src cpp :noweb-ref lazy_window/public
 template<typename F> // Great for OpenGL calls debugging via LOG_AND_CALL.
 void render_one(F rendering) const {
+    glfwPollEvents();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     rendering();
     glfwSwapBuffers(this->window_handle);
-    glfwPollEvents();
 }
 
 template<typename F> // Useful to observe quickly the result of some adjustment.
@@ -221,6 +221,12 @@ void game_loop(F rendering) const {
     }
 }
 #+end_src
+
+The first thing done when rendering a frame is event polling.
+That is because the window can be immediately resized when starting.
+Therefore if event polling is done at the end, the first frame will be rendered in a window having the new size but the other components of the system will not be aware of this new size until the next frame.
+This can result in graphical issues like a stretching of the first frame.
+This is very relevant for this project because the first frame is often screened and saved for illustration purposes.
 
 ** Usage
 
