@@ -947,37 +947,38 @@ The model, view and projection matrices are transformation matrices each doing t
  - Projection transforms view space to clip space (where only what must be rendered is located, the rest being clipped off).
 # TODO: Verify the above with other sources, I don't think I understood everything I needed.
 
-Those matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long).
-The first part of =movipr= is simply storage for the model, view and projection matrices, using the amalgamated struct =transform_uniform=:
+The struct =transform_uniform= is a shortcut for a transformation matrix with its associated uniform.
+#+name: transform_uniform
+#+begin_src cpp
+struct transform_uniform {
+    transform transformation;
+    uniform_m4f uniform;
+
+    template<typename Transform>
+    transform_uniform(Transform&& t, const std::string& name, const shader_program& shader):
+        transformation(std::forward<Transform>(t)), uniform(name.c_str(), shader)
+    {}
+
+    void send() const {
+        uniform.send(transformation);
+    }
+};
+#+end_src
+#+depends:transform_uniform :noweb transform uniform_m4f shader_program :cpp string
+
+The three matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long), whose very minimalist outline can be seen below.
+Note that the model is the only matrix whose data is directly stored within =movipr=, the other matrices will be generated on demand.
 #+name: movipr
 #+begin_src cpp
 struct movipr {
-    struct transform_uniform {
-        transform transformation;
-        uniform_m4f uniform;
-
-        template<typename Transform>
-        transform_uniform(Transform&& t, const std::string& name, const shader_program& shader):
-            transformation(std::forward<Transform>(t)), uniform(name.c_str(), shader)
-        {}
-
-        void send() const {
-            uniform.send(transformation);
-        }
-    };
-
     transform_uniform model;
-    transform_uniform view;
-    transform_uniform projection;
-
-    void send_all() const {
-        model.send(); view.send(); projection.send();
-    }
+    uniform_m4f view;
+    uniform_m4f projection;
 
     <<movipr/public>>
 };
 #+end_src
-#+depends:movipr :noweb transform uniform_m4f shader_program mandatory :cpp string glm/ext/matrix_clip_space.hpp glm/trigonometric.hpp
+#+depends:movipr :noweb transform_uniform uniform_m4f shader_program mandatory to_span/glm :cpp string glm/ext/matrix_clip_space.hpp glm/trigonometric.hpp
 
 *** Construction parameters
 
@@ -1015,20 +1016,22 @@ struct variables {
 
 *** Constructors
 
-The perfect forwarding used for the transform parameters will be useful to define transformations in place using =transform='s translation, scaling and rotation methods.
+The perfect forwarding used for =model= will be useful to define transformations in place using =transform='s translation, scaling and rotation methods.
 Because those methods return references to =transform= but transformations matrices should be moved in other cases.
 #+begin_src cpp :noweb-ref movipr/public
-template<class Transform>
+template<class Transform, class Data>
 movipr(
-    Transform&& mo, Transform&& vi, const shader_program& shader,
+    Transform&& _model, const Data& view_data, const shader_program& shader,
     const perspective_projection& proj, const variables& names
-): model(std::forward<Transform>(mo), names.model, shader),
-   view(std::forward<Transform>(vi), names.view, shader),
-   projection(transform{proj.make()}, names.projection, shader),
+): model(std::forward<Transform>(_model), names.model, shader),
+   view(names.view.c_str(), shader),
+   projection(names.projection.c_str(), shader),
    projection_parameters(proj)
 {
     shader.use();
-    send_all();
+    model.send();
+    view.send(view_data);
+    refresh_projection();
 }
 #+end_src
 
@@ -1036,11 +1039,11 @@ I had to make an additional constructor to use the default value for the variabl
 For some reason defining the last argument of the other constructor to src_cpp[]{const variables& names=variables()} didn't compile.
 Perhaps I forgot something about C++ syntax but I thought it was valid.
 #+begin_src cpp :noweb-ref movipr/public
-template<typename Transform>
+template<class Transform, class Data>
 movipr(
-    Transform&& mo, Transform&& vi, const shader_program& shader,
+    Transform&& model, const Data& view_data, const shader_program& shader,
     const perspective_projection& proj
-): movipr(std::forward<Transform>(mo), std::forward<Transform>(vi), shader, proj, variables{})
+): movipr(std::forward<Transform>(model), view_data, shader, proj, variables{})
 {}
 #+end_src
 
@@ -1049,8 +1052,7 @@ movipr(
 The projection matrix can be updated with =refresh_projection= after the projection parameters have been changed.
 #+begin_src cpp :noweb-ref movipr/public
 void refresh_projection() {
-    projection.transformation = transform{projection_parameters.make()};
-    projection.send();
+    projection.send(to_span(projection_parameters.make()));
 }
 #+end_src
 
