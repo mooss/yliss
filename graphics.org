@@ -796,7 +796,7 @@ Four colors are used for the cube vertices, with every opposite pair of vertices
 I seem to remember that there is some kind of convention in OpenGL about the order of vertices meaning something about the orientation of the normal but I can't be bother to find out so I'll come back to it later if I feel like it.
 Anyway the cube renders in a colorful manner kind of reminiscent of the PS1 boot logo, as will be seen in the first example that uses it.
 
-#+name: colorful_example
+#+name: colorful-example
 #+begin_src cpp
 lazy_window lazy("Yliss colorful example", 640u, 480u);
 shader_program colorful_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
@@ -827,7 +827,7 @@ auto colorful_indexes = indexes({
         4, 1, 0
 });
 #+end_src
-#+depends:colorful_example :noweb lazy_window shader_program VAO vec_vertices indexes
+#+depends:colorful-example :noweb lazy_window shader_program VAO vec_vertices indexes
 
 ** Matrix transformations
 
@@ -885,7 +885,7 @@ transform nonsensical_transformation{nonsensical_matrix};
 
 To experiment with transformations, this vertex shader transmits the input color it received to the fragment shader and applies a given transformation matrix to its original position:
 #+name: colorattr_transform_vs
-#+begin_src glsl
+#+begin_src glsl :minipage
 #version 330 core
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 color_in;
@@ -906,7 +906,7 @@ const char *vs_str =
 const char *fs_str =
     <<shader("color_as_attribute_fs")>>
     ;
-<<include(":noweb colorful_example uniform_m4f transform gl_screen_first")>>
+<<include(":noweb colorful-example uniform_m4f transform gl_screen_first")>>
 
 int main() {
     colorful_shader.use();
@@ -1076,8 +1076,32 @@ void main() {
 }
 #+end_src
 
-Model, view and projection matrices can be defined via a =movipr=, thus rendering something that looks less like the squashed lozenge of the previous example and more like a cube viewed from a certain perspective.
+The =colorful-example= used previously is expanded below with =movipr=, to send the appropriate values of the =model=, =view= and =projection= uniforms to the shader.
 A window size observer is also setup to update the projection's aspect ratio when the window is resized.
+
+#+name: colorful-viper-example
+#+begin_src cpp
+glm::vec3 cube_location{-.5, 0, 0};
+movipr viper(
+    transform().translate(cube_location)
+    .scale({.5, .5, .5})
+    .rotate_deg(45, {0, 0, 1})
+    .rotate_deg(270, {0, 1, 0})
+    .rotate_deg(90, {1, 0, 1}),
+    transform().translate({0, 0, -2}),
+    colorful_shader,
+    {.aspect = lazy.aspect()}
+);
+
+auto size_sub = lazy.observe_size([](auto const& size) {
+    viper.projection_parameters.aspect = size.aspect();
+    viper.refresh_projection();
+});
+#+end_src
+#+depends:colorful-viper-example :noweb colorful-example movipr transform :cpp glm/vec3.hpp
+
+Only the vertex and fragment shaders, as well as a game loop must be added to produce something that looks less like the squashed lozenge of the previous example and more like a cube viewed from a certain perspective.
+
 #+begin_src cpp :eval no-export :exports both
 const char *vs_str =
     <<shader("model_view_projection_vs")>>
@@ -1085,25 +1109,9 @@ const char *vs_str =
 const char *fs_str =
     <<shader("color_as_attribute_fs")>>
     ;
-<<include(":noweb colorful_example movipr transform gl_screen_first")>>
+<<include(":noweb colorful-viper-example gl_screen_first")>>
 
 int main() {
-    movipr viper(
-        transform().translate({-.5, 0, 0})
-                   .scale({.5, .5, .5})
-                   .rotate_deg(45, {0, 0, 1})
-                   .rotate_deg(270, {0, 1, 0})
-                   .rotate_deg(90, {1, 0, 1}),
-        transform().translate({0, 0, -2}),
-        colorful_shader,
-        {.aspect = lazy.aspect()}
-    );
-
-    auto size_sub = lazy.observe_size([&viper](auto const& size) {
-        viper.projection_parameters.aspect = size.aspect();
-        viper.refresh_projection();
-    });
-
     gl_screen_first(lazy, "images/screencaps/cc_model_view_projection.png", [&]{
         colorful_shader.use();
         colorful_vao.bind();
@@ -1121,7 +1129,131 @@ int main() {
 :end:
 
 
-** TODO Cameras
+** Cameras
+
+Conceptually, a camera is nothing more than a way to generate a view matrix.
+Here all the work is done by GLM's =lookAt=, transforming the position of the camera, the direction where it is looking (=front=) and the =up= vector into a view matrix.
+
+#+name: camera
+#+begin_src cpp
+class camera {
+  public:
+    template<class Vec3>
+    camera(Vec3&& position, Vec3&& front, Vec3&& up):
+        position_(std::forward<Vec3>(position)),
+        front_(std::forward<Vec3>(front)),
+        up_(std::forward<Vec3>(up))
+    {}
+
+    camera()=delete;
+
+    glm::mat4 view() const {
+        return glm::lookAt(position_, position_ + front_, up_);
+    }
+
+  protected:
+    glm::vec3 position_, front_, up_;
+};
+#+end_src
+#+depends:camera :cpp glm/ext/matrix_transform.hpp glm/vec3.hpp glm/mat4x4.hpp
+
+*** Orbital camera
+
+An orbital camera is focused on a point (the =focal_point=), at a given distance (the =radius=).
+It is based on longitudinal and latitudinal angles, hence the name.
+An =up= vector is also necessary to initialise the base camera.
+
+I forgot the details on how this works and this is mostly copy-pasted from Godefarig, the ancestor of Yliss.
+I'm bemused by the fact that the =up= vector is not modified in any operation of this orbital camera but the previous sentence explains this.
+
+#+name: orbital_camera
+#+begin_src cpp
+class orbital_camera: public camera {
+  public:
+    orbital_camera(
+        glm::vec3 focal_point, float radius, float longitude, float latitude,
+        glm::vec3 up={0, 1, 0}
+    ):
+        focal_point_(std::move(focal_point)), radius_(radius),
+        longitude_(longitude), latitude_(latitude),
+        camera({0, 0, 0}, {0, 0, 0}, std::move(up))
+    {refresh();}
+
+    orbital_camera& orient(float delta_longitude, float delta_latitude) {
+        longitude_ += delta_longitude;
+        latitude_  += delta_latitude;
+        clamp_latitude();
+        refresh();
+        return *this;
+    }
+
+  private:
+    glm::vec3 focal_point_;
+    float radius_, longitude_, latitude_;
+    <<orbital_camera/private>>
+};
+#+end_src
+#+depends:orbital_camera :noweb camera :cpp glm/vec3.hpp glm/trigonometric.hpp glm/geometric.hpp
+
+Below are two necessary support methods:
+ - =refresh= is pretty basic trigonometry updating the =position_= and the =front_= values of the camera.
+   Though I don't really know how it works.
+
+   Something worrying me is that I did not declare a dependency on =<cmath>=, yet =cos= and =sin= are available for some reason.
+
+ - The latitude clamping method prevents - to pursue the orbital metaphor - the camera from venturing above or below the poles.
+   Without it, the camera jumps around from time to time, I assume because of gimbal lock or a related phenomenon.
+
+   Therefore this camera will eventually have to be updated to something better.
+
+#+begin_src cpp :noweb-ref orbital_camera/private :minipage
+void refresh() {
+    position_.x = cos(glm::radians(longitude_)) * cos(glm::radians(latitude_)) * radius_;
+    position_.y = sin(glm::radians(latitude_))  * radius_;
+    position_.z = sin(glm::radians(longitude_)) * cos(glm::radians(latitude_)) * radius_;
+    front_      = - glm::normalize(position_);
+    position_  += focal_point_;
+}
+
+void clamp_latitude() {
+    if(latitude_ > 89.0f)
+        latitude_ = 89.0f;
+    else if(latitude_ < -89.0f)
+        latitude_ = -89.0f;
+}
+#+end_src
+
+*** Usage
+
+No screen capture is included because what is visible here in a screenshot is not really different from what was in the previous section.
+
+#+begin_src cpp :eval no-export :exports code :results silent
+const char *vs_str =
+    <<shader("model_view_projection_vs")>>
+    ;
+const char *fs_str =
+    <<shader("color_as_attribute_fs")>>
+    ;
+<<include(":noweb colorful-viper-example orbital_camera to_span/glm")>>
+
+int main() {
+    orbital_camera director(cube_location, 2, 0, 0);
+    viper.view.send(to_span(director.view()));
+
+    lazy.game_loop([&]{
+        colorful_shader.use();
+        colorful_vao.bind();
+        colorful_indexes.draw();
+
+        // Rotate the model.
+        viper.model.transformation.rotate_rad(-.015, {1, 0, 1});
+        viper.model.send();
+
+        // And the camera.
+        viper.view.send(to_span(director.orient(2, 0).view()));
+    });
+}
+#+end_src
 
 
 * GLM utils
