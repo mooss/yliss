@@ -948,7 +948,7 @@ The model, view and projection matrices are transformation matrices each doing t
 # TODO: Verify the above with other sources, I don't think I understood everything I needed.
 
 Those matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long).
-The first of =movipr= is simply storage for the model, view and projection matrices, using the amalgamated struct =transform_uniform=:
+The first part of =movipr= is simply storage for the model, view and projection matrices, using the amalgamated struct =transform_uniform=:
 #+name: movipr
 #+begin_src cpp
 struct movipr {
