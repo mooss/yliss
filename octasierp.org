@@ -148,7 +148,7 @@ Everything related to the generation of the textual representation is gathered i
 
 **** Four quarters
 
-We can divise the squarified net into four quarter, each being a rotated image of the others around the central point.
+We can divise the squarified net into four quarters, each being a rotated image of the others around the central point.
 This means rules devised for one quarter can easily be adapted to the others.
 
 Those quarters are identified by a number ranging from 0 to 3, with quarter 0 being the top-right one and the others being numerated counter-clockwise.
