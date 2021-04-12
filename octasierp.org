@@ -169,8 +169,51 @@ This is the coordinate system we will use from now on, albeit we will sometimes 
 
 Since an octasierp is a discrete structure, the coordinates will be integer-based.
 An unfortunate side effect of integer coordinates is that except for the north pole, points will not keep their coordinates when the degree of subdivision changes.
-For example when $degree = 0$, corner 0 is at the coordinates $(1, 0)$ and when $degree = 1$ it is at the coordinates $(2, 0)$.
+For example, as is illustrated below, when $degree = 0$, corner 0 is at the coordinates $(1, 0)$ and when $degree = 1$ it is at the coordinates $(2, 0)$.
 In the end, the rule is that coordinates only make sense at a given degree.
+
+#+begin_src python :exports results
+<<Textual squarified net>>
+
+def listr_replace(listr, replacements):
+    for row, col, content in replacements:
+        listr[row] = listr[row][:col] + content + listr[row][col+1:]
+
+deg0 = SquareNet(0, None, show_axis=True).repr()
+listr_replace(deg0, [(2, 10, 'Z   <====== Corner 0 at degree 0')])
+print('\n'.join(deg0))
+
+print()
+print('__________________________________________')
+print()
+deg1 = SquareNet(1, None, show_axis=True).repr()
+listr_replace(deg1, [(3, 14, 'Z   <== Corner 0 at degree 1')])
+print('\n'.join(deg1))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++1 |  +-+-+
+ 0 |  +-o-Z   <====== Corner 0 at degree 0
+-1 |  +-+-+
+   +-------->
+      1 0 1
+      -   +
+
+__________________________________________
+
+   ^
++2 |  +---+---+
++1 |  |   |   |
+ 0 |  +---o---Z   <== Corner 0 at degree 1
+-1 |  |   |   |
+-2 |  +---+---+
+   +------------>
+      2 1 0 1 2
+      - -   + +
+#+end_src
+
 
 Another problem is that there is a redundancy in this coordinate system that needs to be resolved (most strikingly, the south pole is present four times).
 First we will need to derive the cardinality of a half-axis, that is to say the number of points on it.
