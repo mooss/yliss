@@ -1086,8 +1086,8 @@ else:
     self.redundant = self.display_redundant
 if self.redundant is not False\
    and self.redundant not in Quarter.IS_POINT:
-    msg = 'Usage of invalid redundant character `{}`.'\
-        + ' Expected values in {}.'.format(self.redundant, Quarter.IS_POINT)
+    msg = 'Usage of invalid redundant character `{}`.'.format(self.redundant)\
+        + ' Expected values in {}.'.format(Quarter.IS_POINT)
     raise ValueError(msg)
 #+end_src
 
