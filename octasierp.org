@@ -9,21 +9,6 @@
 
 I'll be sometimes hand-wavy with the maths here both because I don't want to bother and because I don't know much about it.
 
-** About C++ developpment
-
-I try to follow the C++ core guidelines[fn::See https://github.com/isocpp/CppCoreGuidelines.] when it suits me.
-
-The C++ code presented here will go inside the namespace =octa= and tangled to =include/octasierp.h=.
-
-#+begin_src cpp :tangle include/octasierp.h
-<<Inclusions>>
-namespace octa{
-
-<<octa namespace>>
-
-}
-#+end_src
-
 
 * Of octahedrons and Sierpiński triangles
 :PROPERTIES:
