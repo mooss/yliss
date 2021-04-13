@@ -159,11 +159,7 @@ In the end, the rule is that coordinates only make sense at a given degree.
 
 #+begin_src python :exports results
 <<Textual squarified net>>
-
-def listr_replace(listr, replacements):
-    for row, col, content in replacements:
-        listr[row] = listr[row][:col] + content + listr[row][col+1:]
-
+<<listr_replace>>
 deg0 = SquareNet(0, None, show_axis=True).repr()
 listr_replace(deg0, [(2, 10, 'Z   <====== Corner 0 at degree 0')])
 print('\n'.join(deg0))
@@ -199,7 +195,6 @@ __________________________________________
       - -   + +
 #+end_src
 
-
 Another problem is that there is a redundancy in this coordinate system that needs to be resolved (most strikingly, the south pole is present four times).
 First we will need to derive the cardinality of a half-axis, that is to say the number of points on it.
 Then that property will be used to describe precisely the redundancy problem.
@@ -231,18 +226,17 @@ Thus we deduce that $\vert points_{d+1} \vert = 2 \times 2^d + 1 \Leftrightarrow
 A peculiar caracteristic of the squarified-net-inspired coordinate system is that there is a redundancy at the edges, where the four corners act as a center of symmetry.
 For example, at degree 2 the points $A = (-3, 4)$ and $B = (3, 4)$ are the same, as well as the points $C = (4, 2)$ and $D = (4, -2)$:
 #+name: Octasierp redundancy example
-#+begin_src python :exports none
+#+begin_src python :exports none :eval never
 <<Textual squarified net>>
-result = SquareNet(2, [0, 1, 2], display_redundant=display_redundant).repr()
-first = result[0]
-result[0] = first[:2] + 'A' + first[3:-3] + 'B' + first[-2:]
-result[2] = result[2][:-1] + 'C'
-result[6] = result[2][:-1] + 'D'
-
-# Terribly cool hack, don't try this at home.
-top = [0] * 5
-<<Add axis to SquareNet representation>>
-print('\n'.join(result))
+<<listr_replace>>
+redundant_representation = SquareNet(2, [0, 1, 2], display_redundant=display_redundant, show_axis=True).repr()
+listr_replace(redundant_representation, [
+    (1, 8, 'A'),
+    (1, 20, 'B'),
+    (3, 22, 'C'),
+    (7, 22, 'D')
+])
+print('\n'.join(redundant_representation))
 #+end_src
 
 #+begin_src python :exports results :eval no-export
@@ -307,7 +301,7 @@ To solve this last issue, we'll just say that the bottom right corner belongs to
 
 Here is the updated example from the previous section reflecting the changes we just made, with =v= characters representing a redundant point[fn::The canonical counterparts of those points are still represented with an =x=.]:
 #+begin_src python :exports results :eval no-export
-display_redundant=True
+display_redundant='v'
 <<Octasierp redundancy example>>
 #+end_src
 
@@ -320,7 +314,7 @@ display_redundant=True
 +1 |  x x x x x x x x v
  0 |  x-x-x-x-X-x-x-x-x
 -1 |  v x x x x x x x x
--2 |  x x x x x x x x D
+-2 |  v x x x x x x x D
 -3 |  v x x x x x x x x
 -4 |  v-x-x-x-x-v-v-v-v
    +-------------------->
@@ -1548,6 +1542,22 @@ print(SquareNet(2, [0, 2], show_axis=True))
 Note that this representation will break if we ever try to include gradations greater than 9, because it assumes that gradations are single-digit numbers.
 The last degree for which a correct axis can be made is therefore degree 3 with its gradations going from -8 to 8.
 It would be possible to make it work with higher degrees but degree 3 covers my needs regarding this feature.
+
+** Utils
+
+Utilities dedicated to help with the manipulation of the textual representation.
+
+*** Edition of a list of strings (listr)
+
+Because strings are immutable, editing a list of strings in place is a pain.
+The following takes a list of strings applies a list of replacement (a 3-uple composed of the line number, the row number and the replacement string) to it.
+
+#+name: listr_replace
+#+begin_src python
+def listr_replace(listr, replacements):
+    for row, col, content in replacements:
+        listr[row] = listr[row][:col] + content + listr[row][col+1:]
+#+end_src
 
 
 * References
