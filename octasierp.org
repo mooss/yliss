@@ -217,7 +217,7 @@ A most interesting pattern made evident by this table is that in each line we ad
 Thus we deduce that $\vert points_{d+1} \vert = 2 \times 2^d + 1 \Leftrightarrow \vert points_{d+1} \vert = 2^{d+1} + 1 \Leftrightarrow \vert points_d \vert = 2^{d} + 1$.
 
 #+name: hasardous_guess
-#+caption: Small amount of data to support my dubious claim (no mathematicians were hurt in the process (don't quote me on that))
+#+caption: Small amount of data to support my dubious claim (no mathematicians were hurt in the process (not on purpose at least))
 | $d$ | $\vert points_d \vert$ | $2^{d}$ | $\vert points_{d+1} \vert$ |
 |-----+------------------------+---------+----------------------------|
 |   0 |                      2 |       1 |                          3 |
