@@ -1030,6 +1030,8 @@ Here is a breakdown of the arguments accepted by Quarter's init:
  - =appearance= is the degree of appearance to eventually display.
  - =quarter= is the index of the quarter (between 1 and 4).
  - =display_redundant= commands how redundant points should be shown in the representation.
+ - =display_point= contains points representations for each degree.
+   Representations will be cycled through if the list is too short.
 
 The inclusion of =appearance= in the arguments means that only points appearing at the degree =appearance= are included in the representation.
 I'll explain later how to make a representation including all the points or only the points in a given list.
@@ -1042,11 +1044,17 @@ I'll explain later how to make a representation including all the points or only
 class Quarter:
     <<Textual quarter constants>>
 
-    def __init__(self, degree, appearance=None, quarter=0, display_redundant=False):
+    def __init__(
+            self, degree, appearance=None, quarter=0,
+            display_redundant=False, display_points=['x']
+    ):
         self.degree = degree
         self.appearance = appearance
         self.quarter = quarter % 4
         self.display_redundant = display_redundant
+        self.display_points = display_points
+        self.valid_points = Quarter.IS_POINT | set(self.display_points)
+
         <<Textual quarter init>>
 
     <<Textual quarter methods>>
@@ -1070,7 +1078,7 @@ NORTH_POLE = 'o'
 #+end_src
 =CORNER= is not a great name because it already means the 4 corners of the world of an octasierp but here it is the litteral corners of one quarter (two of which happen to be corners in the octasierp sense).
 
-We also define the set of character that can collide and the set of character that are point.
+We also define the set of character that can collide and the set of character that are a point.
 They are complementary in the sense that their intersection is empty and their union is the whole character set.
 #+begin_src python :noweb-ref "Textual quarter constants"
 CAN_COLLIDE = {
@@ -1089,6 +1097,37 @@ else:
     self.redundant = self.display_redundant
 #+end_src
 
+To make life easier, the string =*= is a shortcut for all the degrees of appearance possible:
+#+begin_src python :noweb-ref "Textual quarter init"
+if self.appearance == '*':
+    self.appearance = list(range(self.degree+1))
+#+end_src
+
+Every degree of appearance must have its representation:
+#+begin_src python :noweb-ref "Textual quarter init"
+if self.appearance is None:
+    max_appearance = 0
+elif type(self.appearance) is int:
+    max_appearance = self.appearance
+elif type(self.appearance) is list:
+    max_appearance = max(self.appearance)
+else:
+    raise TypeError('Unexpected appearance type: ' + type(self.appearance))
+
+if len(self.display_points) < max_appearance + 1:
+    tmp = [] + self.display_points
+    for representation in itertools.cycle(tmp):
+        self.display_points.append(representation)
+        if len(self.display_points) >= max_appearance + 1:
+            break
+#+end_src
+
+#+begin_src python :noweb-ref "Textual quarter dependencies"
+import itertools
+#+end_src
+
+
+
 ** Generate a raw representation
 
 This method is the core of the text representation logic.
@@ -1096,7 +1135,7 @@ Its role is to create a string where every character except =\n= maps to the rea
 It should not be called by an end user, as it still needs to be prettyfied and it has its own =appearance= argument which restricts the representation to one specific degree of appearance.
 The assembly steps required will be the subject of the next sections.
 
-With that being said, this method is a perfect example of why designing code using (poorly) observed artifacts rather than carefully deduced mathematical knowledge will result in a terrible unmaintanable mess.
+With that being said, this method is a perfect example of why designing code using (poorly) observed artifacts rather than carefully deduced knowledge will result in a terrible unmaintanable mess.
 But hey, it works.
 
 In retrospect, it would have been much better to start from the central point since it is obviously a center of symmetry.
@@ -1120,7 +1159,7 @@ def raw(self, appearance=None):
     # Special case with corner points.
     if appearance == 0:
         if self.quarter == 0:
-            topright = Quarter.POINT # Technically south pole
+            topright = self.display_points[appearance] # Technically south pole
             bottomleft = Quarter.NORTH_POLE_POINT
         else:
             bottomleft = Quarter.NORTH_POLE
@@ -1130,7 +1169,7 @@ def raw(self, appearance=None):
                 topright = Quarter.CORNER
         top = Quarter.CORNER + Quarter.HORIZONTAL * (length - 2) + topright
         bottom = bottomleft\
-            + Quarter.HORIZONTAL * (length - 2) + Quarter.POINT
+            + Quarter.HORIZONTAL * (length - 2) + self.display_points[appearance]
         emptyline = Quarter.VERTICAL + Quarter.EMPTY * (length - 2)\
             + Quarter.VERTICAL
         return [top] + [emptyline] * (length - 2) + [bottom]
@@ -1156,7 +1195,7 @@ def raw(self, appearance=None):
     # Build lines.
     right_vertical = self.redundant if self.display_redundant else Quarter.VERTICAL
     tb_common = small_horizontal\
-        + big_horizontal.join([Quarter.POINT] * npoints_even)\
+        + big_horizontal.join([self.display_points[appearance]] * npoints_even)\
         + small_horizontal + Quarter.CORNER
     top = Quarter.CORNER + tb_common
     bottom = Quarter.NORTH_POLE + tb_common
@@ -1164,10 +1203,10 @@ def raw(self, appearance=None):
         Quarter.VERTICAL + Quarter.EMPTY * (length - 2) + Quarter.VERTICAL
     ] * nspaces_odd
     oddline = Quarter.VERTICAL + small_empty\
-        + small_empty.join([Quarter.POINT] * npoints_odd)\
+        + small_empty.join([self.display_points[appearance]] * npoints_odd)\
         + small_empty + right_vertical
     evenline = Quarter.VERTICAL + small_empty\
-        + big_empty.join([Quarter.POINT] * npoints_even)\
+        + big_empty.join([self.display_points[appearance]] * npoints_even)\
         + small_empty + Quarter.VERTICAL
 
     # Assemble the quarter this is like str.join but with list
@@ -1206,38 +1245,31 @@ Since a =str= conversion is automatically applied in code when =print= is called
 
 *** Assemble the degrees of appearance
 
-When we have a list of degrees of appearance, we assemble them together by using:
- - =map= with =raw_string= to create all the text representations
- - =reduce= with =merge_raw_quarters= (the operation merging two quarters together) to combine them into one
+When dealing with a list of degrees of appearance, they are merged together.
 #+name: Assemble the degrees of appearance
 #+begin_src python
 if type(self.appearance) is list:
-    assembly = reduce(
-        self.merge_raw_quarters,
-        map(self.raw, self.appearance)
-    )
+    assert len(self.appearance) > 0
+    assembly = self.raw(self.appearance[0])
+    for appearance in self.appearance[1:]:
+        assembly = self.merge_raw_quarters(
+            assembly,
+            self.raw(appearance),
+            self.valid_points
+        )
 else:
     assembly = self.raw(self.appearance)
 #+end_src
-
-To make life easier, I added a special case for =appearance=; the string src_python[:exports code]{'*'} is a shortcut for all the degrees of appearance possible:
-#+begin_src python :noweb-ref "Textual quarter init"
-if self.appearance == '*':
-    self.appearance = list(range(self.degree+1))
-#+end_src
-
-Using =reduce= here is by no means fast (to execute) but at least it's fast (to code).
 
 To implement =merge_raw_quarters=, we first need to be able to merge two lines together.
 With this textual representation, we just have to iterate through the two lines simultaneously and prioritise the point character above every other.
 I also output a collision character when two points collide, because that would mean either a repetition in =appearance= or a mistake in =merge_quarter_lines= and I want both failures to be obvious.
 
 #+begin_src python :noweb-ref "Textual quarter utils"
-def merge_quarter_lines(arg):
-    left, right = arg
+def merge_quarter_lines(left, right, valid_points):
     buffer = []
     for cleft, cright in zip(left, right):
-        if cright in Quarter.IS_POINT:
+        if cright in valid_points:
             if cleft in Quarter.CAN_COLLIDE:
                 buffer += cright
             else:
@@ -1249,13 +1281,12 @@ def merge_quarter_lines(arg):
 
 The actual merging method simply uses =merge_quarter_lines= to merge every line into a new list:
 #+begin_src python :noweb-ref "Textual quarter methods"
-def merge_raw_quarters(self, left, right):
-    return list(map(merge_quarter_lines, zip(left, right)))
+def merge_raw_quarters(self, left, right, valid_points):
+    return list(merge_quarter_lines(l, r, valid_points) for l, r in zip(left, right))
 #+end_src
 
 Because =reduce= is no longer a primitive in Python3, it must be imported:
-#+name: Textual quarter dependencies
-#+begin_src python
+#+begin_src python :noweb-ref "Textual quarter dependencies"
 from functools import reduce
 #+end_src
 
@@ -1419,15 +1450,21 @@ Then only one vertical concatenation on the results of those two previous concat
 Like with =Quarter=, =repr= returns a list of lines:
 #+begin_src python :noweb-ref "Final squarified net representation"
 def repr(self):
+    valid_points_top = self.quarters[1].valid_points | self.quarters[0].valid_points
     top = cat_quarter_horizontally(
         self.quarters[1].repr(),
-        self.quarters[0].repr()
+        self.quarters[0].repr(),
+        valid_points_top
     )
+
+    valid_points_bottom = self.quarters[2].valid_points | self.quarters[3].valid_points
     bottom = cat_quarter_horizontally(
         self.quarters[2].repr(),
-        self.quarters[3].repr()
+        self.quarters[3].repr(),
+        valid_points_bottom
     )
-    result = cat_quarter_vertically(top, bottom)
+
+    result = cat_quarter_vertically(top, bottom, valid_points_top | valid_points_bottom)
     if self.show_axis:
         <<Add axis to SquareNet representation>>
     return result
@@ -1441,17 +1478,17 @@ def __str__(self):
 
 The vertical concatenation is the easiest ; since the representation is a list of lines, all lines are concatenated, except the central one (the one in common between the two quarters), which is merged:
 #+begin_src python :noweb-ref "SquareNet utils"
-def cat_quarter_vertically(top, bottom):
-    return top[:-1] + [merge_quarter_lines((top[-1], bottom[0]))] + bottom[1:]
+def cat_quarter_vertically(top, bottom, valid_points):
+    return top[:-1] + [merge_quarter_lines(top[-1], bottom[0], valid_points)] + bottom[1:]
 #+end_src
 
 The horizontal concatenation is a little bit longer because it goes against our vertically-oriented representation.
 It's not that complicated because =merge_quarter_lines= can merge columns as well as lines:
 #+begin_src python :noweb-ref "SquareNet utils"
-def cat_quarter_horizontally(left, right):
+def cat_quarter_horizontally(left, right, valid_points):
     right_of_left = [line[-1] for line in left]
     left_of_right = [line[0] for line in right]
-    merged_column = merge_quarter_lines((right_of_left, left_of_right))
+    merged_column = merge_quarter_lines(right_of_left, left_of_right, valid_points)
     return [
         l[:-1] + merged_column[i] + r[1:]
         for i, (l, r) in enumerate(zip(left, right))
