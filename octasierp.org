@@ -328,7 +328,7 @@ display_redundant='v'
 I must address the fact that the representation without redundant points bears an unfortunate resemblance with a swastika:
 #+begin_src python :exports results :eval no-export
 <<Textual squarified net>>
-print(SquareNet(2, '*'))
+print(SquareNet(2, list(range(3))))
 #+end_src
 
 #+RESULTS:
@@ -1031,7 +1031,7 @@ Here is a breakdown of the arguments accepted by Quarter's init:
  - =quarter= is the index of the quarter (between 1 and 4).
  - =display_redundant= commands how redundant points should be shown in the representation.
  - =display_point= contains points representations for each degree.
-   Representations will be cycled through if the list is too short.
+   The last representation will be repeated through if the list is too short.
 
 The inclusion of =appearance= in the arguments means that only points appearing at the degree =appearance= are included in the representation.
 I'll explain later how to make a representation including all the points or only the points in a given list.
@@ -1097,12 +1097,6 @@ else:
     self.redundant = self.display_redundant
 #+end_src
 
-To make life easier, the string =*= is a shortcut for all the degrees of appearance possible:
-#+begin_src python :noweb-ref "Textual quarter init"
-if self.appearance == '*':
-    self.appearance = list(range(self.degree+1))
-#+end_src
-
 Every degree of appearance must have its representation:
 #+begin_src python :noweb-ref "Textual quarter init"
 if self.appearance is None:
@@ -1115,18 +1109,8 @@ else:
     raise TypeError('Unexpected appearance type: ' + type(self.appearance))
 
 if len(self.display_points) < max_appearance + 1:
-    tmp = [] + self.display_points
-    for representation in itertools.cycle(tmp):
-        self.display_points.append(representation)
-        if len(self.display_points) >= max_appearance + 1:
-            break
+    self.display_points += self.display_points[-1:] * (max_appearance + 1 - len(self.display_points))
 #+end_src
-
-#+begin_src python :noweb-ref "Textual quarter dependencies"
-import itertools
-#+end_src
-
-
 
 ** Generate a raw representation
 
@@ -1417,6 +1401,7 @@ Textual representation of a squarified octasierp net is generated with the  =Squ
 Most of the work has already been done in =Quarter= so the arguments are the same, except for:
  - =quarter= which becomes =quarters=, illustrating that what's left to be done is to assemble the four quarters together.
  - =show_axis= is a specific argument to include the axis and their gradation in the final representation.
+ - =point_rep= associates a quarter to a point representation.
 
 The caller can choose to represent only a subset of the quarter by specifying for example src_python[:exports code]{SquareNet(degree, appearance, quarters={0,1})} to include only quarters 0 and 1.
 The excluded quarters will be represented devoid of points.
@@ -1428,7 +1413,7 @@ The excluded quarters will be represented devoid of points.
 class SquareNet:
     def __init__(
             self, degree, appearance=None, quarters={0, 1, 2, 3},
-            display_redundant=False, show_axis=False
+            display_redundant=False, show_axis=False, point_rep=lambda quarter: ['x']
     ):
         self.degree = degree
         self.appearance = appearance
@@ -1436,7 +1421,8 @@ class SquareNet:
             degree=degree,
             appearance=appearance if n in quarters else None,
             quarter=n,
-            display_redundant=display_redundant
+            display_redundant=display_redundant,
+            display_points=point_rep(n)
         ) for n in range(4)]
         self.show_axis = show_axis
 
