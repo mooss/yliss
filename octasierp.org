@@ -405,10 +405,10 @@ At degree 0, there are two points, at degree 1 one more point appears, at degree
 
 An interesting thing to note here is that since a new point is introduced between every adjacent points, a point's index is doubled at each subdivision so what is point 1 at subdivision degree 1 becomes point 4 at subdivision degree 3, thanks to two consecutive multiplications.
 
-I named $bindeg_{i,d}$ (binary degree) the function outputting the degree of appearance of a point when given its index $i$ and a global degree of subdivision $d$.
+$bindeg_{i,d}$ (binary degree) is the function outputting the degree of appearance of a point when given its index $i$ and a global degree of subdivision $d$.
 We have $i \in \mathbb{N}$ and $d \in \mathbb{N}$, with $0 \leq i \leq 2^d$.
 
-In my (rather uninformed) opinion, it behaves as some kind of weird distance between $i$ and $2^d$, in that it is inversely proportional to the number of times the index can be divided by 2, with a maximum number of division of $d$.
+In my uninformed opinion, it behaves as some kind of weird distance between $i$ and $2^d$, in that it is inversely proportional to the number of times the index can be divided by 2, with a maximum number of division of $d$.
 This inversely proportional relation is illustrated in the table below, in which $d - bindeg_{i,d}$ is shown to be equal to the number of times $i$ is divisible by 2 when $d = 3 \implies 2^d = 8$.
 Note that $i = 0$ is a special case, and the reason why +we can't have nice things+ there is a rule about having $d$ as the maximum number of divisions.
 
@@ -426,8 +426,8 @@ We can enumerate the binary degrees relatives to $2^3 = 8$ like so:
 
 This is just another way to present the binary degrees at subdivision degree 3.
 The key observation is that the points with the highest binary degree are all the odd ones.
-This phenomena can be explained by construction:
- - When going from degree $d - 1$ to degree $d$, we insert a new point between the first two points.
+This phenomenon can be explained by construction:
+ - When going from degree $d - 1$ to degree $d$, a new point is inserted between the first two.
  - This new point is now point $1$ and the points to its right are increased by $1$.
  - The next point will insert itself at the right of what was the odd point $1$ but now is the even point $2$ and we find ourselves in the initial case, we are inserting the new point into a odd position, thus moving the next point into an even position.
  - This situation repeats itself until the end of the sequence and explains why a point's index doubles every subdivision.
@@ -437,15 +437,14 @@ We now have at our disposition three elements which can be used to construct a d
  2. Indexes are multiplied by two every subdivision, while their degree of appearance stays the same ($bindeg_{i,d} = bindeg_{2i, d + 1}$).
  3. Odd indexes have the maximal binary degree ($i \bmod 2 = 1 \implies bindeg_{i, d} = d$).
 
-
 From 1., we have the initial values.
 From 3., we have the values of odd points.
 By combining 2. and 3., we can deduce the values of the other even points, because 2. is equivalent to $i \bmod 2 = 0 \implies bindeg_{i,d} = bindeg_{\frac{i}{2},d-1}$, thus we can divise even values until they are odd to obtain their binary degree.
 
 A naive C++ implementation will look like this:
 #+name: Naive bindeg
-#+begin_src cpp
-unsigned int naive_bindeg(unsigned int index, unsigned int degree){
+#+begin_src cpp :minipage
+unsigned int naive_bindeg(unsigned int index, unsigned int degree) {
     if(index % 2 == 1 || degree == 0)
         return degree;
     return naive_bindeg(index >> 1, degree - 1);
@@ -453,17 +452,16 @@ unsigned int naive_bindeg(unsigned int index, unsigned int degree){
 #+end_src
 
 The following minimal test should output data matching with table [[bindeg_x3]].
-#+begin_src cpp :includes <iostream> :eval no-export :wrap "src text" :exports both
+#+begin_src cpp :includes <iostream> :eval no-export :wrap "src text :minipage" :exports both :minipage
 <<Naive bindeg>>
-int main(){
+int main() {
     unsigned int degree = 3;
     auto rightmost = 1 << degree;
-    for(unsigned int i = 0; i <= rightmost; ++i){
+    for(unsigned int i = 0; i <= rightmost; ++i) {
         std::cout << "bindeg(" << i << "," << degree << ") = " << naive_bindeg(i, degree) << "\n";
     }
     return 0;
 }
-
 #+end_src
 
 #+RESULTS:
