@@ -1029,7 +1029,7 @@ Here is a breakdown of the arguments accepted by Quarter's init:
  - =degree= is the degree of subdivision.
  - =appearance= is the degree of appearance to eventually display.
  - =quarter= is the index of the quarter (between 1 and 4).
- - =display_redundant= commands whether the redundant points should be included in the representation.
+ - =display_redundant= commands how redundant points should be shown in the representation.
 
 The inclusion of =appearance= in the arguments means that only points appearing at the degree =appearance= are included in the representation.
 I'll explain later how to make a representation including all the points or only the points in a given list.
@@ -1087,11 +1087,6 @@ if self.display_redundant is True:
     self.redundant = Quarter.REDUNDANT
 else:
     self.redundant = self.display_redundant
-if self.redundant is not False\
-   and self.redundant not in Quarter.IS_POINT:
-    msg = 'Usage of invalid redundant character `{}`.'.format(self.redundant)\
-        + ' Expected values in {}.'.format(Quarter.IS_POINT)
-    raise ValueError(msg)
 #+end_src
 
 ** Generate a raw representation
