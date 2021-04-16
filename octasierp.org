@@ -75,7 +75,7 @@ between = ' ' * 25
 def construct(degree):
     return SquareNet(
         3, list(range(degree+1)),
-        display_redundant=Quarter.POINT
+        display_redundant='x'
     ).repr()
 for deg0, deg1 in zip(construct(0), construct(1)):
     print(deg0 + between + deg1)
@@ -1066,7 +1066,6 @@ class Quarter:
 
 The character set used to describe a quarter is not supposed to be changed, that's why it is defined at the class level.
 #+begin_src python :noweb-ref "Textual quarter constants"
-POINT = 'x'
 HORIZONTAL = '-'
 EMPTY = ' '
 VERTICAL = '|'
@@ -1085,7 +1084,7 @@ CAN_COLLIDE = {
     HORIZONTAL, EMPTY, VERTICAL,
     CORNER, NORTH_POLE
 }
-IS_POINT = {POINT, COLLISION, REDUNDANT, NORTH_POLE_POINT}
+IS_POINT = {COLLISION, REDUNDANT, NORTH_POLE_POINT}
 #+end_src
 
 We want the caller to be able to select the redundant character.
@@ -1093,8 +1092,9 @@ This is done based on the value of =display_redundant= ; any value other than =T
 #+begin_src python :noweb-ref "Textual quarter init"
 if self.display_redundant is True:
     self.redundant = Quarter.REDUNDANT
-else:
+elif self.display_redundant is not False:
     self.redundant = self.display_redundant
+    self.valid_points.add(self.redundant)
 #+end_src
 
 Every degree of appearance must have its representation:
