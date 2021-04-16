@@ -359,6 +359,8 @@ Had an octasierp been a square of side $n$, we would have used an array of $n \t
 
 ** Storage
 
+*** Illustration
+
 It would be good to find an octasierp storage scheme that can grow new points without needing to move the old ones.
 However, that would imply storing each stage separately and would have the following problems:
  1. Memory would not be contiguous thus slowing iteration on all points.
@@ -418,9 +420,6 @@ A simpler storage scheme can use to its advantage the fact that, for a given qua
 This can be illustrated by looking at the growth of quarter 0 when all points appearing after the degree 0 are given the same symbol:
 #+begin_src python :eval no-export :exports results
 <<Textual squarified net>>
-
-def quarter_rep(quarter):
-    return [['a', '0'], ['b', '1'], ['c', '2'], ['d', '3']][quarter]
 
 for degree in range(4):
     print('Quarter 0 at degree d=' + str(degree) + '.')
@@ -488,6 +487,73 @@ Legend:
  - =b= :: Point of degree 0 (there is only one for quarter 1).
  - =1= :: Points of degree greater than 0.
 
+*** Number of points
+
+The rectangular storage scheme requires to know the size of the rectangle.
+Looking at the textual representation of quarter 0 will help for this:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+
+for degree in range(3):
+    print('Quarter 0 at degree d=' + str(degree) + '.')
+    print(Quarter(degree, list(range(degree + 1)), display_points=['a', '0']))
+    if degree < 2:
+        print()
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Quarter 0 at degree d=0.
++-a
+X-a
+
+Quarter 0 at degree d=1.
++-0-a
+| 0 |
+X-0-a
+
+Quarter 0 at degree d=2.
++-0-0-0-a
+| 0 0 0 |
+| 0 0 0 |
+| 0 0 0 |
+X-0-0-0-a
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =a= :: Other points of degree 0, including the south pole.
+ - =0= :: Points of degree greater than 0.
+
+The important observation is that the whole quarter is covered vertically, but horizontally 2 columns are missing.
+Additionally, the quarter's shape goes from a 2x2 square at degree zero into a square of 3x3 and 5x5 at degrees one and two.
+
+Because the subdivision mechanism inserts a point between each existing one, there is a power of two somewhere in there.
+A bruteforce deduction should be enough to tell that a given quarter at degree $d$ will have a shape of $2^d + 1$ by $2^d + 1$.
+
+Looking at the following representation of quarter 0 at degree 3 in all its 9x9 glory is enough to convince me:
+
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+print(Quarter(3, list(range(4)), quarter=0, display_points=['a', '0']))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
++-0-0-0-0-0-0-0-a
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+X-0-0-0-0-0-0-0-a
+#+end_src
+
+Removing the two empty columns gives us a $2^d - 1$ by $2^d + 1$ rectangle containing all points of degrees 1 to $d$ for quarter 0.
+The sames applies by rotation to quarter 1, 2 and 3.
+By adding the six initial points, we have the numbers of points in an octasierp of degree $d$ $\vert octasierp_d \vert = 4 (2^d - 1) (2^d + 1) + 6$, which boils down to $\vert octasierp_d \vert = 2^{2d+2} + 2$.
 
 ** Binary degree
 
