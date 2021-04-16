@@ -349,7 +349,7 @@ Then I thought about at least trying to make the arms point the other way but th
 If you are offended by this decision I'm sorry about it.
 
 
-* Memory representation
+* Implementation
 
 Now that the bases of the coordinate system are solidified, the next step is to build a structure that can hold a value for each valid coordinates.
 The challenge here is that an octasierp can *almost* be reduced to a square grid, which is the polite way to say can it *cannot* be reduced to a square grid.
@@ -357,18 +357,139 @@ The challenge here is that an octasierp can *almost* be reduced to a square grid
 This is unfortunate because a square grid is excessively easy to represent in memory.
 Had an octasierp been a square of side $n$, we would have used an array of $n \times n$ values and fetched the value of coordinate $(x, y)$ at the index $x \times n + y$.
 
-Since we cannot do that, I will at first present the structure I choosed, that is to say how the points of one quarter are stored.
-Then I will explain the corresponding indexing scheme, that is to say how to find a point corresponding to a given coordinate.
-Finally, this representation will be expanded to the full octahedron (the three other quarters).
+** Storage
 
-** Structure
+It would be good to find an octasierp storage scheme that can grow new points without needing to move the old ones.
+However, that would imply storing each stage separately and would have the following problems:
+ 1. Memory would not be contiguous thus slowing iteration on all points.
+ 2. It would be tedious to pull off because when an octasierp grows, new points are added in a checkered pattern as illustrated below.
+ 3. The indexing scheme would need to be a bit too clever to account for this checkered pattern (meaning it would require more computation than the alternative).
 
-One of the goals previously set is to support different levels of detail, thus the basic structure will hold the points at a given degree and a collection of this structure will form a quarter.
+Growth of quarter 0 at degrees 0, 1, 2 and 3:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
 
-This notably means that given the coordinates of one point inside the quarter, we need to find the degree at which it first appeared (i.e. its degree of appearance) before accessing it.
-This is linked with what I call the binary degree of a number.
+for degree in range(4):
+    print('Quarter 0 at degree d=' + str(degree) + ':')
+    in_between = max(0, degree - 1)
+    representation = ['a'] + ['0'] * in_between + ['*']
+    print(Quarter(degree, list(range(degree + 1)), display_points=representation))
+    if degree < 3:
+        print()
+#+end_src
 
-*** Binary degree
+#+RESULTS:
+#+begin_src text :minipage
+Quarter 0 at degree d=0:
++-a
+X-a
+
+Quarter 0 at degree d=1:
++-*-a
+| * |
+X-*-a
+
+Quarter 0 at degree d=2:
++-*-0-*-a
+| * * * |
+| * 0 * |
+| * * * |
+X-*-0-*-a
+
+Quarter 0 at degree d=3:
++-*-0-*-0-*-0-*-a
+| * * * * * * * |
+| * 0 * 0 * 0 * |
+| * * * * * * * |
+| * 0 * 0 * 0 * |
+| * * * * * * * |
+| * 0 * 0 * 0 * |
+| * * * * * * * |
+X-*-0-*-0-*-0-*-a
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =a= :: Other points of degree 0, including the south pole.
+ - =*= :: New point at degree =d=.
+ - =0= :: Points between degree 0 and degree =d=.
+
+A simpler storage scheme can use to its advantage the fact that, for a given quarter, points of degree greater than zero have a neatly rectangular repartition.
+This can be illustrated by looking at the growth of quarter 0 when all points appearing after the degree 0 are given the same symbol:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+
+def quarter_rep(quarter):
+    return [['a', '0'], ['b', '1'], ['c', '2'], ['d', '3']][quarter]
+
+for degree in range(4):
+    print('Quarter 0 at degree d=' + str(degree) + '.')
+    print(Quarter(degree, list(range(degree + 1)), display_points=['a', '0']))
+    if degree < 3:
+        print()
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Quarter 0 at degree d=0.
++-a
+X-a
+
+Quarter 0 at degree d=1.
++-0-a
+| 0 |
+X-0-a
+
+Quarter 0 at degree d=2.
++-0-0-0-a
+| 0 0 0 |
+| 0 0 0 |
+| 0 0 0 |
+X-0-0-0-a
+
+Quarter 0 at degree d=3.
++-0-0-0-0-0-0-0-a
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+| 0 0 0 0 0 0 0 |
+X-0-0-0-0-0-0-0-a
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =a= :: Other points of degree 0, including the south pole.
+ - =0= :: Points of degree greater than 0.
+
+This pattern is repeated by rotation for other quarters, as can be observed for quarter 1 at degree 3:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+print(Quarter(3, list(range(4)), quarter=1, display_points=['b', '1']))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
++---------------b
+1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1
++---------------o
+#+end_src
+\\
+Legend:
+ - =o= :: Origin, aka north pole.
+ - =b= :: Point of degree 0 (there is only one for quarter 1).
+ - =1= :: Points of degree greater than 0.
+
+
+** Binary degree
 
 We can simplify the problem of finding the degree of appearance of a point by going from a rectangular grid to discrete points on a line.
 
