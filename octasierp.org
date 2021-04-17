@@ -704,13 +704,15 @@ class octasierp {
     auto size() const {return storage_.size();}
     auto degree() const {return degree_;}
 
+    <<octasierp/public>>
+
   private:
     std::size_t degree_;
     std::vector<Point> storage_;
     <<octasierp/private>>
 };
 #+end_src
-#+depends:octasierp :noweb octasierp_cardinality :cpp vector
+#+depends:octasierp :noweb octasierp_cardinality :cpp vector cmath
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
@@ -747,6 +749,81 @@ void compute_degree_bound_variables() {
 
 =compute_degree_bound_variables= must be called everytime the degree is changed, to keep them in sync.
 
+** Coordinates validation
+
+The representation of a squarified octasierp net of degree 2 below can help creating a coordinates validation method:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+# print(SquareNet(2, list(range(3)), show_axis=True, point_rep=quarter_rep))
+print(SquareNet(2, list(range(3))))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
++-------x-x-x-x-x
+x x x x x x x x |
+x x x x x x x x |
+x x x x x x x x |
+x-x-x-x-X-x-x-x-x
+| x x x x x x x x
+| x x x x x x x x
+| x x x x x x x x
++-x-x-x-x-------+
+#+end_src
+
+That method can take the form below, by first testing if the coordinates are within the internal square, and otherwise testing if they are within the top part of quarter 0 and otherwise test the other quarters by rotation.
+#+begin_src cpp :noweb-ref octasierp/public
+bool valid_coordinates(int i, int j) {
+    if(abs(i) < extreme_index_ && abs(j) < extreme_index_)
+        return true;
+    if(j == extreme_index_)
+        return i >= 0 && i <= extreme_index_;
+    if(i == -extreme_index_)
+        return j >= 0 && j < extreme_index_;
+    if(j == -extreme_index_)
+        return i <= 0 && i > -extreme_index_;
+    return i == extreme_index_ && j <= 0 && j > -extreme_index_;
+}
+#+end_src
+
+The following prints a shadow of a squarified net by asking every step of the way whether the current coordinate is valid:
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb octasierp print-function")>>
+int main() {
+    octasierp octa(2, -1);
+    int extremum = 6;
+    print printer{{.sep="", .end=""}};
+    for(int j = extremum; j >= -extremum; --j) {
+        for(int i = -extremum; i <= extremum; ++i) {
+            if(i == 0 && j == 0)
+                printer(0);
+            else
+                printer(octa.valid_coordinates(i, j) ? "X": ".");
+            if(i != extremum)
+                printer(" ");
+        }
+        print{};
+    }
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+. . . . . . X X X X X . .
+. . X X X X X X X X . . .
+. . X X X X X X X X . . .
+. . X X X X X X X X . . .
+. . X X X X 0 X X X X . .
+. . . X X X X X X X X . .
+. . . X X X X X X X X . .
+. . . X X X X X X X X . .
+. . . X X X X . . . . . .
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+#+end_src
 
 ** Binary degree
 
