@@ -1,7 +1,8 @@
 #+title: Octasierp: a solid foundation
 #+author: mooss
 #+property: header-args:bash :eval never
-#+property: header-args:cpp :eval never :main no :noweb no-export
+
+#+property: header-args:cpp :flags -std=c++20 :eval never :main no :noweb no-export :wrap "src text :minipage"
 #+property: header-args:python :noweb no-export :results output :wrap "src text :minipage" :eval never
 
 * Prelude
@@ -9,6 +10,14 @@
 
 I'll be sometimes hand-wavy with the maths here both because I don't want to bother and because I don't know much about it.
 
+** Inclusion
+
+The following code block includes desired code blocks along with their dependencies.
+
+#+name: include
+#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
+./litlib/include.pl "octasierp.org litlib/cpp.org" "$args"
+#+end_src
 
 * Of octahedrons and Sierpiński triangles
 :PROPERTIES:
@@ -554,6 +563,86 @@ X-0-0-0-0-0-0-0-a
 Removing the two empty columns gives us a $2^d - 1$ by $2^d + 1$ rectangle containing all points of degrees 1 to $d$ for quarter 0.
 The sames applies by rotation to quarter 1, 2 and 3.
 By adding the six initial points, we have the numbers of points in an octasierp of degree $d$ $\vert octasierp_d \vert = 4 (2^d - 1) (2^d + 1) + 6$, which boils down to $\vert octasierp_d \vert = 2^{2d+2} + 2$.
+
+This can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
+#+name: octasierp_cardinality
+#+begin_src cpp
+std::size_t octasierp_cardinality(std::size_t degree) {
+    return (1 << 2 * degree + 2) + 2;
+}
+#+end_src
+
+Usage:
+#+begin_src cpp :eval no-export :flags -Wall -std=c++17 :noweb no-export :exports both
+<<include(":noweb print-function octasierp_cardinality")>>
+
+int main() {
+    auto printer = print{{.sep=""}};
+    for(std::size_t degree: {0, 1, 2, 3, 4}) {
+        printer("2^", degree, " = ", 1 << degree);
+        printer("Cardinality at degree ", degree, ": ", octasierp_cardinality(degree));
+    }
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+2^0 = 1
+Cardinality at degree 0: 6
+2^1 = 2
+Cardinality at degree 1: 18
+2^2 = 4
+Cardinality at degree 2: 66
+2^3 = 8
+Cardinality at degree 3: 258
+2^4 = 16
+Cardinality at degree 4: 1026
+#+end_src
+
+*** =octasierp= outline
+
+Now that the size of an octasierp is known, a simple outline can be formed using a single =std::vector= to store the points:
+#+name: octasierp
+#+begin_src cpp
+template<typename Point>
+class octasierp {
+  public:
+    using value_type = Point;
+    octasierp(std::size_t degree, Point const& initial_value):
+        degree_(degree), storage_(octasierp_cardinality(degree_), initial_value)
+    {}
+
+    auto begin() {return storage_.begin();}
+    auto end() {return storage_.end();}
+    auto begin() const {return storage_.begin();}
+    auto end() const {return storage_.end();}
+    auto size() const {return storage_.size();}
+    auto degree() const {return degree_;}
+
+  private:
+    std::size_t degree_;
+    std::vector<Point> storage_;
+};
+#+end_src
+#+depends:octasierp :noweb octasierp_cardinality :cpp vector
+
+Usage:
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb octasierp type_str print-function")>>
+int main() {
+    octasierp octa(1, -1);
+    print{"Built an octasierp of degree", octa.degree(),
+          "containing", octa.size(), type_str<decltype(octa)::value_type>()};
+    for(auto point: octa)
+        print{{.end="|"}}(point);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Built an octasierp of degree 1 containing 18 int
+-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
+#+end_src
 
 ** Binary degree
 
