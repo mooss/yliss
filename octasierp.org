@@ -692,9 +692,10 @@ template<typename Point>
 class octasierp {
   public:
     using value_type = Point;
+
     octasierp(std::size_t degree, Point const& initial_value):
         degree_(degree), storage_(octasierp_cardinality(degree_), initial_value)
-    {}
+    {compute_degree_bound_variables();}
 
     auto begin() {return storage_.begin();}
     auto end() {return storage_.end();}
@@ -706,6 +707,7 @@ class octasierp {
   private:
     std::size_t degree_;
     std::vector<Point> storage_;
+    <<octasierp/private>>
 };
 #+end_src
 #+depends:octasierp :noweb octasierp_cardinality :cpp vector
@@ -727,6 +729,23 @@ int main() {
 Built an octasierp of degree 1 containing 18 int
 -1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
 #+end_src
+
+** Degree-bound variables
+
+Some variables are only depending on the current degree, and are therefore precomputed as follow:
+#+begin_src cpp :noweb-ref octasierp/private
+int extreme_index_; // Maximum value of the half-axis (half-axis cardinality - 1).
+std::size_t quarter_rectangle_width_; // Width of the rectangular storage of one quarter.
+std::size_t quarter_rectangle_cardinality_; // Number of points of the rectangular storage of one quarter.
+void compute_degree_bound_variables() {
+    extreme_index_ = (1 << degree_);
+    quarter_rectangle_width_ = extreme_index_ - 1;
+    // extreme_index is also the rectangle height.
+    quarter_rectangle_cardinality_ = quarter_rectangle_width_ * extreme_index_;
+}
+#+end_src
+
+=compute_degree_bound_variables= must be called everytime the degree is changed, to keep them in sync.
 
 
 ** Binary degree
