@@ -19,6 +19,7 @@ The following code block includes desired code blocks along with their dependenc
 ./litlib/include.pl "octasierp.org litlib/cpp.org" "$args"
 #+end_src
 
+
 * Of octahedrons and Sierpiński triangles
 :PROPERTIES:
 :header-args:python+: :eval no-export
@@ -40,17 +41,12 @@ The main problem I encountered last time was finding a good data structure for m
 I ended up using a convoluted approach that I can't even remember now.
 Thankfully I don't have to, since I've collected some observations that will help me to build a much simpler and intuitive data structure than last time.
 
-A good data structure for an octasierp must meet some criteria:
+A good data structure for an octasierp should meet some criteria:
  - A coordinate system, both for mental representation and as a programming primitive.
  - A support for different levels of detail, meaning the possibility to further subdivise the structure without having to reconstruct the whole object.
  - A fast way to request the neighbours of a point.
 
 # Note: those goals are not static, the definition of a good data structure will probably expand when I'll get a better grasp on the problem.
-
-** Some terminology
-
-When used in isolation, degree is the shorthand for degree of subdivision.
-I must offer this clarification because, unfortunately there are other degrees, such as the degree of appearance.
 
 ** Geometric visualisation
 
@@ -59,7 +55,7 @@ I think an appropriate first step to find the best underlying representation of 
 *** Octahedron net
 
 An octahedron can be represented in two dimensions as a net, a flattened arrangement of the eight sides, ready to be folded back into three dimensions.
-For an illustration of both the subdivision process and the net of an octahedron, extended to an octasierp, see figure [[montage_octa_degree_0-3]].
+Look below for an illustration of both the subdivision process and the net of an octahedron, extended to an octasierp.
 
 #+name: montage_octa_degree_0-3
 #+caption: Octasierp net for degrees 0, 1, 2 and 3
@@ -67,7 +63,7 @@ For an illustration of both the subdivision process and the net of an octahedron
 
 *** Squarified net
 
-An interesting property of octasierps is that when you inflate the central angle to 90\textdegree{}, they can almost be represented as a square grid with additional diagonal connections as shown in figure [[montage_squa_degree_0-3]].
+An interesting property of octasierps is that when you inflate the central angle to 90\textdegree{}, they can almost be represented as a square grid with additional diagonal connections as shown in the figure below.
 A strange thing about this representation is that points are neighbouring each other along the sides in a symmetric pattern.
 This representation is strongly reminiscent of the Peirce quincuncial projection[fn::See https://en.wikipedia.org/wiki/Peirce_quincuncial_projection.], all the more because the end goal of this project is to generate a planet.
 
@@ -76,8 +72,8 @@ This representation is strongly reminiscent of the Peirce quincuncial projection
 #+caption: Octasierp squarified net for degrees 0, 1, 2 and 3
 [[file:images/montage_net_squa_degree_0-3.png]]
 
-The figure [[montage_squa_degree_0-3]] provides a nice means of visualisation, but since it's an image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of the implementation.
-See below the textual equivalent of figure [[montage_squa_degree_0-3]] [fn::=x= are points, =-= are horizontal lines, =|= are vertical lines and =+= are corners. The representations have been scaled to all appear at the same size, that is normally not the case.]:
+The figure above provides a nice visualisation, but since it's an image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of representation and manipulation of an octasierp.
+See below the textual equivalent of this figure[fn::=x= are points, =-= are horizontal lines, =|= are vertical lines and =+= are corners. The representations have been scaled to all appear at the same size, that is normally not the case.]:
 #+begin_src python :exports results :eval no-export
 <<Textual squarified net>>
 between = ' ' * 25
@@ -138,17 +134,24 @@ x---x---x---x---x---x---x---x---x                         x-x-x-x-x-x-x-x-x-x-x-
            degree = 2                                                degree = 3
 #+end_src
 
-Everything related to the generation of the textual representation is gathered in section [[#textual_quarter]].
+Everything related to the generation of the textual representation is gathered in the section [[#textual_quarter][Textual representation]].
 
-**** Four quarters
+** Some terminology
 
-We can divise the squarified net into four quarters, each being a rotated image of the others around the central point.
+*** Degrees
+
+When used in isolation, degree is the shorthand for degree of subdivision.
+I must offer this clarification because, unfortunately there are other degrees, such as the degree of appearance.
+
+*** Quarters
+
+A squarified net can be divided into four quarters, each being a rotated image of the others around the central point.
 This means rules devised for one quarter can easily be adapted to the others.
 
 Those quarters are identified by a number ranging from 0 to 3, with quarter 0 being the top-right one and the others being numerated counter-clockwise.
 The counter-clockwise rotation has been chosen to correspond to the sense of trigonometric rotation.
 
-**** Two poles and four corners
+*** Poles and corners
 
 To pay hommage to both the planet metaphor and the peirce quincuncial projection, the central point is the north pole, while the four extremes are one and the same, the south pole.
 
@@ -159,11 +162,10 @@ I know that the four corners are a bit confusing because from the 2d perspective
 
 Based on the observation of the squarified net, the natural coordinate system for an octasierp is an indexing along the axis between the central point and corner 0 (the x-axis) and the one between the central point and corner 1 (the y-axis).
 In this scheme, the central point (of coordinates $(0, 0)$) is also the north pole.
-This is the coordinate system we will use from now on, albeit we will sometimes call it the global coordinate system, because a system local to each quarter will be established later.
 
 Since an octasierp is a discrete structure, the coordinates will be integer-based.
 An unfortunate side effect of integer coordinates is that except for the north pole, points will not keep their coordinates when the degree of subdivision changes.
-For example, as is illustrated below, when $degree = 0$, corner 0 is at the coordinates $(1, 0)$ and when $degree = 1$ it is at the coordinates $(2, 0)$.
+For example, in the illustration below, when $degree = 0$, corner 0 is at the coordinates $(1, 0)$ and when $degree = 1$ it is at the coordinates $(2, 0)$.
 In the end, the rule is that coordinates only make sense at a given degree.
 
 #+begin_src python :exports results
@@ -205,9 +207,9 @@ __________________________________________
 #+end_src
 
 Another problem is that there is a redundancy in this coordinate system that needs to be resolved (most strikingly, the south pole is present four times).
-First we will need to derive the cardinality of a half-axis, that is to say the number of points on it.
+First the cardinality of a half-axis (that is to say the number of points on it) must be derived.
 Then that property will be used to describe precisely the redundancy problem.
-Finally, I will present the solution I opted for to resolve the situation and fix the coordinate system.
+Finally, a solution will be proposed to resolve the redundancy problem and fix the coordinate system.
 
 *** Half-axis cardinality
 
@@ -357,18 +359,14 @@ At first I tried to find other representations but found no other fitting my nee
 Then I thought about at least trying to make the arms point the other way but this contradicted the intuitive representation I had in mind so I finally decided to not let a hideous historical artifact affect a technical decision.
 If you are offended by this decision I'm sorry about it.
 
-
-* Implementation
-
-Now that the bases of the coordinate system are solidified, the next step is to build a structure that can hold a value for each valid coordinates.
-The challenge here is that an octasierp can *almost* be reduced to a square grid, which is the polite way to say can it *cannot* be reduced to a square grid.
-
-This is unfortunate because a square grid is excessively easy to represent in memory.
-Had an octasierp been a square of side $n$, we would have used an array of $n \times n$ values and fetched the value of coordinate $(x, y)$ at the index $x \times n + y$.
-
 ** Storage
 
-*** Illustration
+The challenge in storing an octasierp is that it can *almost* be reduced to a square grid, which is the polite way to say can it *cannot* be reduced to a square grid.
+
+This is unfortunate because a square grid is excessively easy to represent in memory.
+Had an octasierp been a square of side $n$, it would have been storable as an array of $n \times n$ values.
+
+*** Separate scheme
 
 It would be good to find an octasierp storage scheme that can grow new points without needing to move the old ones.
 However, that would imply storing each stage separately and would have the following problems:
@@ -422,8 +420,10 @@ X-*-0-*-0-*-0-*-a
 Legend:
  - =X= :: North pole.
  - =a= :: Other points of degree 0, including the south pole.
- - =*= :: New point at degree =d=.
- - =0= :: Points between degree 0 and degree =d=.
+ - =*= :: New point at degree $d$.
+ - =0= :: Points between degree 1 and degree $d - 1$.
+
+*** Rectangular scheme
 
 A simpler storage scheme can use to its advantage the fact that, for a given quarter, points of degree greater than zero have a neatly rectangular repartition.
 This can be illustrated by looking at the growth of quarter 0 when all points appearing after the degree 0 are given the same symbol:
@@ -496,7 +496,7 @@ Legend:
  - =b= :: Point of degree 0 (there is only one for quarter 1).
  - =1= :: Points of degree greater than 0.
 
-*** Number of points
+*** Cardinality
 
 The rectangular storage scheme requires to know the size of the rectangle.
 Looking at the textual representation of quarter 0 will help for this:
@@ -534,13 +534,13 @@ Legend:
  - =a= :: Other points of degree 0, including the south pole.
  - =0= :: Points of degree greater than 0.
 
-The important observation is that the whole quarter is covered vertically, but horizontally 2 columns are missing.
-Additionally, the quarter's shape goes from a 2x2 square at degree zero into a square of 3x3 and 5x5 at degrees one and two.
+An important observation is that vertically the whole quarter is covered, but horizontally two columns are missing.
+Additionally, the quarter's shape goes from a $2 \times 2$ square at degree zero into a square of $3 \times 3$ and $5 \times 5$ at degrees one and two.
 
 Because the subdivision mechanism inserts a point between each existing one, there is a power of two somewhere in there.
 A bruteforce deduction should be enough to tell that a given quarter at degree $d$ will have a shape of $2^d + 1$ by $2^d + 1$.
 
-Looking at the following representation of quarter 0 at degree 3 in all its 9x9 glory is enough to convince me:
+Looking at the following representation of quarter 0 at degree 3 in all its $9 \times 9$ glory is enough to convince me:
 
 #+begin_src python :eval no-export :exports results
 <<Textual squarified net>>
@@ -562,87 +562,7 @@ X-0-0-0-0-0-0-0-a
 
 Removing the two empty columns gives us a $2^d - 1$ by $2^d + 1$ rectangle containing all points of degrees 1 to $d$ for quarter 0.
 The sames applies by rotation to quarter 1, 2 and 3.
-By adding the six initial points, we have the numbers of points in an octasierp of degree $d$ $\vert octasierp_d \vert = 4 (2^d - 1) (2^d + 1) + 6$, which boils down to $\vert octasierp_d \vert = 2^{2d+2} + 2$.
-
-This can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
-#+name: octasierp_cardinality
-#+begin_src cpp
-std::size_t octasierp_cardinality(std::size_t degree) {
-    return (1 << 2 * degree + 2) + 2;
-}
-#+end_src
-
-Usage:
-#+begin_src cpp :eval no-export :flags -Wall -std=c++17 :noweb no-export :exports both
-<<include(":noweb print-function octasierp_cardinality")>>
-
-int main() {
-    auto printer = print{{.sep=""}};
-    for(std::size_t degree: {0, 1, 2, 3, 4}) {
-        printer("2^", degree, " = ", 1 << degree);
-        printer("Cardinality at degree ", degree, ": ", octasierp_cardinality(degree));
-    }
-}
-#+end_src
-
-#+RESULTS:
-#+begin_src text :minipage
-2^0 = 1
-Cardinality at degree 0: 6
-2^1 = 2
-Cardinality at degree 1: 18
-2^2 = 4
-Cardinality at degree 2: 66
-2^3 = 8
-Cardinality at degree 3: 258
-2^4 = 16
-Cardinality at degree 4: 1026
-#+end_src
-
-*** =octasierp= outline
-
-Now that the size of an octasierp is known, a simple outline can be formed using a single =std::vector= to store the points:
-#+name: octasierp
-#+begin_src cpp
-template<typename Point>
-class octasierp {
-  public:
-    using value_type = Point;
-    octasierp(std::size_t degree, Point const& initial_value):
-        degree_(degree), storage_(octasierp_cardinality(degree_), initial_value)
-    {}
-
-    auto begin() {return storage_.begin();}
-    auto end() {return storage_.end();}
-    auto begin() const {return storage_.begin();}
-    auto end() const {return storage_.end();}
-    auto size() const {return storage_.size();}
-    auto degree() const {return degree_;}
-
-  private:
-    std::size_t degree_;
-    std::vector<Point> storage_;
-};
-#+end_src
-#+depends:octasierp :noweb octasierp_cardinality :cpp vector
-
-Usage:
-#+begin_src cpp :eval no-export :exports both
-<<include(":noweb octasierp type_str print-function")>>
-int main() {
-    octasierp octa(1, -1);
-    print{"Built an octasierp of degree", octa.degree(),
-          "containing", octa.size(), type_str<decltype(octa)::value_type>()};
-    for(auto point: octa)
-        print{{.end="|"}}(point);
-}
-#+end_src
-
-#+RESULTS:
-#+begin_src text :minipage
-Built an octasierp of degree 1 containing 18 int
--1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
-#+end_src
+By adding the six initial points, we have the numbers of points in an octasierp of degree $d$ $\vert octasierp_d \vert = 4 (2^d - 1) (2^d + 1) + 6$, which boils down to the very pleasing $\vert octasierp_d \vert = 2^{2d+2} + 2$.
 
 ** Binary degree
 
@@ -717,8 +637,94 @@ From 1., we have the initial values.
 From 3., we have the values of odd points.
 By combining 2. and 3., we can deduce the values of the other even points, because 2. is equivalent to $i \bmod 2 = 0 \implies bindeg_{i,d} = bindeg_{\frac{i}{2},d-1}$, thus we can divise even values until they are odd to obtain their binary degree.
 
-A naive C++ implementation will look like this:
-#+name: Naive bindeg
+
+* Implementation
+** Cardinality
+
+The size of an octasierp, previously described as $\vert octasierp_d \vert = 2^{2d+2} + 2$, can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
+#+name: octasierp_cardinality
+#+begin_src cpp :minipage
+std::size_t octasierp_cardinality(std::size_t degree) {
+    return (1 << 2 * degree + 2) + 2;
+}
+#+end_src
+
+Usage:
+#+begin_src cpp :eval no-export :flags -Wall -std=c++17 :noweb no-export :exports both :minipage
+<<include(":noweb print-function octasierp_cardinality")>>
+
+int main() {
+    auto printer = print{{.sep=""}};
+    for(std::size_t degree: {0, 1, 2, 3, 4}) {
+        printer("2^", degree, " = ", 1 << degree);
+        printer("Cardinality at degree ", degree, ": ", octasierp_cardinality(degree));
+    }
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+2^0 = 1
+Cardinality at degree 0: 6
+2^1 = 2
+Cardinality at degree 1: 18
+2^2 = 4
+Cardinality at degree 2: 66
+2^3 = 8
+Cardinality at degree 3: 258
+2^4 = 16
+Cardinality at degree 4: 1026
+#+end_src
+
+** Outline
+
+Now that the size of an octasierp is known, a simple outline can be formed using a single =std::vector= to store the points:
+#+name: octasierp
+#+begin_src cpp :minipage
+template<typename Point>
+class octasierp {
+  public:
+    using value_type = Point;
+    octasierp(std::size_t degree, Point const& initial_value):
+        degree_(degree), storage_(octasierp_cardinality(degree_), initial_value)
+    {}
+
+    auto begin() {return storage_.begin();}
+    auto end() {return storage_.end();}
+    auto begin() const {return storage_.begin();}
+    auto end() const {return storage_.end();}
+    auto size() const {return storage_.size();}
+    auto degree() const {return degree_;}
+
+  private:
+    std::size_t degree_;
+    std::vector<Point> storage_;
+};
+#+end_src
+#+depends:octasierp :noweb octasierp_cardinality :cpp vector
+
+Usage:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb octasierp type_str print-function")>>
+int main() {
+    octasierp octa(1, -1);
+    print{"Built an octasierp of degree", octa.degree(),
+          "containing", octa.size(), type_str<decltype(octa)::value_type>()};
+    for(auto point: octa)
+        print{{.end="|"}}(point);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Built an octasierp of degree 1 containing 18 int
+-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
+#+end_src
+
+** Binary degree
+
+A naive C++ implementation of the binary degree function will look like this:
+#+name: naive_bindeg
 #+begin_src cpp :minipage
 unsigned int naive_bindeg(unsigned int index, unsigned int degree) {
     if(index % 2 == 1 || degree == 0)
@@ -727,14 +733,15 @@ unsigned int naive_bindeg(unsigned int index, unsigned int degree) {
 }
 #+end_src
 
-The following minimal test should output data matching with table [[bindeg_x3]].
-#+begin_src cpp :includes <iostream> :eval no-export :wrap "src text :minipage" :exports both :minipage
-<<Naive bindeg>>
+Usage:
+#+begin_src cpp :eval no-export :wrap "src text :minipage" :exports both :minipage
+<<include(":noweb naive_bindeg print-function")>>
+
 int main() {
     unsigned int degree = 3;
     auto rightmost = 1 << degree;
     for(unsigned int i = 0; i <= rightmost; ++i) {
-        std::cout << "bindeg(" << i << "," << degree << ") = " << naive_bindeg(i, degree) << "\n";
+        print{{.sep=""}}("bindeg(", i, ", ", degree, ") = ", naive_bindeg(i, degree));
     }
     return 0;
 }
@@ -742,15 +749,15 @@ int main() {
 
 #+RESULTS:
 #+begin_src text :minipage
-bindeg(0,3) = 0
-bindeg(1,3) = 3
-bindeg(2,3) = 2
-bindeg(3,3) = 3
-bindeg(4,3) = 1
-bindeg(5,3) = 3
-bindeg(6,3) = 2
-bindeg(7,3) = 3
-bindeg(8,3) = 0
+bindeg(0, 3) = 0
+bindeg(1, 3) = 3
+bindeg(2, 3) = 2
+bindeg(3, 3) = 3
+bindeg(4, 3) = 1
+bindeg(5, 3) = 3
+bindeg(6, 3) = 2
+bindeg(7, 3) = 3
+bindeg(8, 3) = 0
 #+end_src
 
 The binary degree function will be fundamental to point indexation in an octasierp and can probably be optimised using =<strings.h>='s =ffs= (find first set).
