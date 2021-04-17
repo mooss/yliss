@@ -10,6 +10,7 @@
 
 I'll be sometimes hand-wavy with the maths here both because I don't want to bother and because I don't know much about it.
 
+
 ** Inclusion
 
 The following code block includes desired code blocks along with their dependencies.
@@ -47,6 +48,7 @@ A good data structure for an octasierp should meet some criteria:
  - A fast way to request the neighbours of a point.
 
 # Note: those goals are not static, the definition of a good data structure will probably expand when I'll get a better grasp on the problem.
+
 
 ** Geometric visualisation
 
@@ -136,6 +138,7 @@ x---x---x---x---x---x---x---x---x                         x-x-x-x-x-x-x-x-x-x-x-
 
 Everything related to the generation of the textual representation is gathered in the section [[#textual_quarter][Textual representation]].
 
+
 ** Some terminology
 
 *** Degrees
@@ -157,6 +160,7 @@ To pay hommage to both the planet metaphor and the peirce quincuncial projection
 
 The four midpoints of the sides are actually just random points on the equator but since they also are initial vertices of the octasierp, let's give them a name ; the four corners of the world, with the right one being corner 0 and the others numerated once again counter-clockwise.
 I know that the four corners are a bit confusing because from the 2d perspective of the squarified net, the corners of the square are actually the south pole but it will make more sense in 3d and I really like the term, so it stays.
+
 
 ** Coordinate system
 
@@ -358,6 +362,7 @@ x-x-x-x-X-x-x-x-x
 At first I tried to find other representations but found no other fitting my needs.
 Then I thought about at least trying to make the arms point the other way but this contradicted the intuitive representation I had in mind so I finally decided to not let a hideous historical artifact affect a technical decision.
 If you are offended by this decision I'm sorry about it.
+
 
 ** Storage
 
@@ -564,6 +569,7 @@ Removing the two empty columns gives us a $2^d - 1$ by $2^d + 1$ rectangle conta
 The sames applies by rotation to quarter 1, 2 and 3.
 By adding the six initial points, we have the numbers of points in an octasierp of degree $d$ $\vert octasierp_d \vert = 4 (2^d - 1) (2^d + 1) + 6$, which boils down to the very pleasing $\vert octasierp_d \vert = 2^{2d+2} + 2$.
 
+
 ** Binary degree
 
 We can simplify the problem of finding the degree of appearance of a point by going from a rectangular grid to discrete points on a line.
@@ -676,6 +682,7 @@ Cardinality at degree 3: 258
 Cardinality at degree 4: 1026
 #+end_src
 
+
 ** Outline
 
 Now that the size of an octasierp is known, a simple outline can be formed using a single =std::vector= to store the points:
@@ -720,6 +727,7 @@ int main() {
 Built an octasierp of degree 1 containing 18 int
 -1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
 #+end_src
+
 
 ** Binary degree
 
@@ -840,6 +848,7 @@ palette_psyche = [
 ]
 #+end_src
 
+
 ** Basic =Geometry=
 :PROPERTIES:
 :header-args:python+: :noweb-ref "Geometric primitives"
@@ -904,6 +913,7 @@ def decrease_size_linearly(degree, min_factor=.25, scale=1):
 #+end_src
 
 I added a =scale= parameter to easily be able to make things bigger while keeping the linear relationship between degrees.
+
 
 ** Triangle
 :PROPERTIES:
@@ -1025,6 +1035,7 @@ With =midpoint= being defined as:
 def midpoint(left, right):
     return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
 #+end_src
+
 
 ** Octasierp net
 
@@ -1168,6 +1179,7 @@ class SVGSurface(object):
         self._cairo_surface.finish()
 #+end_src
 
+
 ** Illustration: degrees 0 through 3
 
 We use the =Octanet= class defined above to create the 8 images corresponding to the degrees 0 through 3 of the octahedron and the quasi-square version:
@@ -1209,6 +1221,7 @@ version=squa
 vertical=1250
 make_montage
 #+end_src
+
 
 ** Logo creation
 
@@ -1395,6 +1408,7 @@ if len(self.display_points) < max_appearance + 1:
     self.display_points += self.display_points[-1:] * (max_appearance + 1 - len(self.display_points))
 #+end_src
 
+
 ** Generate a raw representation
 
 This method is the core of the text representation logic.
@@ -1489,6 +1503,7 @@ def raw(self, appearance=None):
 
     return list(joinlines())
 #+end_src
+
 
 ** Generate the final representation
 
@@ -1632,6 +1647,7 @@ print('\n'.join(horizontal_compensation(Quarter(2).raw(2))))
 o-x---x-+
 #+end_src
 
+
 ** Demonstration
 :PROPERTIES:
 :header-args:python+: :exports both :eval no-export
@@ -1677,6 +1693,7 @@ o---x-------x---+
 |                               |
 o-------x---------------x-------+
 #+end_src
+
 
 ** Textual squarified net representation
 
@@ -1852,6 +1869,7 @@ print(SquareNet(2, [0, 2], show_axis=True))
 Note that this representation will break if we ever try to include gradations greater than 9, because it assumes that gradations are single-digit numbers.
 The last degree for which a correct axis can be made is therefore degree 3 with its gradations going from -8 to 8.
 It would be possible to make it work with higher degrees but degree 3 covers my needs regarding this feature.
+
 
 ** Utils
 
