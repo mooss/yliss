@@ -569,6 +569,54 @@ Removing the two empty columns gives us a $2^d - 1$ by $2^d + 1$ rectangle conta
 The sames applies by rotation to quarter 1, 2 and 3.
 By adding the six initial points, we have the numbers of points in an octasierp of degree $d$ $\vert octasierp_d \vert = 4 (2^d - 1) (2^d + 1) + 6$, which boils down to the very pleasing $\vert octasierp_d \vert = 2^{2d+2} + 2$.
 
+*** Ordering and indexing
+
+To be indexable, a storage scheme must define an order so that each element has its place and each place its element.
+The indexation is based on the previously defined coordinate system.
+
+At the highest level, the first 6 places are reserved for the points of degree 0, then come the points of strictly positive degree from quarter 0, then those same points for quarter 1, 2 and 3.
+Therefore, at degree 1, the storage looks like this: =NSABCD000111222333=, with =NSABCD= representing the points of degree 0 (north pole, south pole, and corners 0 to 3) and =0=, =1=, =2= and =3= their respective quarter.
+
+At the quarter level, the procedure is as usual to define rules for quarter 0 and then apply them to the other quarters by rotation.
+
+Within quarter 0, a simple way to order the points is to do as if they were in a graph, with the first coordinate indexing the x axis and the second coordinate indexing the y axis.
+The resulting point order is illustrated below for quarter 0 at degree 2, with hexadecimal digits to keep them one character only:
+#+begin_src text :minipage
+   ^
++4 |  +-------+-c-d-e-x
++3 |  |       | 9 a b |
++2 |  |       | 6 7 8 |
++1 |  |       | 3 4 5 |
+ 0 |  +-------X-0-1-2-x
+-1 |  |       |       |
+-2 |  |       |       |
+-3 |  |       |       |
+-4 |  +-------+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+\\
+By rotation, quarter 1 is ordered this way:
+#+begin_src text :minipage
+   ^
++4 |  +-------x-------+
++3 |  e b 8 5 2       |
++2 |  d a 7 4 1       |
++1 |  c 9 6 3 0       |
+ 0 |  +-------o-------+
+-1 |  |       |       |
+-2 |  |       |       |
+-3 |  |       |       |
+-4 |  +-------+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+\\
+And so on with the other quarters.
 
 ** Binary degree
 
