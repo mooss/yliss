@@ -501,6 +501,11 @@ Legend:
  - =b= :: Point of degree 0 (there is only one for quarter 1).
  - =1= :: Points of degree greater than 0.
 
+\\
+Using this rectangular storage scheme, all the points can be stored contiguously, and this is actually what will be done in practice because this has the following implications:
+ - Contiguous storage can be iterated upon very fast.
+ - Implementation using a =std::vector= is handy because methods from the vector can be used as-is in the octasierp implementation, most notably =begin= and =end=, making iteration on points basically free.
+
 *** Cardinality
 
 The rectangular storage scheme requires to know the size of the rectangle.
@@ -617,6 +622,23 @@ By rotation, quarter 1 is ordered this way:
 \\
 \\
 And so on with the other quarters.
+
+
+** Iteration
+
+Iteration facilities are needed to manipulate an octasierp in a meaningful way.
+Iteration is much more tricky to explain using the textual representation so this section is going to be light on illustrations.
+The best visualisation at hand is to remember the squarified net for degrees 0 through 4 that was previously included above and is once again visible below:
+#+attr_latex: :placement [H]
+[[file:images/montage_net_squa_degree_0-3.png]]
+
+*** Points
+
+If the storage is one continuous block, as should be the case with the rectangular storage scheme, iteration on all the points simply corresponds to iteration on the storage.
+Since this storage order has no particular meaning outside of allowing an easy-ish translation from coordinates to storage index, this kind of iteration is for most practical purposes orderless.
+
+If the storage is not one continous block, something else should be done depending on how the storage is handled.
+
 
 ** Binary degree
 
@@ -762,7 +784,7 @@ class octasierp {
 #+end_src
 #+depends:octasierp :noweb octasierp_cardinality :cpp vector cmath
 
-Usage:
+Points iteration is built into the above via the =begin= and =end= shortcuts, which makes range-based iteration possible as shown below:
 #+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb octasierp type_str print-function")>>
 int main() {
@@ -780,6 +802,7 @@ Built an octasierp of degree 1 containing 18 int
 -1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
 #+end_src
 
+
 ** Degree-bound variables
 
 Some variables are only depending on the current degree, and are therefore precomputed as follow:
@@ -796,6 +819,7 @@ void compute_degree_bound_variables() {
 #+end_src
 
 =compute_degree_bound_variables= must be called everytime the degree is changed, to keep them in sync.
+
 
 ** Coordinates validation
 
@@ -1159,6 +1183,7 @@ return 5;
 return quarter_rectangle_width_ * i -j + 5 + 3 * quarter_rectangle_cardinality_;
 #+end_src
 
+
 ** Indexing example
 
 The code below prints a squarenet shadow whose individual points are the actual point itself, each point having been initialised to its own character.
@@ -1196,6 +1221,7 @@ int main() {
 . . . . . . . . . . . . .
 . . . . . . . . . . . . .
 #+end_src
+
 
 ** Binary degree
 
