@@ -715,47 +715,73 @@ By combining 2. and 3., we can deduce the values of the other even points, becau
 
 
 * Implementation
-** Cardinality
+
+An =pointless_octasierp= is an octasierp that does not store points and is therefore only useful for theoretical manipulation.
+I coudn't resist.
+#+name: pointless_octasierp
+#+begin_src cpp :minipage
+struct pointless_octasierp {
+    const std::size_t degree;
+    // Maximum value of the half-axis (half-axis cardinality - 1).
+    const int extreme_index;
+    // Width of the rectangular storage of one quarter.
+    const std::size_t quarter_rectangle_width;
+    // Number of points of the rectangular storage of one quarter.
+    const std::size_t quarter_rectangle_cardinality;
+
+    pointless_octasierp()=delete;
+    pointless_octasierp(std::size_t _degree):
+        degree(_degree),
+        extreme_index(1 << degree),
+        quarter_rectangle_width(extreme_index - 1),
+        quarter_rectangle_cardinality(quarter_rectangle_width * (extreme_index + 1))
+    {}
+
+    <<pointless_octasierp/public>>
+};
+#+end_src
+Note:
+ - =extreme_index= in an =int= because the coordinate system uses negative indexes.
+
+Since everyting is const, the only way to change the degree is to create a new =pointless_octasierp= instance, therefore the various cached variables bound to the degree are guaranteed to be kept in sync.
+
+** Points cardinality
 
 The size of an octasierp, previously described as $\vert octasierp_d \vert = 2^{2d+2} + 2$, can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
-#+name: octasierp_cardinality
-#+begin_src cpp :minipage
-std::size_t octasierp_cardinality(std::size_t degree) {
+#+begin_src cpp :minipage :noweb-ref pointless_octasierp/public
+std::size_t points_cardinality() const {
     return (1 << 2 * degree + 2) + 2;
 }
 #+end_src
 
 Usage:
 #+begin_src cpp :eval no-export :flags -Wall -std=c++17 :noweb no-export :exports both :minipage
-<<include(":noweb print-function octasierp_cardinality")>>
+<<include(":noweb print-function pointless_octasierp")>>
 
 int main() {
     auto printer = print{{.sep=""}};
     for(std::size_t degree: {0, 1, 2, 3, 4}) {
-        printer("2^", degree, " = ", 1 << degree);
-        printer("Cardinality at degree ", degree, ": ", octasierp_cardinality(degree));
+        pointless_octasierp octa(degree);
+        printer("This octasierp of degree ", degree, " would have had ",
+                octa.points_cardinality(), " points had it not been pointless.");
     }
 }
 #+end_src
 
 #+RESULTS:
 #+begin_src text :minipage
-2^0 = 1
-Cardinality at degree 0: 6
-2^1 = 2
-Cardinality at degree 1: 18
-2^2 = 4
-Cardinality at degree 2: 66
-2^3 = 8
-Cardinality at degree 3: 258
-2^4 = 16
-Cardinality at degree 4: 1026
+This octasierp of degree 0 would have had 6 points had it not been pointless.
+This octasierp of degree 1 would have had 18 points had it not been pointless.
+This octasierp of degree 2 would have had 66 points had it not been pointless.
+This octasierp of degree 3 would have had 258 points had it not been pointless.
+This octasierp of degree 4 would have had 1026 points had it not been pointless.
 #+end_src
 
 
-** Outline
+** Storage
 
-Now that the size of an octasierp is known, a simple outline can be formed using a single =std::vector= to store the points:
+The code block below forms the outline of the actual octasierp implementation, the one using a =std::vector= to store the points.
+
 #+name: octasierp
 #+begin_src cpp :minipage
 template<typename Point>
@@ -763,26 +789,28 @@ class octasierp {
   public:
     using value_type = Point;
 
+    octasierp()=delete;
     octasierp(std::size_t degree, Point const& initial_value):
-        degree_(degree), storage_(octasierp_cardinality(degree_), initial_value)
-    {compute_degree_bound_variables();}
+        bound_(degree), storage_(bound_.points_cardinality(), initial_value)
+    {}
 
     auto begin() {return storage_.begin();}
     auto end() {return storage_.end();}
     auto begin() const {return storage_.begin();}
     auto end() const {return storage_.end();}
     auto size() const {return storage_.size();}
-    auto degree() const {return degree_;}
+
+    const pointless_octasierp& bound() const {return bound_;}
+    auto degree() const {return bound_.degree;}
 
     <<octasierp/public>>
 
   private:
-    std::size_t degree_;
+    pointless_octasierp bound_;
     std::vector<Point> storage_;
-    <<octasierp/private>>
 };
 #+end_src
-#+depends:octasierp :noweb octasierp_cardinality :cpp vector cmath
+#+depends:octasierp :noweb pointless_octasierp :cpp vector cmath
 
 Points iteration is built into the above via the =begin= and =end= shortcuts, which makes range-based iteration possible as shown below:
 #+begin_src cpp :eval no-export :exports both :minipage
@@ -803,22 +831,10 @@ Built an octasierp of degree 1 containing 18 int
 #+end_src
 
 
-** Degree-bound variables
+** Note on the pointless and point-filled octahedra variants
 
-Some variables are only depending on the current degree, and are therefore precomputed as follow:
-#+begin_src cpp :noweb-ref octasierp/private
-int extreme_index_; // Maximum value of the half-axis (half-axis cardinality - 1).
-std::size_t quarter_rectangle_width_; // Width of the rectangular storage of one quarter.
-std::size_t quarter_rectangle_cardinality_; // Number of points of the rectangular storage of one quarter.
-void compute_degree_bound_variables() {
-    extreme_index_ = (1 << degree_);
-    quarter_rectangle_width_ = extreme_index_ - 1;
-    int quarter_rectangle_height = extreme_index_ + 1;
-    quarter_rectangle_cardinality_ = quarter_rectangle_width_ * quarter_rectangle_height;
-}
-#+end_src
-
-=compute_degree_bound_variables= must be called everytime the degree is changed, to keep them in sync.
+The idea behind separating =octasierp= from =pointless_octasierp= is to be able to query the various properties of an octasierp without having to actually allocate points.
+Therefore, everything not directly linked with the actual storage will go in the =pointless_octasierp=.
 
 
 ** Coordinates validation
@@ -845,32 +861,36 @@ x-x-x-x-X-x-x-x-x
 #+end_src
 
 That method can take the form below, by first testing if the coordinates are within the internal square, and otherwise testing if they are within the top part of quarter 0 and otherwise test the other quarters by rotation.
-#+begin_src cpp :noweb-ref octasierp/public
+#+begin_src cpp :noweb-ref pointless_octasierp/public
 bool valid_coordinates(int i, int j) const {
-    if(abs(i) < extreme_index_ && abs(j) < extreme_index_)
+    if(abs(i) < extreme_index && abs(j) < extreme_index)
         return true;
-    if(j == extreme_index_)
-        return i >= 0 && i <= extreme_index_;
-    if(i == -extreme_index_)
-        return j >= 0 && j < extreme_index_;
-    if(j == -extreme_index_)
-        return i <= 0 && i > -extreme_index_;
-    return i == extreme_index_ && j <= 0 && j > -extreme_index_;
+    if(j == extreme_index)
+        return i >= 0 && i <= extreme_index;
+    if(i == -extreme_index)
+        return j >= 0 && j < extreme_index;
+    if(j == -extreme_index)
+        return i <= 0 && i > -extreme_index;
+    return i == extreme_index && j <= 0 && j > -extreme_index;
 }
 #+end_src
 
 The following function can be used to print a shadow of a squarified net by asking every step of the way whether the current coordinate is valid:
 #+name: print_squarenet_shadow
 #+begin_src cpp
-template<typename OctaType, typename What>
-void print_squarenet_shadow(const octasierp<OctaType>& octa, int extremum, const What& what) {
+template<typename WhichChar>
+void print_squarenet_shadow(
+    const pointless_octasierp& octa,
+    int extremum,
+    const WhichChar& which_char
+) {
     print printer{{.sep="", .end=""}};
     for(int j = extremum; j >= -extremum; --j) {
         for(int i = -extremum; i <= extremum; ++i) {
             if(i == 0 && j == 0)
                 printer(0);
             else
-                printer(octa.valid_coordinates(i, j) ? what(i, j): '.');
+                printer(octa.valid_coordinates(i, j) ? which_char(i, j): '.');
             if(i != extremum)
                 printer(" ");
         }
@@ -878,12 +898,12 @@ void print_squarenet_shadow(const octasierp<OctaType>& octa, int extremum, const
     }
 }
 #+end_src
-#+depends:print_squarenet_shadow :noweb octasierp print-function
+#+depends:print_squarenet_shadow :noweb pointless_octasierp print-function
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb octasierp print_squarenet_shadow")>>
+<<include(":noweb pointless_octasierp print_squarenet_shadow")>>
 int main() {
-    octasierp octa(2, -1);
+    pointless_octasierp octa(2);
     print_squarenet_shadow(octa, 6, [](int i, int j){return 'X';});
 }
 #+end_src
@@ -908,18 +928,18 @@ int main() {
 
 ** Indexing
 
-Those indexing methods are delegating all the work to the real thing.
+Those indexing methods are delegating all the work to =bound_='s =index_of= method.
 #+begin_src cpp :noweb-ref "octasierp/public"
 const Point& point(int i, int j) const {
-    return storage_[index_of(i, j)];
+    return storage_[bound_.index_of(i, j)];
 }
 
 Point& point(int i, int j) {
-    return storage_[index_of(i, j)];
+    return storage_[bound_.index_of(i, j)];
 }
 #+end_src
 
-The real thing is a bit hairy because it is a question of cutting a non trivial figure into its more easily manageable components.
+=index_of= is a hairy beast because it is all about cutting a not-so-trivial figure into its more easily manageable components.
 The illustration below shows those manageable components:
  - The north and south poles (=X= and =S=).
  - The four corners (=a=, =b=, =c= and =d=).
@@ -958,11 +978,11 @@ print(SquareNet(2, list(range(3)), show_axis=True, point_rep=quarter_rep))
 In an attempt to make the beast below a bit more readable, it only contains the "cutting into manageable parts" logic.
 The return statements are handled in the four next subsections, one per quarter.
 This if forest can certainly be optimised, be it from a readability perspective or from a performance perspective.
-#+begin_src cpp :noweb-ref "octasierp/public"
+#+begin_src cpp :noweb-ref "pointless_octasierp/public"
 std::size_t index_of(int i, int j) const {
     if(i > 0) {
         if(j >= 0) {
-            if(i < extreme_index_) {
+            if(i < extreme_index) {
                 <<Index of quarter 0 degree > 0>>
             } else {
                 <<Index of corner 0 or south pole>>
@@ -976,7 +996,7 @@ std::size_t index_of(int i, int j) const {
         } else if(j > 0) {
             <<Index of quarter 1 degree > 0>>
         } else { // j == 0
-            if(i == -extreme_index_) {
+            if(i == -extreme_index) {
                 <<Index of corner 2>>
             } else {
                 <<Index of quarter 2 degree > 0>>
@@ -984,13 +1004,13 @@ std::size_t index_of(int i, int j) const {
         }
     } else { // i == 0
         if(j > 0) {
-            if(j == extreme_index_) {
+            if(j == extreme_index) {
                 <<Index of corner 1>>
             } else {
                 <<Index of quarter 1 degree > 0>>
             }
         } else if(j < 0) {
-            if(j == -extreme_index_) {
+            if(j == -extreme_index) {
                 <<Index of corner 3>>
             } else {
                 <<Index of quarter 3 degree > 0>>
@@ -1000,6 +1020,9 @@ std::size_t index_of(int i, int j) const {
     <<Index of north pole>>
 }
 #+end_src
+
+Not that the parameters =i= and =j= are assumed to be correct, that is to say they are assumed to refer to a valid canonical point.
+It's up to the caller to ensure the validity of =i= and =j=.
 
 *** Quarter 0
 
@@ -1051,7 +1074,7 @@ else
 The other points are barely more difficult since it's just a rectangle indexation $+6$ after taking the points of degree 0 into account and $-1$ after taking the offset of =i= into account.
 #+name: Index of quarter 0 degree > 0
 #+begin_src cpp
-return quarter_rectangle_width_ * j + i + 5;
+return quarter_rectangle_width * j + i + 5;
 #+end_src
 
 *** Quarter 1
@@ -1097,7 +1120,7 @@ The other indexes can be computed in a similar way to quarter 0, with the follow
  3. =quarter_rectangle_cardinality= is added to the index to take the first quarter into account.
 #+name: Index of quarter 1 degree > 0
 #+begin_src cpp
-return quarter_rectangle_width_ * -i + j + 5 + quarter_rectangle_cardinality_;
+return quarter_rectangle_width * -i + j + 5 + quarter_rectangle_cardinality;
 #+end_src
 
 *** Quarter 2
@@ -1139,7 +1162,7 @@ return 4;
 This time, =i= and =j= are no longer swapped when compared to quarter 0 but they both have to be negated.
 #+name: Index of quarter 2 degree > 0
 #+begin_src cpp
-return quarter_rectangle_width_ * -j -i + 5 + 2 * quarter_rectangle_cardinality_;
+return quarter_rectangle_width * -j -i + 5 + 2 * quarter_rectangle_cardinality;
 #+end_src
 
 *** Quarter 3
@@ -1180,7 +1203,7 @@ return 5;
 
 #+name: Index of quarter 3 degree > 0
 #+begin_src cpp
-return quarter_rectangle_width_ * i -j + 5 + 3 * quarter_rectangle_cardinality_;
+return quarter_rectangle_width * i -j + 5 + 3 * quarter_rectangle_cardinality;
 #+end_src
 
 
@@ -1199,7 +1222,7 @@ int main() {
         point = representation[i];
         ++i;
     }
-    print_squarenet_shadow(octa, 6, [&octa](int i, int j){
+    print_squarenet_shadow(octa.bound(), 6, [&octa](int i, int j){
         return octa.point(i, j);
     });
 }
