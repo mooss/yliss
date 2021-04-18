@@ -822,7 +822,7 @@ x-x-x-x-X-x-x-x-x
 
 That method can take the form below, by first testing if the coordinates are within the internal square, and otherwise testing if they are within the top part of quarter 0 and otherwise test the other quarters by rotation.
 #+begin_src cpp :noweb-ref octasierp/public
-bool valid_coordinates(int i, int j) {
+bool valid_coordinates(int i, int j) const {
     if(abs(i) < extreme_index_ && abs(j) < extreme_index_)
         return true;
     if(j == extreme_index_)
@@ -835,24 +835,32 @@ bool valid_coordinates(int i, int j) {
 }
 #+end_src
 
-The following prints a shadow of a squarified net by asking every step of the way whether the current coordinate is valid:
-#+begin_src cpp :eval no-export :exports both
-<<include(":noweb octasierp print-function")>>
-int main() {
-    octasierp octa(2, -1);
-    int extremum = 6;
+The following function can be used to print a shadow of a squarified net by asking every step of the way whether the current coordinate is valid:
+#+name: print_squarenet_shadow
+#+begin_src cpp
+template<typename OctaType, typename What>
+void print_squarenet_shadow(const octasierp<OctaType>& octa, int extremum, const What& what) {
     print printer{{.sep="", .end=""}};
     for(int j = extremum; j >= -extremum; --j) {
         for(int i = -extremum; i <= extremum; ++i) {
             if(i == 0 && j == 0)
                 printer(0);
             else
-                printer(octa.valid_coordinates(i, j) ? "X": ".");
+                printer(octa.valid_coordinates(i, j) ? what(i, j): '.');
             if(i != extremum)
                 printer(" ");
         }
         print{};
     }
+}
+#+end_src
+#+depends:print_squarenet_shadow :noweb octasierp print-function
+
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb octasierp print_squarenet_shadow")>>
+int main() {
+    octasierp octa(2, -1);
+    print_squarenet_shadow(octa, 6, [](int i, int j){return 'X';});
 }
 #+end_src
 
@@ -869,6 +877,322 @@ int main() {
 . . . X X X X X X X X . .
 . . . X X X X X X X X . .
 . . . X X X X . . . . . .
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+#+end_src
+
+
+** Indexing
+
+Those indexing methods are delegating all the work to the real thing.
+#+begin_src cpp :noweb-ref "octasierp/public"
+const Point& point(int i, int j) const {
+    return storage_[index_of(i, j)];
+}
+
+Point& point(int i, int j) {
+    return storage_[index_of(i, j)];
+}
+#+end_src
+
+The real thing is a bit hairy because it is a question of cutting a non trivial figure into its more easily manageable components.
+The illustration below shows those manageable components:
+ - The north and south poles (=X= and =S=).
+ - The four corners (=a=, =b=, =c= and =d=).
+ - The isolated quarters (=0=, =1=, =2= and =3=).
+
+# Helper to distinctly print the points representation according to quarter and degree.
+#+name: quarter_rep
+#+begin_src python :exports none
+def quarter_rep(quarter):
+    return [['a', '0'], ['b', '1'], ['c', '2'], ['d', '3']][quarter]
+#+end_src
+# This code block is disabled because the south pole has been inserted manually below.
+#+begin_src python :eval never :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------b-0-0-0-S
++3 |  1 1 1 1 1 0 0 0 |
++2 |  1 1 1 1 1 0 0 0 |
++1 |  1 1 1 1 1 0 0 0 |
+ 0 |  c-2-2-2-X-0-0-0-a
+-1 |  | 2 2 2 3 3 3 3 3
+-2 |  | 2 2 2 3 3 3 3 3
+-3 |  | 2 2 2 3 3 3 3 3
+-4 |  +-2-2-2-d-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+
+In an attempt to make the beast below a bit more readable, it only contains the "cutting into manageable parts" logic.
+The return statements are handled in the four next subsections, one per quarter.
+This if forest can certainly be optimised, be it from a readability perspective or from a performance perspective.
+#+begin_src cpp :noweb-ref "octasierp/public"
+std::size_t index_of(int i, int j) const {
+    if(i > 0) {
+        if(j >= 0) {
+            if(i < extreme_index_) {
+                <<Index of quarter 0 degree > 0>>
+            } else {
+                <<Index of corner 0 or south pole>>
+            }
+        } else {
+            <<Index of quarter 3 degree > 0>>
+        }
+    } else if(i < 0) {
+        if(j < 0) {
+            <<Index of quarter 2 degree > 0>>
+        } else if(j > 0) {
+            <<Index of quarter 1 degree > 0>>
+        } else { // j == 0
+            if(i == -extreme_index_) {
+                <<Index of corner 2>>
+            } else {
+                <<Index of quarter 2 degree > 0>>
+            }
+        }
+    } else { // i == 0
+        if(j > 0) {
+            if(j == extreme_index_) {
+                <<Index of corner 1>>
+            } else {
+                <<Index of quarter 1 degree > 0>>
+            }
+        } else if(j < 0) {
+            if(j == -extreme_index_) {
+                <<Index of corner 3>>
+            } else {
+                <<Index of quarter 3 degree > 0>>
+            }
+        } // i == 0 and j == 0, therefore north pole.
+    }
+    <<Index of north pole>>
+}
+#+end_src
+
+*** Quarter 0
+
+Illustration at degree 2 of the points that are handled in this section:
+# This code block is disabled for the same reason as the previous one.
+#+begin_src python :eval never :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), quarters={0}, show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------+-0-0-0-S
++3 |  |       | 0 0 0 |
++2 |  |       | 0 0 0 |
++1 |  |       | 0 0 0 |
+ 0 |  +-------X-0-0-0-a
+-1 |  |       |       |
+-2 |  |       |       |
+-3 |  |       |       |
+-4 |  +-------+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =S= :: South pole.
+ - =a= :: Corner 0.
+ - =0= :: Points of degree greater than 0.
+
+The indexes of the north pole, south pole and corner 0 are trivial to find.
+#+name: Index of north pole
+#+begin_src cpp
+return 0;
+#+end_src
+
+#+name: Index of corner 0 or south pole
+#+begin_src cpp
+if(j == 0)
+    return 2;
+else
+    return 1;
+#+end_src
+
+The other points are barely more difficult since it's just a rectangle indexation $+6$ after taking the points of degree 0 into account and $-1$ after taking the offset of =i= into account.
+#+name: Index of quarter 0 degree > 0
+#+begin_src cpp
+return quarter_rectangle_width_ * j + i + 5;
+#+end_src
+
+*** Quarter 1
+
+Illustration at degree 2 of the points that are handled in this section:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), quarters={1}, show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------b-------+
++3 |  1 1 1 1 1       |
++2 |  1 1 1 1 1       |
++1 |  1 1 1 1 1       |
+ 0 |  +-------o-------+
+-1 |  |       |       |
+-2 |  |       |       |
+-3 |  |       |       |
+-4 |  +-------+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =o= :: Origin, aka north pole.
+ - =b= :: Corner 1.
+ - =1= :: Points of degree greater than 0.
+# Hello there.
+
+#+name: Index of corner 1
+#+begin_src cpp
+return 3;
+#+end_src
+
+The other indexes can be computed in a similar way to quarter 0, with the following twists:
+ 1. =i= and =j= are swapped because quarter 1 is rotated left compared to quarter 0.
+ 2. =i= is negated because it is negative.
+ 3. =quarter_rectangle_cardinality= is added to the index to take the first quarter into account.
+#+name: Index of quarter 1 degree > 0
+#+begin_src cpp
+return quarter_rectangle_width_ * -i + j + 5 + quarter_rectangle_cardinality_;
+#+end_src
+
+*** Quarter 2
+
+Illustration at degree 2 of the points that are handled in this section:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), quarters={2}, show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------+-------+
++3 |  |       |       |
++2 |  |       |       |
++1 |  |       |       |
+ 0 |  c-2-2-2-o-------+
+-1 |  | 2 2 2 |       |
+-2 |  | 2 2 2 |       |
+-3 |  | 2 2 2 |       |
+-4 |  +-2-2-2-+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =o= :: Origin, aka north pole.
+ - =c= :: Corner 2.
+ - =2= :: Points of degree greater than 0.
+
+#+name: Index of corner 2
+#+begin_src cpp
+return 4;
+#+end_src
+
+This time, =i= and =j= are no longer swapped when compared to quarter 0 but they both have to be negated.
+#+name: Index of quarter 2 degree > 0
+#+begin_src cpp
+return quarter_rectangle_width_ * -j -i + 5 + 2 * quarter_rectangle_cardinality_;
+#+end_src
+
+*** Quarter 3
+
+Illustration at degree 2 of the points that are handled in this section:
+#+begin_src python :eval no-export :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), quarters={3}, show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------+-------+
++3 |  |       |       |
++2 |  |       |       |
++1 |  |       |       |
+ 0 |  +-------o-------+
+-1 |  |       3 3 3 3 3
+-2 |  |       3 3 3 3 3
+-3 |  |       3 3 3 3 3
+-4 |  +-------d-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =o= :: Origin, aka north pole.
+ - =d= :: Corner 3.
+ - =3= :: Points of degree greater than 0.
+
+#+name: Index of corner 3
+#+begin_src cpp
+return 5;
+#+end_src
+
+#+name: Index of quarter 3 degree > 0
+#+begin_src cpp
+return quarter_rectangle_width_ * i -j + 5 + 3 * quarter_rectangle_cardinality_;
+#+end_src
+
+** Indexing example
+
+The code below prints a squarenet shadow whose individual points are the actual point itself, each point having been initialised to its own character.
+Therefore, beyond being a usage example, this is also a pretty good illustration of the storage order.
+
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb octasierp print_squarenet_shadow")>>
+int main() {
+    octasierp octa(2, '0');
+    std::string representation("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
+    int i = 0;
+    for(auto& point: octa) {
+        point = representation[i];
+        ++i;
+    }
+    print_squarenet_shadow(octa, 6, [&octa](int i, int j){
+        return octa.point(i, j);
+    });
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+. . . . . . 3 i j k 1 . .
+. . z w t q n f g h . . .
+. . y v s p m c d e . . .
+. . x u r o l 9 a b . . .
+. . 4 C B A 0 6 7 8 2 . .
+. . . F E D P S V Y * . .
+. . . I H G Q T W Z - . .
+. . . L K J R U X / + . .
+. . . O N M 5 . . . . . .
 . . . . . . . . . . . . .
 . . . . . . . . . . . . .
 #+end_src
