@@ -1246,6 +1246,117 @@ int main() {
 #+end_src
 
 
+** Quarter rotation
+
+A key notion when manipulation octasierps is that of construction by rotation, meaning that operations can often be defined for quarter 0 and then be applied to the other quarters by rotation.
+This section's goal is to transform this notion of construction by rotation from an analytical tool to a programming one.
+
+There is a lot of strange details with very generic names in this implementation so most of it will go inside the namespace =quarter_rotation_details=.
+
+#+name: quarter_rotation_details
+#+begin_src cpp
+namespace quarter_rotation_details {
+<<quarter_rotation_details/public>>
+}
+#+end_src
+
+*** Directed axes and quarter reference frame
+
+Since quarters 1, 2, 3 are successive left rotations of quarter 0, moving a point in a given direction will have a different meaning depending on the quarter.
+For example, quarter 2 is the exact opposite of quarter 1.
+This means that incrementing x in quarter 2 is like decrementing it in quarter 0.
+
+The first step toward supporting this behaviour is directed axes, implemented in =normal_axis= and =inverted_axis=.
+The =value_= stored is not directly accessible on purpose, as those classes are only meant to represent operations on an axis.
+#+begin_src cpp :noweb-ref quarter_rotation_details/public
+enum class direction {normal, inverted};
+template<direction Dir> class axis {
+  public:
+    axis(int value):
+        value_(value)
+    {}
+
+    int operator++();
+    int operator--();
+
+  private:
+    int value_;
+};
+
+template<> int axis<direction::normal>::operator++()
+{++value_; return value_;}
+template<> int axis<direction::normal>::operator--()
+{--value_; return value_;}
+
+template<> int axis<direction::inverted>::operator++()
+{--value_; return value_;}
+template<> int axis<direction::inverted>::operator--()
+{++value_; return value_;}
+
+using normal_axis = axis<direction::normal>;
+using inverted_axis = axis<direction::inverted>;
+#+end_src
+
+=QRF= (Quarter Reference Frame) builds upon the directed axes to provide a way to represent operations on each quarter, vis-a-vis quarter 0, the canonical reference frame.
+
+#+begin_src cpp :noweb-ref quarter_rotation_details/public
+// Quarter Reference Frame
+template<int Id>
+struct QRF {};
+
+template<> struct QRF<0> {
+    normal_axis x;
+    normal_axis y;
+};
+
+template<> struct QRF<1> {
+    inverted_axis y;
+    normal_axis x;
+};
+
+template<> struct QRF<2> {
+    inverted_axis x;
+    inverted_axis y;
+};
+
+template<> struct QRF<3> {
+    normal_axis y;
+    inverted_axis x;
+};
+#+end_src
+The replacement of a =normal_axis= by a =inverted_axis= and /vice versa/ represents an inversion of this axis.
+More subtly, the swapping of the axes is encoded in the order of the axes.
+
+For example, where =QRF<0>= is laid out as ={x, y}=, =QRF<1>= is laid out as ={-y, x}= because that is what happens when going from quarter 0 from quarter 1.
+The axes are rotated 90\textdegree{} left, thus the x axis is now the y axis and the y axis is now the opposite the x axis.
+In other words, the axes have been swapped and what was the x axis but is now the y axis must be negated.
+
+See below for an illustration of this situation:
+#+begin_src text
+Quarter 0 (x, y):
+
+         ^ y
+         |
+         |
+  -------+------>
+         |      x
+         |
+         |
+
+___________________
+
+Quarter 1 (x', y'):
+
+         ^ x' = y
+         |
+         |
+  <------+-------
+ y' = -x |
+         |
+         |
+#+end_src
+
+
 ** Binary degree
 
 A naive C++ implementation of the binary degree function will look like this:
