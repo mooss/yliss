@@ -1266,10 +1266,10 @@ Since quarters 1, 2, 3 are successive left rotations of quarter 0, moving a poin
 For example, quarter 2 is the exact opposite of quarter 1.
 This means that incrementing x in quarter 2 is like decrementing it in quarter 0.
 
-The first step toward supporting this behaviour is directed axes, implemented in =normal_axis= and =inverted_axis=.
+The first step toward supporting this behaviour is directed axes, implemented in =natural_axis= and =inverted_axis=.
 The =value_= stored is not directly accessible on purpose, as those classes are only meant to represent operations on an axis.
 #+begin_src cpp :noweb-ref quarter_rotation_details/public
-enum class direction {normal, inverted};
+enum class direction {natural, inverted};
 template<direction Dir> class axis {
   public:
     axis(int value):
@@ -1283,9 +1283,9 @@ template<direction Dir> class axis {
     int value_;
 };
 
-template<> int axis<direction::normal>::operator++()
+template<> int axis<direction::natural>::operator++()
 {++value_; return value_;}
-template<> int axis<direction::normal>::operator--()
+template<> int axis<direction::natural>::operator--()
 {--value_; return value_;}
 
 template<> int axis<direction::inverted>::operator++()
@@ -1293,7 +1293,7 @@ template<> int axis<direction::inverted>::operator++()
 template<> int axis<direction::inverted>::operator--()
 {++value_; return value_;}
 
-using normal_axis = axis<direction::normal>;
+using natural_axis = axis<direction::natural>;
 using inverted_axis = axis<direction::inverted>;
 #+end_src
 
@@ -1305,13 +1305,13 @@ template<int Id>
 struct QRF {};
 
 template<> struct QRF<0> {
-    normal_axis x;
-    normal_axis y;
+    natural_axis x;
+    natural_axis y;
 };
 
 template<> struct QRF<1> {
     inverted_axis y;
-    normal_axis x;
+    natural_axis x;
 };
 
 template<> struct QRF<2> {
@@ -1320,12 +1320,12 @@ template<> struct QRF<2> {
 };
 
 template<> struct QRF<3> {
-    normal_axis y;
+    natural_axis y;
     inverted_axis x;
 };
 #+end_src
-The replacement of a =normal_axis= by a =inverted_axis= and /vice versa/ represents an inversion of this axis.
-More subtly, the swapping of the axes is encoded in the order of the axes.
+The replacement of a =natural_axis= by an =inverted_axis= and /vice versa/ represents an inversion of this axis.
+More subtly, the swapping of the axes is encoded in their order.
 
 For example, where =QRF<0>= is laid out as ={x, y}=, =QRF<1>= is laid out as ={-y, x}= because that is what happens when going from quarter 0 from quarter 1.
 The axes are rotated 90\textdegree{} left, thus the x axis is now the y axis and the y axis is now the opposite the x axis.
