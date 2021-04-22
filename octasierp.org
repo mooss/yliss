@@ -1254,7 +1254,7 @@ This section's goal is to transform this notion of construction by rotation from
 There is a lot of strange details with very generic names in this implementation so most of it will go inside the namespace =quarter_rotation_details=.
 
 #+name: quarter_rotation_details
-#+begin_src cpp
+#+begin_src cpp :minipage
 namespace quarter_rotation_details {
 <<quarter_rotation_details/public>>
 }
@@ -1355,6 +1355,78 @@ Quarter 1 (x', y'):
          |
          |
 #+end_src
+
+\\
+This template will be useful to extract the quarter represented by a given =QRF=:
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
+template<typename QRF_>
+struct QRF_quarter;
+
+template<int Quarter>
+struct QRF_quarter<quarter_rotation_details::QRF<Quarter>> {enum {v = Quarter};};
+#+end_src
+
+\\
+This code block below recapitulates the usage of everything that has been defined up to now in this section:
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb quarter_rotation_details print-function print_info")>>
+
+using namespace quarter_rotation_details;
+
+template<int Quarter>
+struct point_quarter {
+    union {
+        QRF<Quarter> axes;
+        struct {
+            const int x;
+            const int y;
+        };
+    };
+};
+
+template<int Quarter, typename Lambda>
+void apply_on_origin(Lambda lambda) {
+    point_quarter origin{QRF<Quarter>{0, 0}};
+    lambda(origin);
+}
+
+int main() {
+    auto axes_direction = [] <typename T> (T& point) {
+        ++point.axes.x;
+        ++point.axes.y;
+        char x_sign = point.x > 0 ? '+': '-';
+        char y_sign = point.y > 0 ? '+': '-';
+        print{{.sep="", .end="    "}}(
+            "Quarter ", QRF_quarter<decltype(T::axes)>::v,
+            " (", x_sign, "x, ", y_sign, "y)"
+        );
+        print_info<T>();
+    };
+    apply_on_origin<0>(axes_direction);
+    apply_on_origin<1>(axes_direction);
+    apply_on_origin<2>(axes_direction);
+    apply_on_origin<3>(axes_direction);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Quarter 0 (+x, +y)    point_quarter<0> -> 8 bytes
+Quarter 1 (-x, +y)    point_quarter<1> -> 8 bytes
+Quarter 2 (-x, -y)    point_quarter<2> -> 8 bytes
+Quarter 3 (+x, -y)    point_quarter<3> -> 8 bytes
+#+end_src
+\\
+
+There is a lot to unpack from this usage example:
+ - The intended way to access the value of a =QRF= is to store it in a union alongside an anonymous struct containing two constant ints.
+   Since members of a union share the same layout, those ints map the ones stored in the =QRF= axes.
+
+   This is where the inversion of the axes order in the =QRF= becomes pertinent because when this order is inverted, the anonymous struct is not inverted.
+   Therefore in those cases, the struct's =x= maps to the =QRF='s =y= and /vice versa/, thus reflecting the swapped axes caused by the rotation.
+
+ - A templated lambda can be used to apply operations transparently on a given quarter referential.
+   In this instance, the lambda is used to show the orientation of the axes of each quarter referential, as well as the size of the lambda parameter.
 
 
 ** Binary degree
