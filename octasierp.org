@@ -1456,6 +1456,94 @@ There is a lot to unpack from this usage example.
  - A templated lambda can be used to apply operations transparently on a given quarter referential.
    In this instance, the lambda is used to show the orientation of the axes of each quarter referential, as well as the size of the lambda parameter.
 
+*** Id of the left, back and right quarters
+
+Since quarters are numbered using successive left rotations from quarter 0, the id of the quarter to its left, its back and its right can be obtained by adding respectively 1, 2 and 3.
+And since they wrap around after quarter 3, applying modulo 4 makes this approach work for all 4 quarters.
+#+begin_src cpp :noweb-ref quarter_rotation_details/public
+template<int quarter>
+constexpr int left_quarter() {
+    return (quarter + 1) % 4;
+}
+
+template<int quarter>
+constexpr int back_quarter() {
+    return (quarter + 2) % 4;
+}
+
+template<int quarter>
+constexpr int right_quarter() {
+    return (quarter + 3) % 4;
+}
+#+end_src
+
+*** Quarter coordinates
+
+Quarter coordinates are represented using the technique of the anonymous union exposing a =QRF='s true =x= and =y= values with the left, back and right rotation of the quarter also included.
+
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
+template<int Quarter>
+struct coordinates {
+    static constexpr int main_id = Quarter;
+    static constexpr int left_id = left_quarter<Quarter>();
+    static constexpr int back_id = back_quarter<Quarter>();
+    static constexpr int right_id = right_quarter<Quarter>();
+
+    union {
+        QRF<main_id> main;
+        QRF<left_id> left;
+        QRF<back_id> back;
+        QRF<right_id> right;
+        struct {
+            const int x;
+            const int y;
+        };
+        <<coordinates<Quarter>/union>>
+    };
+
+    coordinates(int _x, int _y): x(_x), y(_y) {}
+    coordinates(): coordinates(0, 0) {}
+    <<coordinates<Quarter>/public>>
+};
+#+end_src
+
+Verification of the correctness of the rotations:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb quarter_rotation_details print-function")>>
+
+using namespace quarter_rotation_details;
+
+template<int Quarter>
+void print_quarter_layout() {
+    print{
+        "quarter", Quarter,
+        "main:", coordinates<Quarter>::main_id,
+        "left:", coordinates<Quarter>::left_id,
+        "back:", coordinates<Quarter>::back_id,
+        "right:", coordinates<Quarter>::right_id,
+    };
+}
+
+int main() {
+    print_quarter_layout<0>();
+    print_quarter_layout<1>();
+    print_quarter_layout<2>();
+    print_quarter_layout<3>();
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+quarter 0 main: 0 left: 1 back: 2 right: 3
+quarter 1 main: 1 left: 2 back: 3 right: 0
+quarter 2 main: 2 left: 3 back: 0 right: 1
+quarter 3 main: 3 left: 0 back: 1 right: 2
+#+end_src
+
+\\
+Everything is as expected.
+
 
 ** Binary degree
 
