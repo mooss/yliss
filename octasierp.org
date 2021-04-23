@@ -1260,7 +1260,7 @@ namespace quarter_rotation_details {
 }
 #+end_src
 
-*** Directed axes and quarter reference frame
+*** Directed axes
 
 Since quarters 1, 2, 3 are successive left rotations of quarter 0, moving a point in a given direction will have a different meaning depending on the quarter.
 For example, quarter 2 is the exact opposite of quarter 1.
@@ -1297,6 +1297,30 @@ using natural_axis = axis<direction::natural>;
 using inverted_axis = axis<direction::inverted>;
 #+end_src
 
+Usage:
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb quarter_rotation_details/public print-function")>>
+
+int main() {
+    inverted_axis inv(23);
+    natural_axis nat(8);
+    for(int i = 42/4; i <= 16; ++i) { // That is seven incrementations.
+        ++inv;
+        ++nat;
+    }
+    print{++inv, ++nat};
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+15 16
+#+end_src
+
+Don't pay too much attention to the numbers, what important is that =inv= is only incremented but ends up smaller because it is inverted.
+
+*** Quarter reference frame
+
 =QRF= (Quarter Reference Frame) builds upon the directed axes to provide a way to represent operations on each quarter, vis-a-vis quarter 0, the canonical reference frame.
 
 #+begin_src cpp :noweb-ref quarter_rotation_details/public
@@ -1332,7 +1356,7 @@ The axes are rotated 90\textdegree{} left, thus the x axis is now the y axis and
 In other words, the axes have been swapped and what was the x axis but is now the y axis must be negated.
 
 See below for an illustration of this situation:
-#+begin_src text
+#+begin_src text :minipage
 Quarter 0 (x, y):
 
          ^ y
@@ -1345,6 +1369,9 @@ Quarter 0 (x, y):
 
 ___________________
 
+#+end_src
+#+begin_src text :minipage
+
 Quarter 1 (x', y'):
 
          ^ x' = y
@@ -1356,14 +1383,15 @@ Quarter 1 (x', y'):
          |
 #+end_src
 
+
 \\
-This template will be useful to extract the quarter represented by a given =QRF=:
+The following template will be useful to extract the quarter represented by a given =QRF=:
 #+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 template<typename QRF_>
 struct QRF_quarter;
 
 template<int Quarter>
-struct QRF_quarter<quarter_rotation_details::QRF<Quarter>> {enum {v = Quarter};};
+struct QRF_quarter<QRF<Quarter>> {enum {v = Quarter};};
 #+end_src
 
 \\
@@ -1418,7 +1446,7 @@ Quarter 3 (+x, -y)    point_quarter<3> -> 8 bytes
 #+end_src
 \\
 
-There is a lot to unpack from this usage example:
+There is a lot to unpack from this usage example.
  - The intended way to access the value of a =QRF= is to store it in a union alongside an anonymous struct containing two constant ints.
    Since members of a union share the same layout, those ints map the ones stored in the =QRF= axes.
 
