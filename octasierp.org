@@ -1545,6 +1545,100 @@ quarter 3 main: 3 left: 0 back: 1 right: 2
 \\
 Everything is as expected.
 
+*** Rotation of the quarter coordinates
+
+Rotating quarter coordinates requires a read/write access to the storage so the anonymous union must be updated:
+#+begin_src cpp :noweb-ref coordinates<Quarter>/union :minipage
+struct {
+    int __private_x;
+    int __private_y;
+};
+#+end_src
+
+The =rotate_left=, =rotate_back= and =rotate_right= methods reflect the axis-swapping-and-inverting logic of =QRF= but in a dynamic manner, acting on stored values, where =QRF='s logic is statically embedded in the type of its members and the order of its layout.
+#+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
+void rotate_left() {
+    __private_y = -__private_y;
+    std::swap(__private_x, __private_y);
+}
+void rotate_back() {
+    __private_x = -__private_x;
+    __private_y = -__private_y;
+}
+void rotate_right() {
+    __private_x = -__private_x;
+    std::swap(__private_x, __private_y);
+}
+#+end_src
+
+This redirection operator can be used to print coordinates:
+#+begin_src cpp :noweb-ref quarter_rotation_details/public
+template<int Quarter>
+std::ostream& operator<<(std::ostream& os, const coordinates<Quarter>& c) {
+    return os << "(" << c.x << ", " << c.y << ")";
+}
+#+end_src
+
+The following usage example shows the equivalency between the rotation encoded in the structure of =QRF= and the one enacted on the state by the rotation methods:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb quarter_rotation_details print-function print_info")>>
+
+using namespace quarter_rotation_details;
+
+template<int Quarter>
+void demonstrate_rotation() {
+    print{};
+    print{"-----------------------"};
+    print{"Quarter", Quarter};
+    coordinates<Quarter> point(0, 0);
+    auto copy = point;
+    for(int i = 0; i < 4; ++i) {
+        ++point.main.x;
+        ++copy.left.x;
+    }
+    print{"Main incremented:", point};
+    print{"Left incremented:", copy};
+    copy.rotate_right();
+    print{"Left incremented then rotated right", copy};
+}
+
+int main() {
+    demonstrate_rotation<0>();
+    demonstrate_rotation<1>();
+    demonstrate_rotation<2>();
+    demonstrate_rotation<3>();
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+
+-----------------------
+Quarter 0
+Main incremented: (4, 0)
+Left incremented: (0, 4)
+Left incremented then rotated right (4, 0)
+
+-----------------------
+Quarter 1
+Main incremented: (0, 4)
+Left incremented: (-4, 0)
+Left incremented then rotated right (0, 4)
+
+-----------------------
+Quarter 2
+Main incremented: (-4, 0)
+Left incremented: (0, -4)
+Left incremented then rotated right (-4, 0)
+
+-----------------------
+Quarter 3
+Main incremented: (0, -4)
+Left incremented: (4, 0)
+Left incremented then rotated right (0, -4)
+#+end_src
+
 
 ** Binary degree
 
