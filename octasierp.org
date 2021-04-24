@@ -1480,6 +1480,7 @@ constexpr int right_quarter() {
 *** Quarter coordinates
 
 Quarter coordinates are represented using the technique of the anonymous union exposing a =QRF='s true =x= and =y= values with the left, back and right rotation of the quarter also included.
+It should be noted that the constructor always takes values from the canonical quarter, even if the =Quarter= template parameter is something else that 0.
 
 #+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 template<int Quarter>
