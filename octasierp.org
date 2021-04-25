@@ -1575,7 +1575,13 @@ This redirection operator can be used to print coordinates:
 #+begin_src cpp :noweb-ref quarter_rotation_details/public
 template<int Quarter>
 std::ostream& operator<<(std::ostream& os, const coordinates<Quarter>& c) {
-    return os << "(" << c.x << ", " << c.y << ")";
+    os << "(";
+    if(c.x >= 0)
+        os << '+'; // To better align coordinates.
+    os << c.x << ", ";
+    if(c.y >= 0)
+        os << '+';
+    return os << c.y << ")";
 }
 #+end_src
 
@@ -1599,7 +1605,7 @@ void demonstrate_rotation() {
     print{"Main incremented:", point};
     print{"Left incremented:", copy};
     copy.rotate_right();
-    print{"Left incremented then rotated right", copy};
+    print{"Rotated right:   ", copy};
 }
 
 int main() {
@@ -1616,27 +1622,27 @@ int main() {
 
 -----------------------
 Quarter 0
-Main incremented: (4, 0)
-Left incremented: (0, 4)
-Left incremented then rotated right (4, 0)
+Main incremented: (+4, +0)
+Left incremented: (+0, +4)
+Rotated right:    (+4, +0)
 
 -----------------------
 Quarter 1
-Main incremented: (0, 4)
-Left incremented: (-4, 0)
-Left incremented then rotated right (0, 4)
+Main incremented: (+0, +4)
+Left incremented: (-4, +0)
+Rotated right:    (+0, +4)
 
 -----------------------
 Quarter 2
-Main incremented: (-4, 0)
-Left incremented: (0, -4)
-Left incremented then rotated right (-4, 0)
+Main incremented: (-4, +0)
+Left incremented: (+0, -4)
+Rotated right:    (-4, +0)
 
 -----------------------
 Quarter 3
-Main incremented: (0, -4)
-Left incremented: (4, 0)
-Left incremented then rotated right (0, -4)
+Main incremented: (+0, -4)
+Left incremented: (+4, +0)
+Rotated right:    (+0, -4)
 #+end_src
 
 
