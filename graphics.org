@@ -1292,7 +1292,7 @@ auto to_span(glm::vec<Length, T, Q>& container) {
 
 Usage
 #+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export
-<<include(":noweb to_span/glm <<span print-function")>>
+<<include(":noweb to_span/glm <<span print")>>
 int main() {
     glm::mat4 identity(1.0f);
     glm::vec2 lo{4, 8};
@@ -1388,7 +1388,7 @@ std::ostream& operator<<(std::ostream& os, const glm::vec<Length, T, Q>& contain
 
 Usage:
 #+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export :exports both :wrap "src text"
-<<include(":noweb <<glm/vec print-function")>>
+<<include(":noweb <<glm/vec print")>>
 int main() {
     glm::vec3 xy{1, 1, 0};
     print{"Raw:", xy};

@@ -756,7 +756,7 @@ std::size_t points_cardinality() const {
 
 Usage:
 #+begin_src cpp :eval no-export :flags -Wall -std=c++17 :noweb no-export :exports both :minipage
-<<include(":noweb print-function pointless_octasierp")>>
+<<include(":noweb print pointless_octasierp")>>
 
 int main() {
     auto printer = print{{.sep=""}};
@@ -814,7 +814,7 @@ class octasierp {
 
 Points iteration is built into the above via the =begin= and =end= shortcuts, which makes range-based iteration possible as shown below:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb octasierp type_str print-function")>>
+<<include(":noweb octasierp type_str print")>>
 int main() {
     octasierp octa(1, -1);
     print{"Built an octasierp of degree", octa.degree(),
@@ -898,7 +898,7 @@ void print_squarenet_shadow(
     }
 }
 #+end_src
-#+depends:print_squarenet_shadow :noweb pointless_octasierp print-function
+#+depends:print_squarenet_shadow :noweb pointless_octasierp print
 
 #+begin_src cpp :eval no-export :exports both
 <<include(":noweb pointless_octasierp print_squarenet_shadow")>>
@@ -1299,7 +1299,7 @@ using inverted_axis = axis<direction::inverted>;
 
 Usage:
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb quarter_rotation_details/public print-function")>>
+<<include(":noweb quarter_rotation_details/public print")>>
 
 int main() {
     inverted_axis inv(23);
@@ -1397,7 +1397,7 @@ struct QRF_quarter<QRF<Quarter>> {enum {v = Quarter};};
 \\
 This code block below recapitulates the usage of everything that has been defined up to now in this section:
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb quarter_rotation_details print-function print_info")>>
+<<include(":noweb quarter_rotation_details print print_size")>>
 
 using namespace quarter_rotation_details;
 
@@ -1428,7 +1428,7 @@ int main() {
             "Quarter ", QRF_quarter<decltype(T::axes)>::v,
             " (", x_sign, "x, ", y_sign, "y)"
         );
-        print_info<T>();
+        print_size<T>();
     };
     apply_on_origin<0>(axes_direction);
     apply_on_origin<1>(axes_direction);
@@ -1439,10 +1439,10 @@ int main() {
 
 #+RESULTS:
 #+begin_src text :minipage
-Quarter 0 (+x, +y)    point_quarter<0> -> 8 bytes
-Quarter 1 (-x, +y)    point_quarter<1> -> 8 bytes
-Quarter 2 (-x, -y)    point_quarter<2> -> 8 bytes
-Quarter 3 (+x, -y)    point_quarter<3> -> 8 bytes
+Quarter 0 (+x, +y)    point_quarter<0> -> 8 bytes (64 bits)
+Quarter 1 (-x, +y)    point_quarter<1> -> 8 bytes (64 bits)
+Quarter 2 (-x, -y)    point_quarter<2> -> 8 bytes (64 bits)
+Quarter 3 (+x, -y)    point_quarter<3> -> 8 bytes (64 bits)
 #+end_src
 \\
 
@@ -1510,7 +1510,7 @@ struct coordinates {
 
 Verification of the correctness of the rotations:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb quarter_rotation_details print-function")>>
+<<include(":noweb quarter_rotation_details print")>>
 
 using namespace quarter_rotation_details;
 
@@ -1581,7 +1581,7 @@ std::ostream& operator<<(std::ostream& os, const coordinates<Quarter>& c) {
 
 The following usage example shows the equivalency between the rotation encoded in the structure of =QRF= and the one enacted on the state by the rotation methods:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb quarter_rotation_details print-function print_info")>>
+<<include(":noweb quarter_rotation_details print")>>
 
 using namespace quarter_rotation_details;
 
@@ -1654,7 +1654,7 @@ unsigned int naive_bindeg(unsigned int index, unsigned int degree) {
 
 Usage:
 #+begin_src cpp :eval no-export :wrap "src text :minipage" :exports both :minipage
-<<include(":noweb naive_bindeg print-function")>>
+<<include(":noweb naive_bindeg print")>>
 
 int main() {
     unsigned int degree = 3;
