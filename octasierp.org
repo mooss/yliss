@@ -1257,7 +1257,7 @@ There is a lot of strange details with very generic names in this implementation
 #+begin_src cpp :minipage
 namespace quarter_rotation_details {
 <<quarter_rotation_details/public>>
-}
+} // quarter_rotation_details
 #+end_src
 
 *** Directed axes
@@ -1483,6 +1483,7 @@ Quarter coordinates are represented using the technique of the anonymous union e
 It should be noted that the constructor always takes values from the canonical quarter, even if the =Quarter= template parameter is something else that 0.
 
 #+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
+<<coordinates<Quarter>/pre>>
 template<int Quarter>
 struct coordinates {
     static constexpr int main_id = Quarter;
@@ -1556,18 +1557,43 @@ struct {
 #+end_src
 
 The =rotate_left=, =rotate_back= and =rotate_right= methods reflect the axis-swapping-and-inverting logic of =QRF= but in a dynamic manner, acting on stored values, where =QRF='s logic is statically embedded in the type of its members and the order of its layout.
+Those methods are equivalent to applying respectively one, two or three rotations.
 #+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
-void rotate_left() {
-    __private_y = -__private_y;
-    std::swap(__private_x, __private_y);
-}
-void rotate_back() {
-    __private_x = -__private_x;
-    __private_y = -__private_y;
-}
-void rotate_right() {
-    __private_x = -__private_x;
-    std::swap(__private_x, __private_y);
+void rotate_left()  {rotate<1>(*this);}
+void rotate_back()  {rotate<2>(*this);}
+void rotate_right() {rotate<3>(*this);}
+#+end_src
+
+The actual implementation of 1, 2, and 3 (and 0) rotations is a bit painful because it is a specialisation of a templated method within a templated class, with the inner template argument having to be specialised while the outer template argument should stay generic.
+I found no better way than to do that than using a helper templated struct with the templates reversed, i.e. the inner template becomes the outer one and /vice versa/.
+#+begin_src cpp :noweb-ref coordinates<Quarter>/pre :minipage
+template<int Rotations>
+struct rotate_impl {template<typename T> static void f(T&);};
+template<> struct rotate_impl<0> {
+    template<typename T> static void f(T& coord) {}
+};
+template<> struct rotate_impl<1> {
+    template<typename T> static void f(T& coord) {
+        coord.__private_y = -coord.__private_y;
+        std::swap(coord.__private_x, coord.__private_y);
+    }
+};
+template<> struct rotate_impl<2> {
+    template<typename T> static void f(T& coord) {
+        coord.__private_x = -coord.__private_x;
+        coord.__private_y = -coord.__private_y;
+    }
+};
+template<> struct rotate_impl<3> {
+    template<typename T> static void f(T& coord) {
+        coord.__private_x = -coord.__private_x;
+        std::swap(coord.__private_x, coord.__private_y);
+    }
+};
+
+template<int Rotations, typename T>
+void rotate(T& coords) {
+    rotate_impl<Rotations>::f(coords);
 }
 #+end_src
 
@@ -1644,6 +1670,139 @@ Main incremented: (+0, -4)
 Left incremented: (+4, +0)
 Rotated right:    (+0, -4)
 #+end_src
+
+*** Constructors and assignment operators
+
+The copy constructor and a copy assignment operator are not generated automatically, presumably because of the union.
+The fact that they work regardless of the quarter of both objects is not a problem because the stored coordinates are all relative to quarter 0 anyway.
+The goal of the =Quarter= template parameter is to encode behaviour, not state.
+
+#+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
+template<int OtherQuarter>
+coordinates(const coordinates<OtherQuarter>& other):
+    x(other.x), y(other.y)
+{}
+
+template<int OtherQuarter>
+coordinates& operator=(const coordinates<OtherQuarter>& other) {
+    __private_x = other.x;
+    __private_y = other.y;
+    return *this;
+}
+#+end_src
+
+
+*** Exposed API
+
+The quarter coordinates implemented in the previous sections is exposed to the outside world as =qoords= (=quarter_coordinates= was too long for my taste).
+#+name: qoords
+#+begin_src cpp :minipage
+template<int Quarter>
+using qoords = quarter_rotation_details::coordinates<Quarter>;
+#+end_src
+#+depends:qoords :noweb quarter_rotation_details
+
+Usage:
+#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export
+<<include(":noweb qoords print")>>
+
+int main() {
+    qoords<0> a(1, 2);
+    print{"Original:        ", a};
+    ++a.back.y;
+    print{"Back incremented:", a};
+    a.rotate_back();
+    print{"Rotated back:    ", a};
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Original:         (+1, +2)
+Back incremented: (+1, +1)
+Rotated back:     (-1, -1)
+#+end_src
+
+*** =foreach_quarter=
+
+The function presented here is what motivated this whole quarter rotation system in the first place.
+By using it, iteration logic can be defined for quarter 0 only and applied to the other quarters by rotation, sparing a lot of implementation headaches.
+To be honest only future implementation headaches have been spared because coding this was one hell of a ride.
+
+It accepts a lambda to apply on every quarter and the initial coordinates of the points to be transmitted to this lambda, which will be called back for quarters 0, 1, 2 and 3, with the points rotated accordingly.
+
+#+name: foreach_quarter
+#+begin_src cpp
+template<typename Lambda, typename... Coordinates>
+void foreach_quarter(Lambda lambda, const Coordinates&... initial_coordinates) {
+    using namespace foreach_quarter_details;
+    rotate_and_apply_lambda<0>(lambda, initial_coordinates...);
+    rotate_and_apply_lambda<1>(lambda, initial_coordinates...);
+    rotate_and_apply_lambda<2>(lambda, initial_coordinates...);
+    rotate_and_apply_lambda<3>(lambda, initial_coordinates...);
+}
+#+end_src
+#+depends:foreach_quarter :noweb foreach_quarter_details
+
+The more technical bits are hidden under =foreach_quarter_details=.
+=rotated_coordinates= is a template closure capturing a rotation value, destined to be applied to every =Coordinates= via =meta::steall_auto=.
+For example, if =Coordinates...= is in fact =qoords<2>, qoords<3>= and =Rotations= is 2, =coordinates_tuple= will be =std::tuple<qoords<0>, qoords<1>>=.
+
+This takes care of the types of each =qoords= after rotation, i.e. their behaviour when incremented and decremented.
+The states are then copied from the initial coordinates and set to their proper place by applying the correct number of rotations and finally the lambda is called.
+
+#+name: foreach_quarter_details
+#+begin_src cpp
+namespace foreach_quarter_details {
+using namespace quarter_rotation_details;
+template<int Rotations>
+struct rotated_coordinates {
+    template<int Quarter>
+    using t = coordinates<(Quarter + Rotations) % 4>;
+};
+
+template<int Rotations, typename Lambda, typename... Coordinates>
+void rotate_and_apply_lambda(Lambda lambda, const Coordinates&... initial_coordinates) {
+    using coordinates_tuple = meta::stealall_auto<
+        std::tuple,
+        rotated_coordinates<Rotations>::template t,
+        Coordinates...
+    >;
+    coordinates_tuple coordinates(initial_coordinates...);
+    foreach_tuple(
+        [](auto& point) {rotate<Rotations>(point);},
+        coordinates
+    );
+    std::apply(lambda, coordinates);
+}
+} // namespace foreach_quarter_details
+#+end_src
+#+depends:foreach_quarter_details :noweb meta::stealall_auto quarter_rotation_details foreach_tuple
+
+Usage:
+#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export
+<<include(":noweb foreach_quarter print print_size qoords")>>
+
+int main() {
+    foreach_quarter([]<typename T>(T& a, T& b) {
+        print_size<T>();
+        print{a, "->", b};
+    }, qoords<0>(-8, 4), qoords<0>(-16, 15));
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+quarter_rotation_details::coordinates<0> -> 8 bytes (64 bits)
+(-8, +4) -> (-16, +15)
+quarter_rotation_details::coordinates<1> -> 8 bytes (64 bits)
+(-4, -8) -> (-15, -16)
+quarter_rotation_details::coordinates<2> -> 8 bytes (64 bits)
+(+8, -4) -> (+16, -15)
+quarter_rotation_details::coordinates<3> -> 8 bytes (64 bits)
+(+4, +8) -> (+15, +16)
+#+end_src
+
 
 
 ** Binary degree
