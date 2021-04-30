@@ -2,7 +2,7 @@
 #+author: mooss
 #+property: header-args:bash :eval never
 
-#+property: header-args:cpp :flags -std=c++20 :eval never :main no :noweb no-export :wrap "src text :minipage"
+#+property: header-args:cpp :flags -std=c++20 -Wall -Werror :eval never :main no :noweb no-export :wrap "src text :minipage"
 #+property: header-args:python :noweb no-export :results output :wrap "src text :minipage" :eval never
 
 * Prelude
@@ -750,12 +750,12 @@ Since everyting is const, the only way to change the degree is to create a new =
 The size of an octasierp, previously described as $\vert octasierp_d \vert = 2^{2d+2} + 2$, can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
 #+begin_src cpp :minipage :noweb-ref pointless_octasierp/public
 std::size_t points_cardinality() const {
-    return (1 << 2 * degree + 2) + 2;
+    return (1 << (2 * degree + 2)) + 2;
 }
 #+end_src
 
 Usage:
-#+begin_src cpp :eval no-export :flags -Wall -std=c++17 :noweb no-export :exports both :minipage
+#+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb print pointless_octasierp")>>
 
 int main() {
@@ -1703,7 +1703,7 @@ using qoords = quarter_rotation_details::coordinates<Quarter>;
 #+depends:qoords :noweb quarter_rotation_details
 
 Usage:
-#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb qoords print")>>
 
 int main() {
@@ -1780,7 +1780,7 @@ void rotate_and_apply_lambda(Lambda lambda, const Coordinates&... initial_coordi
 #+depends:foreach_quarter_details :noweb meta::stealall_auto quarter_rotation_details foreach_tuple
 
 Usage:
-#+begin_src cpp :eval no-export :flags -Wall -std=c++20 :noweb no-export
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb foreach_quarter print print_size qoords")>>
 
 int main() {
@@ -1823,7 +1823,7 @@ Usage:
 
 int main() {
     unsigned int degree = 3;
-    auto rightmost = 1 << degree;
+    unsigned int rightmost = 1 << degree;
     for(unsigned int i = 0; i <= rightmost; ++i) {
         print{{.sep=""}}("bindeg(", i, ", ", degree, ") = ", naive_bindeg(i, degree));
     }
