@@ -1707,20 +1707,20 @@ Usage:
 <<include(":noweb qoords print")>>
 
 int main() {
-    qoords<0> a(1, 2);
+    qoords<0> a(16, -16);
     print{"Original:        ", a};
-    ++a.back.y;
-    print{"Back incremented:", a};
-    a.rotate_back();
-    print{"Rotated back:    ", a};
+    --a.back.y;
+    print{"Back decremented:", a};
+    a.rotate_left();
+    print{"Rotated left:    ", a};
 }
 #+end_src
 
 #+RESULTS:
 #+begin_src text :minipage
-Original:         (+1, +2)
-Back incremented: (+1, +1)
-Rotated back:     (-1, -1)
+Original:         (+16, -16)
+Back decremented: (+16, -15)
+Rotated left:     (+15, +16)
 #+end_src
 
 *** =foreach_quarter=
