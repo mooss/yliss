@@ -1823,6 +1823,326 @@ quarter_rotation_details::coordinates<3> -> 8 bytes (64 bits)
 #+end_src
 
 
+** Iteration on triangles
+
+As promised, iteration on triangles is defined on quarter 0 and then applied by rotation to the other quarters, with the help of =foreach_quarter=.
+Triangles are divided in two sets, the safe zone and the right border.
+
+Components of triangles in the safe zone have trivially valid coordinates, even though those coordinates might not belong to the current quarter (the points on the left border for quarter 0).
+
+Components of triangles in the right border are more tricky because the rightmost coordinates are not valid, the valid coordinates are the mirrored ones (the points on the right of quarter 3 for quarter 0).
+
+Here is an illustration of this division between safe zone and right border for quarter 0, at degree 2:
+# Disabled because customised.
+#+begin_src python :eval never :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), quarters={0}, show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------S-S-S-B-R
++3 |  |       S S S B /
++2 |  |       S S S B /
++1 |  |       S S S B /
+ 0 |  +-------S-S-S-B-R
+-1 |  |       |       R
+-2 |  |       |       R
+-3 |  |       |       R
+-4 |  +-------+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =S= :: Safe zone.
+ - =B= :: Buffer zone (points appearing both in safe triangles and in right border triangles).
+ - =R= :: Right border (note that the south pole is special because it appears four times and must not be rotated).
+ - =/= :: Mirrored points.
+
+*** High level overview
+
+The iteration logic is hidden in its own namespace, with =triangle_logic= corresponding here to =foreach_quarter='s =QuarterLogic=.
+The =safe= int is the last index that can only refer to a canonical point.
+In the previous illustration, this is the x value of the buffer zone.
+
+#+begin_src cpp :noweb-ref octasierp/foreach_triangle :minipage
+namespace foreach_triangle_details {
+template<class TriangleConsumer>
+struct triangle_logic {
+    TriangleConsumer triangle_consumer;
+    // Last index that can only refer to a canonical point.
+    const int safe;
+
+    template<typename Coords>
+    void apply() {
+        <<triangle_logic/apply/safe_zone>>
+        <<triangle_logic/apply/right_border>>
+    }
+}; // struct triangle_logic
+} // namespace foreach_triangle_details
+#+end_src
+
+The proper function delegates the work to =triangle_logic= and =foreach_quarter=:
+#+begin_src cpp :noweb-ref octasierp/foreach_triangle :minipage
+template<typename TriangleConsumer>
+void foreach_triangle(const pointless_octasierp& octa, TriangleConsumer consumer) {
+    using foreach_triangle_details::triangle_logic;
+    foreach_quarter(triangle_logic{
+        consumer,
+        (1 << octa.degree) - 1
+    });
+}
+#+end_src
+#+depends:octasierp/foreach_triangle :noweb pointless_octasierp foreach_quarter
+
+*** Safe zone
+
+The first twelve iterations on quarter 0 at degree 2 are illustrated below, the points are all ordered in the same counterclockwise manner.
+This will be useful later on because it is a way to encode the direction of the normal.
+#+name: QuarterSequence
+#+begin_src python :exports none
+<<Textual squarified net>>
+
+class QuarterSequence:
+    def __init__(self, degree, separator=' -> '):
+        self.degree = degree
+        self.separator = separator
+        self.lines = Quarter(
+            self.degree,
+            list(range(self.degree + 1)),
+            display_points='.'
+        ).repr()
+        self.next_step = 1
+        self.spacing = 2 ** (self.degree + 1) + len(self.separator) + 1
+
+    def print_n(self, n, legend=False):
+        if legend:
+            legend_str = ''
+            for i in range(n):
+                step = '{}.'.format(self.next_step + i)
+                legend_str += step
+                if i < n - 1:
+                    legend_str += ' ' * (self.spacing - len(step))
+            self.next_step += n
+            print(legend_str)
+
+        for linum, line in enumerate(self.lines):
+            sep = self.separator if linum == 2 ** (self.degree - 1) else ' ' * len(self.separator)
+            print(sep.join([line] * n))
+#+end_src
+
+# Execution disabled because manual tweaking.
+#+begin_src python :eval never :exports results
+<<QuarterSequence>>
+printer = QuarterSequence(2)
+printer.print_n(6, legend=True)
+printer.print_n(6, legend=True)
+#+end_src
+
+#+begin_src text :minipage
+1.           2.           3.           4.           5.           6.
++-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.
+| . . . |    | . . . |    | . . . |    | . . . |    | . . . |    | . . . |
+| . . . | -> | . . . | -> | . . . | -> | . . . | -> | . . . | -> | . . . |
+c . . . |    c b . . |    | c . . |    | c b . |    | . c . |    | . c b |
+A-b-.-.-.    X-a-.-.-.    X-a-b-.-.    X-.-a-.-.    X-.-a-b-.    X-.-.-a-.
+
+7.           8.           9.           10.          11.          12.
++-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.
+| . . . |    | . . . |    | . . . |    | . . . |    | . . . |    | . . . |
+c . . . | -> c b . . | -> | c . . | -> | c b . | -> | . c . | -> | . c b |
+a b . . |    | a . . |    | a b . |    | . a . |    | . a b |    | . . a |
+X-.-.-.-.    X-.-.-.-.    X-.-.-.-.    X-.-.-.-.    X-.-.-.-.    X-.-.-.-.
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =A, a, b, c= :: Points of the triangle.
+ - =.= :: Other points of quarter 0.
+\\
+
+This progression in implemented in the following code block:
+#+name: triangle_logic/apply/safe_zone
+#+begin_src cpp :minipage
+for(int j = 0; j <= safe; ++j) {
+    auto a = rotate_from<0, Coords>(0, j);
+    auto b = rotate_from<0, Coords>(1, j);
+    auto c = rotate_from<0, Coords>(0, j + 1);
+    while(true) {
+        triangle_consumer(a, b, c);
+        ++a.main.x;
+        ++b.main.y;
+        triangle_consumer(a, b, c);
+        if(++c.main.x >= safe) // Since c is leftmost, if it is safe, at least one of the other are not.
+            break;
+        // a is already at the correct position, only b must be repositioned.
+        ++b.main.x;
+        --b.main.y;
+    }
+}
+#+end_src
+
+Each iteration of the for loop corresponds to a line in the illustration above.
+The iterations continue until the very top of quarter 0.
+Still using the example of quarter 0 at degree 2, here is the last triangle represented by the code above:
+
+#+begin_src text :minipage
+24.
++-.-c-b-.
+| . . a |
+| . . . |
+| . . . |
+X-.-.-.-.
+#+end_src
+
+*** Right border
+
+Because of the fact that points on the right border do not belong to the current quarter, the iteration logic is separated in two lines, the left one handling the points of the buffer zone and the right one handling the points on the right border.
+
+Here are all the points handled in this section for quarter 0, at degree 2:
+# Disabled because customised.
+#+begin_src python :eval never :exports results
+<<QuarterSequence>>
+printer = QuarterSequence(2)
+printer.print_n(4, legend=True)
+#+end_src
+
+#+begin_src text :minipage
+1.           2.           3.           4.
++-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-c-S
+| . . . |    | . . . |    | . . c D    | . . a B
+| . . . | -> | . . c D -> | . . a B -> | . . . |
+| . . c D    | . . a B    | . . . |    | . . . |
+X-.-.-a-z    X-.-.-.-.    X-.-.-.-.    X-.-.-.-.
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =a= :: Bottom left point (always belongs to quarter 0).
+ - =z= :: Initial bottom right point (corner 0, belongs to quarter 0).
+ - =B= :: Other bottom right point (mirrored point, belongs to quarter 3).
+ - =c= :: Top left point (always belongs to quarter 0).
+ - =S= :: Final top right point (south pole, belongs to quarter 0).
+ - =D= :: Other top right point (mirrored point, belongs to quarter 3).
+
+Since the bottom right and top right points are actually on the quarter to the right of the current one, the =x= axis of their =right= point is the one being incremented instead of the =y= axis of their =main= point.
+#+name: triangle_logic/apply/right_border
+#+begin_src cpp :minipage
+auto bottom_left  = rotate_from<0, Coords>(safe, 0);
+auto bottom_right = rotate_from<0, Coords>(safe + 1, 0);
+auto top_left     = rotate_from<0, Coords>(safe, 1);
+auto top_right    = rotate_from<0, Coords>(safe + 1, -1);
+while(true) {
+    triangle_consumer(bottom_left, bottom_right, top_left);
+    triangle_consumer(bottom_right, top_right, top_left);
+    ++bottom_left.main.y;
+    ++bottom_right.right.x;
+    if(++top_left.main.y > safe)
+        break;
+    ++top_right.right.x;
+}
+
+// All points are correct for the last square, except the top right one, aka the south pole.
+// This point is only valid for quarter 0, and must therefore not be rotated.
+top_right = Coords(safe + 1, safe + 1);
+triangle_consumer(bottom_left, bottom_right, top_left);
+triangle_consumer(bottom_right, top_right, top_left);
+#+end_src
+
+*** Usage
+
+The code below prints two squarenet shadows using octasierps constructed with the help of =foreach_triangles=.
+The first octasierp (=order=) illustrate the order in which the points are first used as part of a triangle, while the second one (=counter=) illustrate the number of times a point is used as part of a triangle.
+
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb octasierp octasierp/foreach_triangle print print_squarenet_shadow")>>
+
+int main() {
+    int degree = 2;
+    octasierp order(degree, ';');
+    std::string representation("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
+    int i = 0;
+    octasierp counter(degree, 0);
+
+    foreach_triangle(order.bound(), [&](const auto& a, const auto& b, const auto& c){
+        for(const auto& coord: {a, b, c}) {
+            if(order.bound().valid_coordinates(coord.x, coord.y)) {
+                ++counter.point(coord.x, coord.y);
+                auto& point = order.point(coord.x, coord.y);
+                if(point == ';') {
+                    point = representation[i++];
+                }
+            } else {
+                print{"Received invalid coordinate:", coord};
+                print{"Triangle is", a, b, c};
+            }
+        }
+    });
+
+    print{"Order:"};
+    print_squarenet_shadow(order.bound(), 6, [&order](int i, int j){
+        return order.point(i, j);
+    });
+    print{};
+    print{"Counter:"};
+    print_squarenet_shadow(counter.bound(), 6, [&counter](int i, int j){
+        switch(counter.point(i, j)) {
+          case 4:
+            return '4';
+          case 6:
+            return '6';
+          default:
+            return 'E'; // Error.
+        }
+    });
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Order:
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+. . . . . . g h i j o . .
+. . E A w s c d e f . . .
+. . D z v r 8 9 a b . . .
+. . C y u q 2 3 5 7 . . .
+. . B x t p 0 1 4 6 k . .
+. . . I H G F V Y * l . .
+. . . M L K J W Z - m . .
+. . . Q P O N X / + n . .
+. . . U T S R . . . . . .
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+
+Counter:
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+. . . . . . 4 6 6 6 4 . .
+. . 6 6 6 6 6 6 6 6 . . .
+. . 6 6 6 6 6 6 6 6 . . .
+. . 6 6 6 6 6 6 6 6 . . .
+. . 4 6 6 6 4 6 6 6 4 . .
+. . . 6 6 6 6 6 6 6 6 . .
+. . . 6 6 6 6 6 6 6 6 . .
+. . . 6 6 6 6 6 6 6 6 . .
+. . . 6 6 6 4 . . . . . .
+. . . . . . . . . . . . .
+. . . . . . . . . . . . .
+#+end_src
+\\
+Some observations:
+ - The =k=, =l=, =m= and =n= points bear witness to the mirrored nature of the right border for quarter 0.
+ - All points are part of six triangles, except the six initial points who belong to only two triangles.
+   This is the expected result, as can be seen by looking at the visualisation of the squarified nets for degrees 0, 1 2 and 3 (included below).
+
+#+attr_latex: :placement [H]
+[[file:images/montage_net_squa_degree_0-3.png]]
+
 
 ** Binary degree
 
