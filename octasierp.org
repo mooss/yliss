@@ -1774,65 +1774,39 @@ The function presented here is what motivated this whole quarter rotation system
 By using it, iteration logic can be defined for quarter 0 only and applied to the other quarters by rotation, sparing a lot of implementation headaches.
 To be honest only future implementation headaches have been spared because coding this was one hell of a ride.
 
-It accepts a lambda to apply on every quarter and the initial coordinates of the points to be transmitted to this lambda, which will be called back for quarters 0, 1, 2 and 3, with the points rotated accordingly.
+I tried very hard to make it accept a lambda but in the end I only managed to make it work with a struct providing a =apply= method.
+Included with =foreach_quarter= is the templated function =rotate_from=, destined to reduce the ugliness of having to use template disambiguation (the =::template= part).
 
 #+name: foreach_quarter
-#+begin_src cpp
-template<typename Lambda, typename... Coordinates>
-void foreach_quarter(Lambda lambda, const Coordinates&... initial_coordinates) {
-    using namespace foreach_quarter_details;
-    rotate_and_apply_lambda<0>(lambda, initial_coordinates...);
-    rotate_and_apply_lambda<1>(lambda, initial_coordinates...);
-    rotate_and_apply_lambda<2>(lambda, initial_coordinates...);
-    rotate_and_apply_lambda<3>(lambda, initial_coordinates...);
+#+begin_src cpp :minipage
+template<int OriginQuarter, typename Coordinates>
+auto rotate_from(int x, int y) {
+    return Coordinates::template from<OriginQuarter>(x, y);
+}
+
+template<class QuarterLogic>
+void foreach_quarter(QuarterLogic logic) {
+    logic.template apply<qoords<0>>();
+    logic.template apply<qoords<1>>();
+    logic.template apply<qoords<2>>();
+    logic.template apply<qoords<3>>();
 }
 #+end_src
-#+depends:foreach_quarter :noweb foreach_quarter_details
-
-The more technical bits are hidden under =foreach_quarter_details=.
-=rotated_coordinates= is a template closure capturing a rotation value, destined to be applied to every =Coordinates= via =meta::steall_auto=.
-For example, if =Coordinates...= is in fact =qoords<2>, qoords<3>= and =Rotations= is 2, =coordinates_tuple= will be =std::tuple<qoords<0>, qoords<1>>=.
-
-This takes care of the types of each =qoords= after rotation, i.e. their behaviour when incremented and decremented.
-The states are then copied from the initial coordinates and set to their proper place by applying the correct number of rotations and finally the lambda is called.
-
-#+name: foreach_quarter_details
-#+begin_src cpp
-namespace foreach_quarter_details {
-using namespace quarter_rotation_details;
-template<int Rotations>
-struct rotated_coordinates {
-    template<int Quarter>
-    using t = coordinates<(Quarter + Rotations) % 4>;
-};
-
-template<int Rotations, typename Lambda, typename... Coordinates>
-void rotate_and_apply_lambda(Lambda lambda, const Coordinates&... initial_coordinates) {
-    using coordinates_tuple = meta::stealall_auto<
-        std::tuple,
-        rotated_coordinates<Rotations>::template t,
-        Coordinates...
-    >;
-    coordinates_tuple coordinates(initial_coordinates...);
-    foreach_tuple(
-        [](auto& point) {rotate<Rotations>(point);},
-        coordinates
-    );
-    std::apply(lambda, coordinates);
-}
-} // namespace foreach_quarter_details
-#+end_src
-#+depends:foreach_quarter_details :noweb meta::stealall_auto quarter_rotation_details foreach_tuple
+#+depends:foreach_quarter :noweb qoords
 
 Usage:
-#+begin_src cpp :eval no-export :exports both
-<<include(":noweb foreach_quarter print print_size qoords")>>
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb foreach_quarter print_size print")>>
+struct chatty_lambda {
+    template<typename Point>
+    void apply() {
+        print_size<Point>();
+        print{rotate_from<0, Point>(-8, 4), "->", rotate_from<0, Point>(-16, 15)};
+    }
+};
 
 int main() {
-    foreach_quarter([]<typename T>(T& a, T& b) {
-        print_size<T>();
-        print{a, "->", b};
-    }, qoords<0>(-8, 4), qoords<0>(-16, 15));
+    foreach_quarter(chatty_lambda());
 }
 #+end_src
 
