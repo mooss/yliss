@@ -887,10 +887,7 @@ void print_squarenet_shadow(
     print printer{{.sep="", .end=""}};
     for(int j = extremum; j >= -extremum; --j) {
         for(int i = -extremum; i <= extremum; ++i) {
-            if(i == 0 && j == 0)
-                printer(0);
-            else
-                printer(octa.valid_coordinates(i, j) ? which_char(i, j): '.');
+            printer(octa.valid_coordinates(i, j) ? which_char(i, j): '.');
             if(i != extremum)
                 printer(" ");
         }
@@ -916,7 +913,7 @@ int main() {
 . . X X X X X X X X . . .
 . . X X X X X X X X . . .
 . . X X X X X X X X . . .
-. . X X X X 0 X X X X . .
+. . X X X X X X X X X . .
 . . . X X X X X X X X . .
 . . . X X X X X X X X . .
 . . . X X X X X X X X . .
