@@ -1216,8 +1216,7 @@ int main() {
     std::string representation("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
     int i = 0;
     for(auto& point: octa) {
-        point = representation[i];
-        ++i;
+        point = representation[i++];
     }
     print_squarenet_shadow(octa.bound(), 6, [&octa](int i, int j){
         return octa.point(i, j);
@@ -1455,7 +1454,7 @@ There is a lot to unpack from this usage example.
 
 Since quarters are numbered using successive left rotations from quarter 0, the id of the quarter to its left, its back and its right can be obtained by adding respectively 1, 2 and 3.
 And since they wrap around after quarter 3, applying modulo 4 makes this approach work for all 4 quarters.
-#+begin_src cpp :noweb-ref quarter_rotation_details/public
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 template<int quarter>
 constexpr int left_quarter() {
     return (quarter + 1) % 4;
@@ -1593,7 +1592,7 @@ void rotate(T& coords) {
 #+end_src
 
 This redirection operator can be used to print coordinates:
-#+begin_src cpp :noweb-ref quarter_rotation_details/public
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 template<int Quarter>
 std::ostream& operator<<(std::ostream& os, const coordinates<Quarter>& c) {
     os << "(";
@@ -1666,7 +1665,7 @@ Left incremented: (+4, +0)
 Rotated right:    (+0, -4)
 #+end_src
 
-*** Constructors and assignment operators
+*** Copy constructors and assignment operators
 
 The copy constructor and a copy assignment operator are not generated automatically, presumably because of the union.
 The fact that they work regardless of the quarter of both objects is not a problem because the stored coordinates are all relative to quarter 0 anyway.
@@ -1705,7 +1704,7 @@ using qoords = quarter_rotation_details::coordinates<Quarter>;
 #+depends:qoords :noweb quarter_rotation_details
 
 Usage:
-#+begin_src cpp :eval no-export :exports both
+#+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb qoords print")>>
 
 int main() {
@@ -2661,7 +2660,7 @@ for _ in range(self.quarter):
 #+end_src
 
 Rotating the representation left is a succession of two tricks:
- 1. Replacing vertical characters with horizontal ones and vice versa.
+ 1. Replacing vertical characters with horizontal ones and /vice versa/.
  2. Replacing lines with columns, in inverse order (that's what =reversed(list(zip(*lines)))= does).
 #+begin_src python :noweb-ref "Textual quarter utils"
 def rotate_quarter_representation_left(lines):
