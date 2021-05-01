@@ -1684,8 +1684,15 @@ coordinates& operator=(const coordinates<OtherQuarter>& other) {
     __private_y = other.y;
     return *this;
 }
-#+end_src
 
+// Must also be present explicitely, otherwise the compiler conplains of a ambiguous overload
+// when Quarter == OtherQuarter.
+coordinates& operator=(const coordinates& other) {
+    __private_x = other.x;
+    __private_y = other.y;
+    return *this;
+}
+#+end_src
 
 *** Exposed API
 
