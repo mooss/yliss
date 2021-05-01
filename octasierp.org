@@ -1724,6 +1724,50 @@ Back decremented: (+16, -15)
 Rotated left:     (+15, +16)
 #+end_src
 
+*** Rotate quarter from its origin
+
+=from= is a factory function dedicated to construct coordinates of the current =Quarter= from values of another quarter, =OriginQuarter=.
+It is just a question of finding the number of rotations required to rotate the result correctly.
+
+#+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
+template<int OriginQuarter>
+static coordinates from(int _x, int _y) {
+    coordinates result(_x, _y);
+    rotate<rotations_from_to(OriginQuarter, Quarter)>(result);
+    return result;
+}
+#+end_src
+
+In practice, the correct number of rotations is just a substraction ajusted to wrap around:
+#+begin_src cpp :noweb-ref coordinates<Quarter>/pre :minipage
+constexpr int rotations_from_to(int from_quarter, int to_quarter) {
+    int rotations = to_quarter - from_quarter;
+    return rotations >= 0 ? rotations : rotations + 4;
+}
+#+end_src
+
+Usage:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb qoords print print_type")>>
+
+int main() {
+    print_type<qoords<0>>();
+    print{qoords<0>::from<1>(4, 8)};
+    print{qoords<1>::from<1>(15, 16)};
+    print{qoords<2>::from<1>(23, 42)};
+    print{qoords<3>::from<1>(108, 6)};
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+quarter_rotation_details::coordinates<0>
+(+8, -4)
+(+15, +16)
+(-42, +23)
+(-108, -6)
+#+end_src
+
 *** =foreach_quarter=
 
 The function presented here is what motivated this whole quarter rotation system in the first place.
