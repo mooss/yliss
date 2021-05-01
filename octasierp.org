@@ -1286,35 +1286,33 @@ template<> int axis<direction::natural>::operator--()
 {--value_; return value_;}
 
 template<> int axis<direction::inverted>::operator++()
-{--value_; return value_;}
+{--value_; return -value_;}
 template<> int axis<direction::inverted>::operator--()
-{++value_; return value_;}
+{++value_; return -value_;}
 
 using natural_axis = axis<direction::natural>;
 using inverted_axis = axis<direction::inverted>;
 #+end_src
 
-Usage:
-#+begin_src cpp :eval no-export :exports both
+Note that the inverted operators return a negated value, this is done in order to allow the usage of iteration on both inverted and natural axes on the same way:
+#+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb quarter_rotation_details/public print")>>
 
 int main() {
-    inverted_axis inv(23);
-    natural_axis nat(8);
-    for(int i = 42/4; i <= 16; ++i) { // That is seven incrementations.
-        ++inv;
-        ++nat;
-    }
+    inverted_axis inv(0);
+    natural_axis nat(0);
+    while(++inv < 15) {}
+    while(++nat < 15) {}
     print{++inv, ++nat};
 }
 #+end_src
 
 #+RESULTS:
 #+begin_src text :minipage
-15 16
+16 16
 #+end_src
 
-Don't pay too much attention to the numbers, what important is that =inv= is only incremented but ends up smaller because it is inverted.
+Once again, the axes are only meant to represent operations, the intended way to use their values will be explained later on.
 
 *** Quarter reference frame
 
