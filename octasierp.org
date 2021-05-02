@@ -1886,11 +1886,25 @@ struct triangle_logic {
 } // namespace foreach_triangle_details
 #+end_src
 
-The proper function delegates the work to =triangle_logic= and =foreach_quarter=:
+The proper function delegates the work to =triangle_logic= and =foreach_quarter=, except for degree 0, which had to be hardcoded:
 #+begin_src cpp :noweb-ref octasierp/foreach_triangle :minipage
 template<typename TriangleConsumer>
 void foreach_triangle(const pointless_octasierp& octa, TriangleConsumer consumer) {
     using foreach_triangle_details::triangle_logic;
+    if(octa.degree == 0) {
+        consumer(qoords<0>(0, 0), qoords<0>(1, 0), qoords<0>(0, 1));
+        consumer(qoords<0>(1, 0), qoords<0>(1, 1), qoords<0>(0, 1));
+
+        consumer(qoords<1>(0, 0), qoords<1>(0, 1), qoords<1>(-1, 0));
+        consumer(qoords<1>(0, 1), qoords<1>(1, 1), qoords<1>(-1, 0));
+
+        consumer(qoords<2>(0, 0), qoords<2>(-1, 0), qoords<2>(0, -1));
+        consumer(qoords<2>(-1, 0), qoords<2>(1, 1), qoords<2>(0, -1));
+
+        consumer(qoords<3>(0, 0), qoords<3>(0, -1), qoords<3>(1, 0));
+        consumer(qoords<3>(0, -1), qoords<3>(1, 1), qoords<3>(1, 0));
+        return;
+    }
     foreach_quarter(triangle_logic{
         consumer,
         (1 << octa.degree) - 1
@@ -2057,24 +2071,20 @@ triangle_consumer(bottom_right, top_right, top_left);
 
 The code below prints two squarenet shadows using octasierps constructed with the help of =foreach_triangles=.
 The first octasierp (=order=) illustrate the order in which the points are first used as part of a triangle, while the second one (=counter=) illustrate the number of times a point is used as part of a triangle.
-
-#+begin_src cpp :eval no-export :exports both
-<<include(":noweb octasierp octasierp/foreach_triangle print print_squarenet_shadow")>>
-
-int main() {
-    int degree = 2;
+#+name: triangles_order_counter_shadow
+#+begin_src cpp
+void triangles_order_counter_shadow(int degree, const char* representation) {
     octasierp order(degree, ';');
-    std::string representation("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
-    int i = 0;
+    int last_repr = 0;
     octasierp counter(degree, 0);
 
-    foreach_triangle(order.bound(), [&](const auto& a, const auto& b, const auto& c){
+    foreach_triangle(order.bound(), [&](const auto& a, const auto& b, const auto& c) {
         for(const auto& coord: {a, b, c}) {
             if(order.bound().valid_coordinates(coord.x, coord.y)) {
                 ++counter.point(coord.x, coord.y);
                 auto& point = order.point(coord.x, coord.y);
                 if(point == ';') {
-                    point = representation[i++];
+                    point = representation[last_repr++];
                 }
             } else {
                 print{"Received invalid coordinate:", coord};
@@ -2083,56 +2093,121 @@ int main() {
         }
     });
 
+    int shadow_extremum = (1 << degree) + 1;
     print{"Order:"};
-    print_squarenet_shadow(order.bound(), 6, [&order](int i, int j){
+    print_squarenet_shadow(order.bound(), shadow_extremum, [&order](int i, int j) {
         return order.point(i, j);
     });
     print{};
     print{"Counter:"};
-    print_squarenet_shadow(counter.bound(), 6, [&counter](int i, int j){
+    print_squarenet_shadow(counter.bound(), shadow_extremum, [&counter](int i, int j) {
         switch(counter.point(i, j)) {
-          case 4:
-            return '4';
-          case 6:
-            return '6';
-          default:
-            return 'E'; // Error.
+          case 4:  return '4';
+          case 6:  return '6';
+          default: return 'E'; // Error.
         }
     });
+}
+#+end_src
+#+depends:triangles_order_counter_shadow :noweb octasierp octasierp/foreach_triangle print print_squarenet_shadow
+
+**** Degree 0
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb triangles_order_counter_shadow")>>
+
+int main() {
+    triangles_order_counter_shadow(0, "012345");
 }
 #+end_src
 
 #+RESULTS:
 #+begin_src text :minipage
 Order:
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
-. . . . . . g h i j o . .
-. . E A w s c d e f . . .
-. . D z v r 8 9 a b . . .
-. . C y u q 2 3 5 7 . . .
-. . B x t p 0 1 4 6 k . .
-. . . I H G F V Y * l . .
-. . . M L K J W Z - m . .
-. . . Q P O N X / + n . .
-. . . U T S R . . . . . .
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
+. . . . .
+. . 2 3 .
+. 4 0 1 .
+. . 5 . .
+. . . . .
 
 Counter:
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
-. . . . . . 4 6 6 6 4 . .
-. . 6 6 6 6 6 6 6 6 . . .
-. . 6 6 6 6 6 6 6 6 . . .
-. . 6 6 6 6 6 6 6 6 . . .
-. . 4 6 6 6 4 6 6 6 4 . .
-. . . 6 6 6 6 6 6 6 6 . .
-. . . 6 6 6 6 6 6 6 6 . .
-. . . 6 6 6 6 6 6 6 6 . .
-. . . 6 6 6 4 . . . . . .
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
+. . . . .
+. . 4 4 .
+. 4 4 4 .
+. . 4 . .
+. . . . .
+#+end_src
+\\
+
+**** Degree 1
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb triangles_order_counter_shadow")>>
+
+int main() {
+    triangles_order_counter_shadow(1, "0123456789abcdefgh");
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Order:
+. . . . . . .
+. . . 4 5 8 .
+. c a 2 3 . .
+. b 9 0 1 6 .
+. . e d h 7 .
+. . g f . . .
+. . . . . . .
+
+Counter:
+. . . . . . .
+. . . 4 6 4 .
+. 6 6 6 6 . .
+. 4 6 4 6 4 .
+. . 6 6 6 6 .
+. . 6 4 . . .
+. . . . . . .
+#+end_src
+\\
+
+**** Degree 2
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb triangles_order_counter_shadow")>>
+
+int main() {
+    triangles_order_counter_shadow(2, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Order:
+. . . . . . . . . . .
+. . . . . g h i j o .
+. E A w s c d e f . .
+. D z v r 8 9 a b . .
+. C y u q 2 3 5 7 . .
+. B x t p 0 1 4 6 k .
+. . I H G F V Y * l .
+. . M L K J W Z - m .
+. . Q P O N X / + n .
+. . U T S R . . . . .
+. . . . . . . . . . .
+
+Counter:
+. . . . . . . . . . .
+. . . . . 4 6 6 6 4 .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 4 6 6 6 4 6 6 6 4 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 4 . . . . .
+. . . . . . . . . . .
 #+end_src
 \\
 Some observations:
