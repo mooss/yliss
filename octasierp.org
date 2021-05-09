@@ -881,9 +881,9 @@ The following function can be used to print a shadow of a squarified net by aski
 template<typename WhichChar>
 void print_squarenet_shadow(
     const pointless_octasierp& octa,
-    int extremum,
     const WhichChar& which_char
 ) {
+    int extremum = (1 << octa.degree) + 1;
     print printer{{.sep="", .end=""}};
     for(int j = extremum; j >= -extremum; --j) {
         for(int i = -extremum; i <= extremum; ++i) {
@@ -901,25 +901,23 @@ void print_squarenet_shadow(
 <<include(":noweb pointless_octasierp print_squarenet_shadow")>>
 int main() {
     pointless_octasierp octa(2);
-    print_squarenet_shadow(octa, 6, [](int i, int j){return 'X';});
+    print_squarenet_shadow(octa, [](int i, int j){return 'X';});
 }
 #+end_src
 
 #+RESULTS:
 #+begin_src text :minipage
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
-. . . . . . X X X X X . .
-. . X X X X X X X X . . .
-. . X X X X X X X X . . .
-. . X X X X X X X X . . .
-. . X X X X X X X X X . .
-. . . X X X X X X X X . .
-. . . X X X X X X X X . .
-. . . X X X X X X X X . .
-. . . X X X X . . . . . .
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
+. . . . . . . . . . .
+. . . . . X X X X X .
+. X X X X X X X X . .
+. X X X X X X X X . .
+. X X X X X X X X . .
+. X X X X X X X X X .
+. . X X X X X X X X .
+. . X X X X X X X X .
+. . X X X X X X X X .
+. . X X X X . . . . .
+. . . . . . . . . . .
 #+end_src
 
 
@@ -1232,7 +1230,7 @@ int main() {
     for(auto& point: octa) {
         point = representation[i++];
     }
-    print_squarenet_shadow(octa.bound(), 6, [&octa](int x, int y){
+    print_squarenet_shadow(octa.bound(), [&octa](int x, int y){
         return octa.point(x, y);
     });
 }
@@ -1240,19 +1238,17 @@ int main() {
 
 #+RESULTS:
 #+begin_src text :minipage
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
-. . . . . . 3 i j k 1 . .
-. . z w t q n f g h . . .
-. . y v s p m c d e . . .
-. . x u r o l 9 a b . . .
-. . 4 C B A 0 6 7 8 2 . .
-. . . F E D P S V Y * . .
-. . . I H G Q T W Z - . .
-. . . L K J R U X / + . .
-. . . O N M 5 . . . . . .
-. . . . . . . . . . . . .
-. . . . . . . . . . . . .
+. . . . . . . . . . .
+. . . . . 3 i j k 1 .
+. z w t q n f g h . .
+. y v s p m c d e . .
+. x u r o l 9 a b . .
+. 4 C B A 0 6 7 8 2 .
+. . F E D P S V Y * .
+. . I H G Q T W Z - .
+. . L K J R U X / + .
+. . O N M 5 . . . . .
+. . . . . . . . . . .
 #+end_src
 
 
@@ -2115,14 +2111,13 @@ void triangles_order_counter_shadow(std::size_t degree, const char* representati
         }
     });
 
-    int shadow_extremum = (1 << degree) + 1;
     print{"Order:"};
-    print_squarenet_shadow(order.bound(), shadow_extremum, [&order](int i, int j) {
+    print_squarenet_shadow(order.bound(), [&order](int i, int j) {
         return order.point(i, j);
     });
     print{};
     print{"Counter:"};
-    print_squarenet_shadow(counter.bound(), shadow_extremum, [&counter](int i, int j) {
+    print_squarenet_shadow(counter.bound(), [&counter](int i, int j) {
         switch(counter.point(i, j)) {
           case 4:  return '4';
           case 6:  return '6';
@@ -2332,7 +2327,7 @@ int main() {
 
         foreach_triangle(octa.bound(), count_mirrored);
         print{"Degree", degree};
-        print_squarenet_shadow(octa.bound(), (1 << degree) + 1, [&octa](int i, int j) {
+        print_squarenet_shadow(octa.bound(), [&octa](int i, int j) {
             return octa.point(i, j);
         });
         print{};
