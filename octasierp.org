@@ -1540,6 +1540,28 @@ quarter 3 main: 3 left: 0 back: 1 right: 2
 \\
 Everything is as expected.
 
+*** Printing quarter coordinates
+
+This redirection operator can be used to print coordinates:
+#+name: <<qoords
+#+begin_src cpp :minipage
+namespace quarter_rotation_details {
+template<int Quarter>
+std::ostream& operator<<(std::ostream& os, const coordinates<Quarter>& c) {
+    os << "(";
+    if(c.x >= 0)
+        os << '+'; // To better align coordinates.
+    os << c.x << ", ";
+    if(c.y >= 0)
+        os << '+';
+    return os << c.y << ")";
+}
+} // namespace quarter_rotation_details
+#+end_src
+#+depends: <<qoords :noweb quarter_rotation_details :cpp iostream
+
+The name of this block is shortened to =<<qoords= rather than something like =<<octasierp/quarter-coordinates=, for the sake of brevity.
+
 *** Rotation of the quarter coordinates
 
 Rotating quarter coordinates requires a read/write access to the storage so the anonymous union must be updated:
@@ -1591,23 +1613,9 @@ void rotate(T& coords) {
 }
 #+end_src
 
-This redirection operator can be used to print coordinates:
-#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
-template<int Quarter>
-std::ostream& operator<<(std::ostream& os, const coordinates<Quarter>& c) {
-    os << "(";
-    if(c.x >= 0)
-        os << '+'; // To better align coordinates.
-    os << c.x << ", ";
-    if(c.y >= 0)
-        os << '+';
-    return os << c.y << ")";
-}
-#+end_src
-
 The following usage example shows the equivalency between the rotation encoded in the structure of =QRF= and the one enacted on the state by the rotation methods:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb quarter_rotation_details print")>>
+<<include(":noweb quarter_rotation_details print <<qoords")>>
 
 using namespace quarter_rotation_details;
 
@@ -1695,7 +1703,7 @@ coordinates& operator=(const coordinates& other) {
 
 *** Exposed API
 
-The quarter coordinates implemented in the previous sections is exposed to the outside world as =qoords= (=quarter_coordinates= was too long for my taste).
+Similarly to the redirection operator =<<qoord=, the quarter coordinates implemented in the previous sections is exposed to the outside world as =qoords= (=quarter_coordinates= was too long for my taste).
 #+name: qoords
 #+begin_src cpp :minipage
 template<int Quarter>
@@ -1705,7 +1713,7 @@ using qoords = quarter_rotation_details::coordinates<Quarter>;
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb qoords print")>>
+<<include(":noweb qoords print <<qoords")>>
 
 int main() {
     qoords<0> a(16, -16);
@@ -1748,7 +1756,7 @@ constexpr int rotations_from_to(int from_quarter, int to_quarter) {
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb qoords print print_type")>>
+<<include(":noweb qoords print <<qoords print_type")>>
 
 int main() {
     print_type<qoords<0>>();
@@ -1796,7 +1804,7 @@ void foreach_quarter(QuarterLogic logic) {
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb foreach_quarter print_size print")>>
+<<include(":noweb foreach_quarter print_size print <<qoords")>>
 struct chatty_lambda {
     template<typename Point>
     void apply() {
