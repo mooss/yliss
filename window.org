@@ -6,7 +6,7 @@
 * Prelude :noexport:
 
 #+name: include
-#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
+#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export :minipage
 ./litlib/include.pl "window.org litlib/cpp.org" "$args"
 #+end_src
 
@@ -18,7 +18,7 @@ GLFW (https://www.glfw.org) is used to create a window, so we need to store a ha
 Below is the main structure of this class, the rest will be defined as the =window/public= code block.
 
 #+name: window
-#+begin_src cpp
+#+begin_src cpp :minipage
 class window
 {
   public:
@@ -46,7 +46,7 @@ class window
 
 ** Titled constructor
 
-#+begin_src cpp :noweb-ref window/public
+#+begin_src cpp :noweb-ref window/public :minipage
 window(const std::string& title, int w, int h):
     window_handle(nullptr), monitor_handle(nullptr), title_(title), size_({.width=w, .height=h})
 {
@@ -64,8 +64,10 @@ If =monitor_handle='s value is =nullptr=, this is not a problem because when =gl
 
 The last parameter of =glfwCreateWindow= is for context sharing, which we will not use.
  
-#+begin_src cpp :noweb-ref "window/Titled constructor"
-window_handle = glfwCreateWindow(size_->width, size_->height, title.c_str(), monitor_handle, nullptr);
+#+begin_src cpp :noweb-ref "window/Titled constructor" :minipage
+window_handle = glfwCreateWindow(
+    size_->width, size_->height, title.c_str(), monitor_handle, nullptr
+);
 if(window_handle == nullptr){
     glfwTerminate();
     throw std::runtime_error("Failed to create glfw window");
@@ -77,9 +79,9 @@ if(window_handle == nullptr){
 The OpenGL context holds the state of the current OpenGL instance.
 A process can make several OpenGL contexts.
 The call to =glfwCreateWindow= in the section above spawned an OpenGL context[fn:: See https://www.glfw.org/docs/latest/context_guide.html].
-Before doing any OpenGL work, the OpenGL context associated to the =window_handle= is made current via =glfwMakeContextCurrent=.
+Before doing any OpenGL work, the context associated to the =window_handle= is made current via =glfwMakeContextCurrent=.
 
-#+begin_src cpp :noweb-ref "window/Titled constructor"
+#+begin_src cpp :noweb-ref "window/Titled constructor" :minipage
 glfwMakeContextCurrent(window_handle);
 if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
     glfwDestroyWindow(window_handle);
@@ -97,7 +99,7 @@ glViewport(0, 0, fb_width, fb_height);
 The OpenGL viewport must be adjusted to fit the window when the user resizes the window.
 This requires to register a callback, and below is the method that will technically handle this callback:
 
-#+begin_src cpp :noweb-ref window/public
+#+begin_src cpp :noweb-ref window/public :minipage
 void resize_viewport(GLFWwindow* ignore, int width, int height) {
     size_ = size({.width=width, .height=height});
     glViewport(0, 0, size_->width, size_->height);
@@ -109,7 +111,7 @@ Sadly, a method pointer cannot be trivially transformed into a function pointer,
 
 This technique was explained here: https://stackoverflow.com/a/28660673.
 
-#+begin_src cpp :noweb-ref "window/Titled constructor"
+#+begin_src cpp :noweb-ref "window/Titled constructor" :minipage
 glfwSetWindowUserPointer(window_handle, this);
 auto callback = [](GLFWwindow* handle, int width, int height) {
     static_cast<window*>(glfwGetWindowUserPointer(handle))->resize_viewport(handle, width, height);
@@ -118,7 +120,7 @@ glfwSetFramebufferSizeCallback(window_handle, callback);
 #+end_src
 
 The following can be used from the outside to be notified of changes in window sizes:
-#+begin_src cpp :noweb-ref window/public
+#+begin_src cpp :noweb-ref window/public :minipage
 template<typename Observer>
 auto observe_size(Observer&& observer) {
     return size_.observe(observer);
@@ -129,7 +131,7 @@ auto observe_size(Observer&& observer) {
 ** Destructor
 
 We only have to tell GLFW to liberate the resources it has allocated.
-#+begin_src cpp :noweb-ref "window/public"
+#+begin_src cpp :noweb-ref "window/public" :minipage
 ~window()
 {
     glfwDestroyWindow(window_handle);
@@ -140,7 +142,7 @@ We only have to tell GLFW to liberate the resources it has allocated.
 
 ** Empty window test
 
-#+begin_src cpp :eval no-export :results silent
+#+begin_src cpp :eval no-export :results silent :minipage
 <<include(":noweb window")>>
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
@@ -171,7 +173,7 @@ The goal of this section is to provide some boilerplate that can help with exper
 At its core, =lazy_window= is a window with a default grey background that simply closes when pressing escape.
 
 #+name: lazy_window
-#+begin_src cpp
+#+begin_src cpp :minipage
 void escape_close(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -196,7 +198,7 @@ struct lazy_window: public window {
 ** Rendering methods
 
 Packaged within =lazy_window= are the following rendering methods:
-#+begin_src cpp :noweb-ref lazy_window/public
+#+begin_src cpp :noweb-ref lazy_window/public :minipage
 template<typename F> // Great for OpenGL calls debugging via LOG_AND_CALL.
 void render_one(F rendering) const {
     glfwPollEvents();
@@ -230,7 +232,7 @@ This is very relevant for this project because the first frame is often screened
 ** Usage
 
 The following draws absolutely nothing, but it does it handily:
-#+begin_src cpp :eval no-export :results silent
+#+begin_src cpp :eval no-export :results silent :minipage
 <<include(":noweb lazy_window")>>
 
 int main(){
@@ -256,10 +258,10 @@ The more advanced features such as saving to a file are free functions and not m
 I cannot yet "inject" noweb blocks into other blocks and therefore any additional member function has to be hardcoded into the class along with its dependencies.
 
 #+name: render_buffer
-#+begin_src cpp
+#+begin_src cpp :minipage
 struct render_buffer {
-    GLsizei channels=3, stride=0, width=0, height=0;
-    std::vector<unsigned char> storage=std::vector<unsigned char>(0);
+    GLsizei channels = 3, stride = 0, width = 0, height = 0;
+    std::vector<unsigned char> storage = std::vector<unsigned char>(0);
 
     render_buffer(const window& source) {grab(source);}
     render_buffer(GLsizei w, GLsizei h, GLsizei c):
@@ -289,7 +291,7 @@ I'm using =unsigned char= as the type underlying the buffer because that is what
 
 Write a =render_buffer= to a file with stb:
 #+name: write_render_buffer
-#+begin_src cpp
+#+begin_src cpp :minipage
 void write_render_buffer(const render_buffer& buffer, const std::string& destination) {
     stbi_flip_vertically_on_write(true);
     stbi_write_png(
@@ -302,7 +304,7 @@ void write_render_buffer(const render_buffer& buffer, const std::string& destina
 
 Shortcut to directly write a screenshot from a =window=:
 #+name: save_screenshot
-#+begin_src cpp
+#+begin_src cpp :minipage
 void save_screenshot(const window& source, const std::string& destination) {
     render_buffer buffer(source);
     write_render_buffer(buffer, destination);
@@ -312,7 +314,7 @@ void save_screenshot(const window& source, const std::string& destination) {
 
 Concerning the =stb_image_write= dependency, I had to make it a noweb dependency rather than a C++ dependency because this was the only way to =#define= the mandatory =STB_IMAGE_WRITE_IMPLEMENTATION= before the inclusion.
 #+name: stb_image_write
-#+begin_src cpp
+#+begin_src cpp :minipage
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb/stb_image_write.h>
 #+end_src
@@ -326,7 +328,7 @@ I've taken code from https://blog.gibson.sh/2015/07/18/comparing-png-compression
 I just had to add a =static_cast= around =malloc= because C++ was having none of it.
 
 #+name: stb_image_write<compressed>
-#+begin_src cpp
+#+begin_src cpp :minipage
 static unsigned char* gibson_stbi_zlib_compress(
     unsigned char *data, int data_len,
     int *out_len, int quality
@@ -358,7 +360,7 @@ My main use case for screen captures is to include them in compiled HTML or PDF 
 Once again stb has me covered with the header =stb_image_resize.h=.
 
 #+name: resize_render_buffer
-#+begin_src cpp
+#+begin_src cpp :minipage
 render_buffer resize_render_buffer(const render_buffer& buffer, GLsizei w, GLsizei h) {
     render_buffer resized(w, h, buffer.channels);
     stbir_resize_uint8(
@@ -373,14 +375,14 @@ render_buffer resize_render_buffer(const render_buffer& buffer, GLsizei w, GLsiz
 
 The handling of the =stb_image_resize= dependency is the same as with =stb_image_write=:
 #+name: stb_image_resize
-#+begin_src cpp
+#+begin_src cpp :minipage
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include <stb/stb_image_resize.h>
 #+end_src
 
 Finally, below is a specialised implementation of =save_screenshot= to always save images scaled to 720p.
 #+name: save_screenshot<720p>
-#+begin_src cpp
+#+begin_src cpp :minipage
 void save_screenshot(const window& source, const std::string& destination) {
     write_render_buffer(
         resize_render_buffer(render_buffer(source), 1280, 720),
@@ -397,7 +399,7 @@ The helpers in this section make it a little less cumbersome to capture and save
 The =gl_= prefix here stands for game loop.
 
 #+name: gl_screen_nth
-#+begin_src cpp
+#+begin_src cpp :minipage
 template<typename Callable>
 void gl_screen_nth(
     const lazy_window& source, const std::string& destination,
@@ -412,7 +414,7 @@ void gl_screen_nth(
 #+depends:gl_screen_nth :noweb save_screenshot<720p> lazy_window :cpp iostream
 
 #+name: gl_screen_first
-#+begin_src cpp
+#+begin_src cpp :minipage
 template<typename Callable>
 void gl_screen_first(
     const lazy_window& source, const std::string& destination, Callable render
