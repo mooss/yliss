@@ -1844,9 +1844,148 @@ quarter_rotation_details::coordinates<3> -> 8 bytes (64 bits)
 #+end_src
 
 
+** Iteration on coordinates
+
+Iteration on coordinates is not redundant with iteration on points, as can be done by directly iterating on =octasierp='s storage.
+Indeed, the =x= and =y= coordinates can be used for other purposes than accessing an =octasierp='s points.
+
+*** Iteration logic for quarter 0
+
+=coordinates_logic= will contain the iteration logic for quarter 0.
+#+begin_src cpp :noweb-ref octasierp/foreach_coordinates :minipage
+namespace foreach_coordinates_details {
+template<class CoordinatesConsumer>
+struct coordinates_logic {
+    CoordinatesConsumer coordinates_consumer; // Should perhaps be a reference.
+    const int extremum;
+
+    template<typename Coords>
+    void apply() {
+        <<coordinates_logic/apply>>
+    }
+};
+} // namespace foreach_coordinates_details
+#+end_src
+
+The implementation of =apply= is done in two steps, illustrated below:
+# Execution disabled because manually modified.
+#+begin_src python :eval never :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), quarters={0}, show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------+-B-B-B-S
++3 |  |       | B B B |
++2 |  |       | B B B |
++1 |  |       | B B B |
+ 0 |  +-------X-A-A-A-A
+-1 |  |       |       |
+-2 |  |       |       |
+-3 |  |       |       |
+-4 |  +-------+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =A= :: The first step includes the extremum horizontally (the corner).
+ - =B= :: The second step does not include the extremum horizontally but goes up to the extremum vertically.
+ - =X= :: The north pole is excluded, because this point is specific to quarter 0.
+ - =S= :: The south pole is excluded for the same reason.
+
+#+name: coordinates_logic/apply
+#+begin_src cpp :minipage
+// First step.
+auto point = rotate_from<0, Coords>(1, 0);
+do {
+    coordinates_consumer(point);
+} while(++point.main.x <= extremum);
+if(extremum == 1) return; // Special case for degree 0.
+
+// Second step.
+for(int j = 1; j <= extremum; ++j) {
+    point = rotate_from<0, Coords>(1, j);
+    do {
+        coordinates_consumer(point);
+    } while(++point.main.x < extremum);
+}
+#+end_src
+
+*** Iteration on all quarters by rotation
+
+All that remains to be done for the implementation of =foreach_coordinates= is to use =foreach_quarter= to transpose by rotation the logic defined above, and to include the north and south poles that were voluntarily left out.
+#+begin_src cpp :noweb-ref octasierp/foreach_coordinates :minipage
+template<typename CoordinatesConsumer>
+void foreach_coordinates(const pointless_octasierp& octa, CoordinatesConsumer consumer) {
+    using foreach_coordinates_details::coordinates_logic;
+    const int extremum = 1 << octa.degree;
+    consumer(qoords<0>(0, 0)); // North pole.
+    foreach_quarter(coordinates_logic{consumer, extremum});
+    consumer(qoords<0>(extremum, extremum)); // South pole.
+}
+#+end_src
+#+depends:octasierp/foreach_coordinates :noweb pointless_octasierp qoords foreach_quarter
+
+*** Usage
+
+It can be seen in the results below that the iteration order differs from the storage order.
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb octasierp octasierp/foreach_coordinates squarenet_shadow")>>
+
+void illustration(std::size_t degree, const char* representation) {
+    auto octa = octasierp(degree, '!');
+    std::size_t last = 0;
+    foreach_coordinates(octa.bound(), [&](const auto& coords) {
+        octa[coords] = representation[last++];
+    });
+    squarenet_shadow(octa.bound(), [&octa](const auto& coords) {
+        return octa[coords];
+    });
+}
+
+int main() {
+    const char* representation = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+";
+    print{"Degree 0:"};
+    illustration(0, representation);
+
+    print{"\nDegree 2:"};
+    illustration(2, representation);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Degree 0:
+. . . . .
+. . 2 5 .
+. 3 0 1 .
+. . 4 . .
+. . . . .
+
+Degree 2:
+. . . . . . . . . . .
+. . . . . k e f g + .
+. w t q n j b c d . .
+. v s p m i 8 9 a . .
+. u r o l h 5 6 7 . .
+. A z y x 0 1 2 3 4 .
+. . D C B N R U X / .
+. . G F E O S V Y * .
+. . J I H P T W Z - .
+. . M L K Q . . . . .
+. . . . . . . . . . .
+#+end_src
+
+
 ** Iteration on triangles
 
-As promised, iteration on triangles is defined on quarter 0 and then applied by rotation to the other quarters, with the help of =foreach_quarter=.
+As with coordinates, iteration on triangles is defined on quarter 0 and then applied by rotation to the other quarters, with the help of =foreach_quarter=.
 Triangles are divided in two sets, the safe zone and the right border.
 
 Components of triangles in the safe zone have trivially valid coordinates, even though those coordinates might not belong to the current quarter (the points on the left border for quarter 0).
