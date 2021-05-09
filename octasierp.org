@@ -1919,7 +1919,7 @@ void foreach_triangle(const pointless_octasierp& octa, TriangleConsumer consumer
     });
 }
 #+end_src
-#+depends:octasierp/foreach_triangle :noweb pointless_octasierp foreach_quarter
+#+depends:octasierp/foreach_triangle :noweb pointless_octasierp qoords foreach_quarter
 
 *** Safe zone
 
@@ -2117,7 +2117,7 @@ void triangles_order_counter_shadow(int degree, const char* representation) {
     });
 }
 #+end_src
-#+depends:triangles_order_counter_shadow :noweb octasierp octasierp/foreach_triangle print print_squarenet_shadow
+#+depends:triangles_order_counter_shadow :noweb octasierp octasierp/foreach_triangle print <<qoords print_squarenet_shadow
 
 **** Degree 0
 
