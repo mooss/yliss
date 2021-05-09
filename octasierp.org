@@ -876,32 +876,35 @@ bool valid_coordinates(int i, int j) const {
 #+end_src
 
 The following function can be used to print a shadow of a squarified net by asking every step of the way whether the current coordinate is valid:
-#+name: print_squarenet_shadow
+#+name: squarenet_shadow
 #+begin_src cpp
+namespace squarenet_shadow_details {
+struct coords {int x; int y;};
+}
 template<typename WhichChar>
-void print_squarenet_shadow(
+void squarenet_shadow(
     const pointless_octasierp& octa,
     const WhichChar& which_char
 ) {
+    using namespace squarenet_shadow_details;
     int extremum = (1 << octa.degree) + 1;
-    print printer{{.sep="", .end=""}};
     for(int j = extremum; j >= -extremum; --j) {
         for(int i = -extremum; i <= extremum; ++i) {
-            printer(octa.valid_coordinates(i, j) ? which_char(i, j): '.');
+            out(octa.valid_coordinates(i, j) ? which_char(coords{i, j}): '.');
             if(i != extremum)
-                printer(" ");
+                out(" ");
         }
-        print{};
+        out('\n');
     }
 }
 #+end_src
-#+depends:print_squarenet_shadow :noweb pointless_octasierp print
+#+depends:squarenet_shadow :noweb pointless_octasierp out
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb pointless_octasierp print_squarenet_shadow")>>
+<<include(":noweb pointless_octasierp squarenet_shadow")>>
 int main() {
     pointless_octasierp octa(2);
-    print_squarenet_shadow(octa, [](int i, int j){return 'X';});
+    squarenet_shadow(octa, [](const auto& ignored){return 'X';});
 }
 #+end_src
 
@@ -1222,7 +1225,7 @@ The code below prints a squarenet shadow whose individual points are the actual 
 Therefore, beyond being a usage example, this is also a pretty good illustration of the storage order.
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb octasierp print_squarenet_shadow")>>
+<<include(":noweb octasierp squarenet_shadow")>>
 int main() {
     octasierp octa(2, '0');
     std::string representation("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
@@ -1230,8 +1233,8 @@ int main() {
     for(auto& point: octa) {
         point = representation[i++];
     }
-    print_squarenet_shadow(octa.bound(), [&octa](int x, int y){
-        return octa.point(x, y);
+    squarenet_shadow(octa.bound(), [&octa](const auto& coords){
+        return octa[coords];
     });
 }
 #+end_src
@@ -2112,13 +2115,13 @@ void triangles_order_counter_shadow(std::size_t degree, const char* representati
     });
 
     print{"Order:"};
-    print_squarenet_shadow(order.bound(), [&order](int i, int j) {
-        return order.point(i, j);
+    squarenet_shadow(order.bound(), [&order](const auto& coords) {
+        return order[coords];
     });
     print{};
     print{"Counter:"};
-    print_squarenet_shadow(counter.bound(), [&counter](int i, int j) {
-        switch(counter.point(i, j)) {
+    squarenet_shadow(counter.bound(), [&counter](const auto& coords) {
+        switch(counter[coords]) {
           case 4:  return '4';
           case 6:  return '6';
           default: return 'E'; // Error.
@@ -2126,7 +2129,7 @@ void triangles_order_counter_shadow(std::size_t degree, const char* representati
     });
 }
 #+end_src
-#+depends:triangles_order_counter_shadow :noweb octasierp octasierp/foreach_triangle print <<qoords print_squarenet_shadow
+#+depends:triangles_order_counter_shadow :noweb octasierp octasierp/foreach_triangle print <<qoords squarenet_shadow
 
 **** Degree 0
 
@@ -2310,7 +2313,7 @@ bool is_mirrored_impl<3>(const coordinates<3>& coords, int extremum) {
 
 Usage:
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb print octasierp octasierp/foreach_triangle print_squarenet_shadow")>>
+<<include(":noweb print octasierp octasierp/foreach_triangle squarenet_shadow")>>
 
 int main() {
     for(int degree = 0; degree <= 2; ++degree) {
@@ -2327,7 +2330,7 @@ int main() {
 
         foreach_triangle(octa.bound(), count_mirrored);
         print{"Degree", degree};
-        print_squarenet_shadow(octa.bound(), [&octa](int i, int j) {
+        squarenet_shadow(octa.bound(), [&octa](int i, int j) {
             return octa.point(i, j);
         });
         print{};
