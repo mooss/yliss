@@ -2232,7 +2232,7 @@ Counter:
 \\
 Some observations:
  - The =k=, =l=, =m= and =n= points bear witness to the mirrored nature of the right border for quarter 0.
- - All points are part of six triangles, except the six initial points who belong to only two triangles.
+ - All points are part of six triangles, except the six initial points who belong to only four triangles.
    This is the expected result, as can be seen by looking at the visualisation of the squarified nets for degrees 0, 1 2 and 3 (included below).
 
 #+attr_latex: :placement [H]
