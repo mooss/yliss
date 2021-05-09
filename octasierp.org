@@ -926,13 +926,13 @@ int main() {
 ** Indexing
 
 Those indexing methods are delegating all the work to =bound_='s =index_of= method.
-#+begin_src cpp :noweb-ref "octasierp/public"
-const Point& point(int i, int j) const {
-    return storage_[bound_.index_of(i, j)];
+#+begin_src cpp :noweb-ref octasierp/public :minipage
+const Point& point(int x, int y) const {
+    return storage_[bound_.index_of(x, y)];
 }
 
-Point& point(int i, int j) {
-    return storage_[bound_.index_of(i, j)];
+Point& point(int x, int y) {
+    return storage_[bound_.index_of(x, y)];
 }
 #+end_src
 
@@ -975,7 +975,7 @@ print(SquareNet(2, list(range(3)), show_axis=True, point_rep=quarter_rep))
 In an attempt to make the beast below a bit more readable, it only contains the "cutting into manageable parts" logic.
 The return statements are handled in the four next subsections, one per quarter.
 This if forest can certainly be optimised, be it from a readability perspective or from a performance perspective.
-#+begin_src cpp :noweb-ref "pointless_octasierp/public"
+#+begin_src cpp :noweb-ref pointless_octasierp/public
 std::size_t index_of(int i, int j) const {
     if(i > 0) {
         if(j >= 0) {
@@ -1056,12 +1056,12 @@ Legend:
 
 The indexes of the north pole, south pole and corner 0 are trivial to find.
 #+name: Index of north pole
-#+begin_src cpp
+#+begin_src cpp :minipage
 return 0;
 #+end_src
 
 #+name: Index of corner 0 or south pole
-#+begin_src cpp
+#+begin_src cpp :minipage
 if(j == 0)
     return 2;
 else
@@ -1070,7 +1070,7 @@ else
 
 The other points are barely more difficult since it's just a rectangle indexation $+6$ after taking the points of degree 0 into account and $-1$ after taking the offset of =i= into account.
 #+name: Index of quarter 0 degree > 0
-#+begin_src cpp
+#+begin_src cpp :minipage
 return quarter_rectangle_width * j + i + 5;
 #+end_src
 
@@ -1107,7 +1107,7 @@ Legend:
 # Hello there.
 
 #+name: Index of corner 1
-#+begin_src cpp
+#+begin_src cpp :minipage
 return 3;
 #+end_src
 
@@ -1116,7 +1116,7 @@ The other indexes can be computed in a similar way to quarter 0, with the follow
  2. =i= is negated because it is negative.
  3. =quarter_rectangle_cardinality= is added to the index to take the first quarter into account.
 #+name: Index of quarter 1 degree > 0
-#+begin_src cpp
+#+begin_src cpp :minipage
 return quarter_rectangle_width * -i + j + 5 + quarter_rectangle_cardinality;
 #+end_src
 
@@ -1152,13 +1152,13 @@ Legend:
  - =2= :: Points of degree greater than 0.
 
 #+name: Index of corner 2
-#+begin_src cpp
+#+begin_src cpp :minipage
 return 4;
 #+end_src
 
 This time, =i= and =j= are no longer swapped when compared to quarter 0 but they both have to be negated.
 #+name: Index of quarter 2 degree > 0
-#+begin_src cpp
+#+begin_src cpp :minipage
 return quarter_rectangle_width * -j -i + 5 + 2 * quarter_rectangle_cardinality;
 #+end_src
 
@@ -1194,13 +1194,27 @@ Legend:
  - =3= :: Points of degree greater than 0.
 
 #+name: Index of corner 3
-#+begin_src cpp
+#+begin_src cpp :minipage
 return 5;
 #+end_src
 
 #+name: Index of quarter 3 degree > 0
-#+begin_src cpp
+#+begin_src cpp :minipage
 return quarter_rectangle_width * i -j + 5 + 3 * quarter_rectangle_cardinality;
+#+end_src
+
+*** Indexing operator
+
+For convenience, here is a square brackets operator that will work on anything with =x= and =y= fields:
+#+begin_src cpp :noweb-ref octasierp/public
+template<typename Coords>
+const Point& operator[](const Coords& coords) const {
+    return point(coords.x, coords.y);
+}
+template<typename Coords>
+Point& operator[](const Coords& coords) {
+    return point(coords.x, coords.y);
+}
 #+end_src
 
 
@@ -1218,8 +1232,8 @@ int main() {
     for(auto& point: octa) {
         point = representation[i++];
     }
-    print_squarenet_shadow(octa.bound(), 6, [&octa](int i, int j){
-        return octa.point(i, j);
+    print_squarenet_shadow(octa.bound(), 6, [&octa](int x, int y){
+        return octa.point(x, y);
     });
 }
 #+end_src
@@ -2081,21 +2095,21 @@ The code below prints two squarenet shadows using octasierps constructed with th
 The first octasierp (=order=) illustrate the order in which the points are first used as part of a triangle, while the second one (=counter=) illustrate the number of times a point is used as part of a triangle.
 #+name: triangles_order_counter_shadow
 #+begin_src cpp
-void triangles_order_counter_shadow(int degree, const char* representation) {
+void triangles_order_counter_shadow(std::size_t degree, const char* representation) {
     octasierp order(degree, ';');
     int last_repr = 0;
     octasierp counter(degree, 0);
 
     foreach_triangle(order.bound(), [&](const auto& a, const auto& b, const auto& c) {
-        for(const auto& coord: {a, b, c}) {
-            if(order.bound().valid_coordinates(coord.x, coord.y)) {
-                ++counter.point(coord.x, coord.y);
-                auto& point = order.point(coord.x, coord.y);
+        for(const auto& coords: {a, b, c}) {
+            if(order.bound().valid_coordinates(coords.x, coords.y)) {
+                ++counter[coords];
+                auto& point = order[coords];
                 if(point == ';') {
                     point = representation[last_repr++];
                 }
             } else {
-                print{"Received invalid coordinate:", coord};
+                print{"Received invalid coordinate:", coords};
                 print{"Triangle is", a, b, c};
             }
         }
