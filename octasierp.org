@@ -2418,12 +2418,12 @@ Legend:
 
 The non canonical points are not valid coordinates and should therefore be handled with care.
 
-*** Predicate
+*** Canonical mirrored predicate
 
 The public facing predicates in =coordinates= requires the degree to compute the extremum value that is mandatory to detect if a set of coordinates is mirrored.
 #+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
-bool is_mirrored(int degree) const {
-    return is_mirrored_impl(*this, 1 << degree);
+bool is_mirrored_canonical(int degree) const {
+    return is_mirrored_canonical_impl(*this, 1 << degree);
 }
 #+end_src
 
@@ -2431,23 +2431,23 @@ The implementation is fairly straightforward with the help of the illustration a
 The only thing to look out for is the south pole for degree 1.
 #+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 template<int Quarter>
-bool is_mirrored_impl(const coordinates<Quarter>& coords, int extremum);
+bool is_mirrored_canonical_impl(const coordinates<Quarter>& coords, int extremum);
 
 template<>
-bool is_mirrored_impl<0>(const coordinates<0>& coords, int extremum) {
+bool is_mirrored_canonical_impl<0>(const coordinates<0>& coords, int extremum) {
     return coords.x == extremum && coords.y < 0;
 }
 template<>
-bool is_mirrored_impl<1>(const coordinates<1>& coords, int extremum) {
+bool is_mirrored_canonical_impl<1>(const coordinates<1>& coords, int extremum) {
     // The south pole must be excluded from this one.
     return coords.y == extremum && coords.x > 0 && coords.x != extremum;
 }
 template<>
-bool is_mirrored_impl<2>(const coordinates<2>& coords, int extremum) {
+bool is_mirrored_canonical_impl<2>(const coordinates<2>& coords, int extremum) {
     return coords.x == -extremum && coords.y > 0;
 }
 template<>
-bool is_mirrored_impl<3>(const coordinates<3>& coords, int extremum) {
+bool is_mirrored_canonical_impl<3>(const coordinates<3>& coords, int extremum) {
     return coords.y == -extremum && coords.x < 0;
 }
 #+end_src
@@ -2461,7 +2461,7 @@ int main() {
         octasierp octa(degree, '#');
         auto count_mirrored = [&octa, degree]<typename T>(const T& a, const T& b, const T& c) {
             for(const T& coords: {a, b, c}) {
-                if(coords.is_mirrored(degree)) {
+                if(coords.is_mirrored_canonical(degree)) {
                     auto& point = octa.point(coords.x, coords.y);
                     if(point == '#') point = '1';
                     else ++point;
