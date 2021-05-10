@@ -2478,7 +2478,7 @@ int main() {
         auto count_mirrored = [&octa, degree]<typename T>(const T& a, const T& b, const T& c) {
             for(const T& coords: {a, b, c}) {
                 if(coords.is_mirrored_canonical(degree)) {
-                    auto& point = octa.point(coords.x, coords.y);
+                    auto& point = octa[coords];
                     if(point == '#') point = '1';
                     else ++point;
                 }
@@ -2487,8 +2487,8 @@ int main() {
 
         foreach_triangle(octa.bound(), count_mirrored);
         print{"Degree", degree};
-        squarenet_shadow(octa.bound(), [&octa](int i, int j) {
-            return octa.point(i, j);
+        squarenet_shadow(octa.bound(), [&octa](auto coords) {
+            return octa[coords];
         });
         print{};
     }
