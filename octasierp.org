@@ -1604,6 +1604,13 @@ void rotate_back()  {rotate<2>(*this);}
 void rotate_right() {rotate<3>(*this);}
 #+end_src
 
+To make the implementation of =rotate= a bit clearer, but also to have those operations easily accessible from the outside, the following functions can be used to mirror and swap the axes.
+#+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
+void mirror_x() {__private_x = -__private_x;}
+void mirror_y() {__private_y = -__private_y;}
+void swap_axes() {std::swap(__private_x, __private_y);}
+#+end_src
+
 The actual implementation of 1, 2, and 3 (and 0) rotations is a bit painful because it is a specialisation of a templated method within a templated class, with the inner template argument having to be specialised while the outer template argument should stay generic.
 I found no better way than to do that than using a helper templated struct with the templates reversed, i.e. the inner template becomes the outer one and /vice versa/.
 #+begin_src cpp :noweb-ref coordinates<Quarter>/pre :minipage
@@ -1614,20 +1621,20 @@ template<> struct rotate_impl<0> {
 };
 template<> struct rotate_impl<1> {
     template<typename T> static void f(T& coord) {
-        coord.__private_y = -coord.__private_y;
-        std::swap(coord.__private_x, coord.__private_y);
+        coord.mirror_y();
+        coord.swap_axes();
     }
 };
 template<> struct rotate_impl<2> {
     template<typename T> static void f(T& coord) {
-        coord.__private_x = -coord.__private_x;
-        coord.__private_y = -coord.__private_y;
+        coord.mirror_x();
+        coord.mirror_y();
     }
 };
 template<> struct rotate_impl<3> {
     template<typename T> static void f(T& coord) {
-        coord.__private_x = -coord.__private_x;
-        std::swap(coord.__private_x, coord.__private_y);
+        coord.mirror_x();
+        coord.swap_axes();
     }
 };
 
