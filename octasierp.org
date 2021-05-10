@@ -2500,19 +2500,20 @@ bool is_mirrored_canonical_impl<2>(const coordinates<2>& coords, int extremum) {
 }
 template<>
 bool is_mirrored_canonical_impl<3>(const coordinates<3>& coords, int extremum) {
-    return (coords.y == -extremum && coords.x < 0) || (coords.x == extremum && coords.y == extremum);
+    return (coords.y == -extremum && coords.x < 0)
+        || (coords.x == extremum && coords.y == extremum);
 }
 #+end_src
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb print octasierp octasierp/foreach_triangle squarenet_shadow")>>
+<<include(":noweb octasierp octasierp/foreach_triangle squarenet_shadow out")>>
 
 int main() {
     for(int degree = 0; degree <= 2; ++degree) {
         octasierp octa(degree, '#');
-        auto count_mirrored = [&octa, degree]<typename T>(const T& a, const T& b, const T& c) {
-            for(const T& coords: {a, b, c}) {
+        auto count_mirrored = [&octa, degree](const auto& a, const auto& b, const auto& c) {
+            for(const auto& coords: {a, b, c}) {
                 if(coords.is_mirrored_canonical(degree)) {
                     auto& point = octa[coords];
                     if(point == '#') point = '1';
@@ -2522,25 +2523,25 @@ int main() {
         };
 
         foreach_triangle(octa.bound(), count_mirrored);
-        print{"Degree", degree};
+        out("Degree ", degree, ":\n");
         squarenet_shadow(octa.bound(), [&octa](auto coords) {
             return octa[coords];
         });
-        print{};
+        out('\n');
     }
 }
 #+end_src
 
 #+RESULTS:
 #+begin_src text :minipage
-Degree 0
+Degree 0:
 . . . . .
 . . # 3 .
 . # # # .
 . . # . .
 . . . . .
 
-Degree 1
+Degree 1:
 . . . . . . .
 . . . # 3 3 .
 . 3 # # # . .
@@ -2549,7 +2550,7 @@ Degree 1
 . . 3 # . . .
 . . . . . . .
 
-Degree 2
+Degree 2:
 . . . . . . . . . . .
 . . . . . # 3 3 3 3 .
 . 3 # # # # # # # . .
