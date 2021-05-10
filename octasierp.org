@@ -2395,6 +2395,44 @@ Some observations:
 #+attr_latex: :placement [H]
 [[file:images/montage_net_squa_degree_0-3.png]]
 
+*** Triangle cardinality
+
+Looking once again at the squarified net visualisation above, we can see the following patterns:
+ - All quarters have the same numbers of triangles ($\vert triangles_{total} \vert = 4 \times \vert triangles_{quarter_0} \vert$).
+ - Triangles can be neatly arranged to form squares, with two triangles by square ($\vert triangles_{quarter_0} \vert = 2 \times \vert squares_{quarter_0} \vert$).
+ - The number of those squares quadruples with each degree ($\vert squares_{quarter_0} \vert = 2^{2d}$, with $d$ being the degree).
+
+From this, the number of triangles can be deduced to be $\vert triangles_{total} \vert = 8 \times 2^{2d} = 2^{2d + 3}$.
+
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
+std::size_t triangle_cardinality() const {
+    return 1 << (2 * degree + 3);
+}
+#+end_src
+
+Usage:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb pointless_octasierp out")>>
+
+int main() {
+    for(std::size_t degree = 0; degree < 4; ++degree) {
+        pointless_octasierp octa(degree);
+        out(
+            "Triangle cardinality at degree ", degree, ": ",
+            octa.triangle_cardinality(), '\n'
+        );
+    }
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Triangle cardinality at degree 0: 8
+Triangle cardinality at degree 1: 32
+Triangle cardinality at degree 2: 128
+Triangle cardinality at degree 3: 512
+#+end_src
+
 
 
 ** Mirrored points
