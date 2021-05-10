@@ -16,7 +16,7 @@ I'll be sometimes hand-wavy with the maths here both because I don't want to bot
 The following code block includes desired code blocks along with their dependencies.
 
 #+name: include
-#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
+#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export :minipage
 ./litlib/include.pl "octasierp.org litlib/cpp.org" "$args"
 #+end_src
 
@@ -750,7 +750,7 @@ Since everyting is const, the only way to change the degree is to create a new =
 ** Point cardinality
 
 The size of an octasierp, previously described as $\vert octasierp_d \vert = 2^{2d+2} + 2$, can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
-#+begin_src cpp :minipage :noweb-ref pointless_octasierp/public
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
 std::size_t point_cardinality() const {
     return (1 << (2 * degree + 2)) + 2;
 }
@@ -863,7 +863,7 @@ x-x-x-x-X-x-x-x-x
 #+end_src
 
 That method can take the form below, by first testing if the coordinates are within the internal square, and otherwise testing if they are within the top part of quarter 0 and otherwise test the other quarters by rotation.
-#+begin_src cpp :noweb-ref pointless_octasierp/public
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
 bool valid_coordinates(int i, int j) const {
     if(abs(i) < extreme_index && abs(j) < extreme_index)
         return true;
@@ -879,7 +879,7 @@ bool valid_coordinates(int i, int j) const {
 
 The following function can be used to print a shadow of a squarified net by asking every step of the way whether the current coordinate is valid:
 #+name: squarenet_shadow
-#+begin_src cpp
+#+begin_src cpp :minipage
 namespace squarenet_shadow_details {
 struct coords {int x; int y;};
 }
@@ -902,7 +902,7 @@ void squarenet_shadow(
 #+end_src
 #+depends:squarenet_shadow :noweb pointless_octasierp out
 
-#+begin_src cpp :eval no-export :exports both
+#+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb pointless_octasierp squarenet_shadow")>>
 int main() {
     pointless_octasierp octa(2);
@@ -978,7 +978,7 @@ print(SquareNet(2, list(range(3)), show_axis=True, point_rep=quarter_rep))
 In an attempt to make the beast below a bit more readable, it only contains the "cutting into manageable parts" logic.
 The return statements are handled in the four next subsections, one per quarter.
 This if forest can certainly be optimised, be it from a readability perspective or from a performance perspective.
-#+begin_src cpp :noweb-ref pointless_octasierp/public
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
 std::size_t index_of(int i, int j) const {
     if(i > 0) {
         if(j >= 0) {
@@ -1028,7 +1028,7 @@ It's up to the caller to ensure the validity of =i= and =j=.
 
 Illustration at degree 2 of the points that are handled in this section:
 # This code block is disabled for the same reason as the previous one.
-#+begin_src python :eval never :exports results
+#+begin_src python :eval never :exports results :minipage
 <<Textual squarified net>>
 <<quarter_rep>>
 print(SquareNet(2, list(range(3)), quarters={0}, show_axis=True, point_rep=quarter_rep))
@@ -1080,7 +1080,7 @@ return quarter_rectangle_width * j + i + 5;
 *** Quarter 1
 
 Illustration at degree 2 of the points that are handled in this section:
-#+begin_src python :eval no-export :exports results
+#+begin_src python :eval no-export :exports results :minipage
 <<Textual squarified net>>
 <<quarter_rep>>
 print(SquareNet(2, list(range(3)), quarters={1}, show_axis=True, point_rep=quarter_rep))
@@ -1235,7 +1235,7 @@ std::size_t index_of(const Coords& coords) const {
 The code below prints a squarenet shadow whose individual points are the actual point itself, each point having been initialised to its own character.
 Therefore, beyond being a usage example, this is also a pretty good illustration of the storage order.
 
-#+begin_src cpp :eval no-export :exports both
+#+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb octasierp squarenet_shadow")>>
 int main() {
     octasierp octa(2, '0');
@@ -1288,7 +1288,7 @@ This means that incrementing x in quarter 2 is like decrementing it in quarter 0
 
 The first step toward supporting this behaviour is directed axes, implemented in =natural_axis= and =inverted_axis=.
 The =value_= stored is not directly accessible on purpose, as those classes are only meant to represent operations on an axis.
-#+begin_src cpp :noweb-ref quarter_rotation_details/public
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 enum class direction {natural, inverted};
 template<direction Dir> class axis {
   public:
@@ -1341,7 +1341,7 @@ Once again, the axes are only meant to represent operations, the intended way to
 
 =QRF= (Quarter Reference Frame) builds upon the directed axes to provide a way to represent operations on each quarter, vis-a-vis quarter 0, the canonical reference frame.
 
-#+begin_src cpp :noweb-ref quarter_rotation_details/public
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 // Quarter Reference Frame
 template<int Id>
 struct QRF {};
@@ -2467,7 +2467,7 @@ bool is_mirrored_canonical_impl<3>(const coordinates<3>& coords, int extremum) {
 #+end_src
 
 Usage:
-#+begin_src cpp :eval no-export :exports both
+#+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb print octasierp octasierp/foreach_triangle squarenet_shadow")>>
 
 int main() {
@@ -2573,13 +2573,13 @@ The binary degree function will be fundamental to point indexation in an octasie
 The diagrams are generated in python, using Gizeh for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
 
 They can be installed via pip:
-#+begin_src bash :eval never
+#+begin_src bash :eval never :minipage
 pip install --user gizeh moviepy
 #+end_src
 
 
 Images are saved in the =images= folder and the scripts are supposed to be executed (that is to say after they have been tangled) from the root of the project like so:
-#+begin_src bash
+#+begin_src bash :minipage
 ./script/your-favorite-script.sh
 #+end_src
 
@@ -2591,7 +2591,7 @@ Images are saved in the =images= folder and the scripts are supposed to be execu
 I use a =SimpleNamespace= to store some colors that I want to use (the names are probably innacurate).
 The obvious alternative would be to use a =class= but that would be tedious to initialize, or a =dict= but I want to be able to access members through the dot operator.
 
-#+begin_src python
+#+begin_src python :minipage
 from types import SimpleNamespace
 colors = SimpleNamespace(
     canard=(0, .6, .6),
@@ -2613,7 +2613,7 @@ colors = SimpleNamespace(
 
 Here are some color palettes:
 
-#+begin_src python
+#+begin_src python :minipage
 palette_colorful = [
     (colors.canard, colors.turquoise),
     (colors.purple, colors.violet),
@@ -2662,7 +2662,7 @@ Thus, =Geometry= is initialised with:
 
 The geometry parameters for degree $d$ can then simply be obtained with square brackets indexing (like =geometry[d]=), thanks to the method =__getitem__=.
 
-#+begin_src python
+#+begin_src python :minipage
 class Geometry(object):
     def __init__(self,
                  degree,
@@ -2700,7 +2700,7 @@ This function is not defined when $degree = 0$ so this needs to be addressed as 
 
 After playing a bit with the $minFactor$ value, it looks like .25 is a good value.
 
-#+begin_src python
+#+begin_src python :minipage
 def decrease_size_linearly(degree, min_factor=.25, scale=1):
     def result(current):
         if degree == 0:
@@ -2764,7 +2764,7 @@ class Triangle(object):
 *** Lines, points and background generation
 
 The lines characteristics at a given level are deduced from the dedicated geometry object:
-#+begin_src python :noweb-ref Triangle/
+#+begin_src python :noweb-ref Triangle/ :minipage
 def make_lines(self, a, b, c, current):
     if self.lines_geometry is None:
         return []
@@ -2781,7 +2781,7 @@ def make_lines(self, a, b, c, current):
 A similar approach is done for points, with two differences:
  1. They are scaled a bit ($\times 1.2$) because they are used to hide the corners of lines.
  2. They are generated via translation.
-#+begin_src python :noweb-ref Triangle/
+#+begin_src python :noweb-ref Triangle/ :minipage
 def make_points(self, a, b, c, current):
     if self.points_geometry is None:
         return []
@@ -2792,7 +2792,7 @@ def make_points(self, a, b, c, current):
 #+end_src
 
 Background generation is similar to lines generation, except that the lines are drawn and the fill color is set to =background_color=.
-#+begin_src python :noweb-ref Triangle/
+#+begin_src python :noweb-ref Triangle/ :minipage
 def make_background(self, a, b, c):
     return gz.polyline(
         [a, b, c],
@@ -2809,14 +2809,14 @@ def make_background(self, a, b, c):
 
 Now that the geometric elements have been dealt with, only the recursive calls - or lack thereof - remains.
 The generation is over when the maximal degree has been reached:
-#+begin_src python
+#+begin_src python :minipage
 if current == self.degree:
     return points, lines
 #+end_src
 
 Otherwise, we make recursive calls to =geometry=, using the midpoints of the three original points.
 The order of the points and of the lines is important because the graphical elements are drawn in the order of their apparition and we want to make sure that the earliest subdivisions are drawn over the subsequent ones.
-#+begin_src python
+#+begin_src python :minipage
 ab = midpoint(a, b)
 ac = midpoint(a, c)
 bc = midpoint(b, c)
@@ -2828,7 +2828,7 @@ return points, lines
 #+end_src
 
 With =midpoint= being defined as:
-#+begin_src python :noweb-ref "Triangle"
+#+begin_src python :noweb-ref "Triangle" :minipage
 def midpoint(left, right):
     return ((left[0] + right[0]) / 2, (left[1] + right[1]) / 2)
 #+end_src
@@ -2846,7 +2846,7 @@ Below is the basic structure of this class and its dependencies.
 The sections below will fill the missing parts in =<<Before Octanet>>= and =<<Octanet/>>=.
 
 #+name: Octanet
-#+begin_src python
+#+begin_src python :minipage
 <<Triangle>>
 <<Colors>>
 
@@ -2936,7 +2936,7 @@ def make_net(self, progress):
 
 =draw= creates a Gizeh surface, draws the =Octanet= on it and returns it.
 This Gizeh surface can be manipulated directly, or can be directly saved to a png.
-#+begin_src python :noweb-ref Octanet/
+#+begin_src python :noweb-ref Octanet/ :minipage
 def draw(self, progress=0):
     surface = gz.Surface(**self.surface_parameters)
     self.make_net(progress).draw(surface)
@@ -2947,7 +2947,7 @@ def write_to_png(self, filename, progress=0):
 #+end_src
 
 Writing to svg requires a different surface, not given directly by Gizeh.
-#+begin_src python :noweb-ref Octanet/
+#+begin_src python :noweb-ref Octanet/ :minipage
 def write_to_svg(self, filename, progress=0):
     surface = SVGSurface(filename, **self.surface_parameters)
     self.make_net(progress).draw(surface)
@@ -2956,7 +2956,7 @@ def write_to_svg(self, filename, progress=0):
 
 Below is defined the surface in question.
 This is almost copy-pasted from Gizeh's own =PDFSurface=.
-#+begin_src python :noweb-ref "Before Octanet"
+#+begin_src python :noweb-ref "Before Octanet" :minipage
 import cairocffi as cairo
 class SVGSurface(object):
     def __init__(self, filename, width, height, bg_color=None):
@@ -2980,7 +2980,7 @@ class SVGSurface(object):
 ** Illustration: degrees 0 through 3
 
 We use the =Octanet= class defined above to create the 8 images corresponding to the degrees 0 through 3 of the octahedron and the quasi-square version:
-#+begin_src python :tangle script/octasierp_net_0-3.py :eval no-export
+#+begin_src python :tangle script/octasierp_net_0-3.py :eval no-export :minipage
 <<Octanet>>
 
 for degree in range(4):
@@ -2990,7 +2990,7 @@ for degree in range(4):
 #+end_src
 
 The code above is then called by a bash script who annotates and stitches the images together with imagemagick's =mogrify= and =montage=:
-#+begin_src bash :tangle script/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash" :eval no-export :results silent
+#+begin_src bash :tangle script/illustration_0_through_3.sh :shebang "#!/usr/bin/env bash" :eval no-export :results silent :minipage
 python3 script/octasierp_net_0-3.py
 
 function make_montage(){
@@ -3027,7 +3027,7 @@ To achieve the big points, =decrease_size_linearly= is scaled 3 times and is sli
 This makes the linear size decrease slightly less prononced.
 
 #+name: Yliss logo definition
-#+begin_src python :tangle script/animations.py
+#+begin_src python :tangle script/animations.py :minipage
 <<Octanet>>
 
 degree = 3
@@ -3047,7 +3047,7 @@ yliss_logo = Octanet(
 #+end_src
 
 The definition above is reused to generate the proper logo, in its octahedral shape but also its quasi-squaregrid equivalent.
-#+begin_src python :results silent :eval no-export
+#+begin_src python :results silent :eval no-export :minipage
 <<Yliss logo definition>>
 yliss_logo.write_to_svg('images/octahedron_logo.svg', 0)
 yliss_logo.write_to_svg('images/square_logo.svg', 1)
@@ -3063,7 +3063,7 @@ yliss_logo.write_to_png('images/square_logo.png', 1)
 
 The logos are generated in svg and png.
 I originally planned to use the svg version since it is scalable but I went against it because I felt it was too big:
-#+begin_src bash :exports both :eval yes :wrap "src text :minipage"
+#+begin_src bash :exports both :eval yes :wrap "src text :minipage" :minipage
 du -sh images/{octahedron,square}_logo.{svg,png} | sort -rh
 #+end_src
 
@@ -3130,7 +3130,7 @@ The inclusion of =appearance= in the arguments means that only points appearing 
 I'll explain later how to make a representation including all the points or only the points in a given list.
 
 #+name: Textual quarter
-#+begin_src python :noweb no-export
+#+begin_src python :noweb no-export :minipage
 <<Textual quarter dependencies>>
 <<Textual quarter utils>>
 
@@ -3158,7 +3158,7 @@ class Quarter:
 ** Character set
 
 The character set used to describe a quarter is not supposed to be changed, that's why it is defined at the class level.
-#+begin_src python :noweb-ref "Textual quarter constants"
+#+begin_src python :noweb-ref "Textual quarter constants" :minipage
 HORIZONTAL = '-'
 EMPTY = ' '
 VERTICAL = '|'
@@ -3172,7 +3172,7 @@ NORTH_POLE = 'o'
 
 We also define the set of character that can collide and the set of character that are a point.
 They are complementary in the sense that their intersection is empty and their union is the whole character set.
-#+begin_src python :noweb-ref "Textual quarter constants"
+#+begin_src python :noweb-ref "Textual quarter constants" :minipage
 CAN_COLLIDE = {
     HORIZONTAL, EMPTY, VERTICAL,
     CORNER, NORTH_POLE
@@ -3182,7 +3182,7 @@ IS_POINT = {COLLISION, REDUNDANT, NORTH_POLE_POINT}
 
 We want the caller to be able to select the redundant character.
 This is done based on the value of =display_redundant= ; any value other than =True= will be interpreted as the an attempt to override the default redundant character.
-#+begin_src python :noweb-ref "Textual quarter init"
+#+begin_src python :noweb-ref "Textual quarter init" :minipage
 if self.display_redundant is True:
     self.redundant = Quarter.REDUNDANT
 elif self.display_redundant is not False:
@@ -3191,7 +3191,7 @@ elif self.display_redundant is not False:
 #+end_src
 
 Every degree of appearance must have its representation:
-#+begin_src python :noweb-ref "Textual quarter init"
+#+begin_src python :noweb-ref "Textual quarter init" :minipage
 if self.appearance is None:
     max_appearance = 0
 elif type(self.appearance) is int:
@@ -3219,7 +3219,7 @@ But hey, it works.
 In retrospect, it would have been much better to start from the central point since it is obviously a center of symmetry.
 Even with that in mind, I will not bother redesigning the code below because once again hey, it works^{tm}.
 If you don't understand how this code works, don't worry, neither do I.
-#+begin_src python :noweb-ref "Textual quarter methods"
+#+begin_src python :noweb-ref "Textual quarter methods" :minipage
 def raw(self, appearance=None):
     # Length of the sides.
     length = pow(2, self.degree) + 1
@@ -3305,7 +3305,7 @@ def raw(self, appearance=None):
 ** Generate the final representation
 
 Here are handled the forementioned assembly steps, in the following method:
-#+begin_src python :noweb no-export :noweb-ref "Textual quarter methods"
+#+begin_src python :noweb no-export :noweb-ref "Textual quarter methods" :minipage
 def repr(self):
     <<Assemble the degrees of appearance>>
     <<Rotate the quarter>>
@@ -3314,7 +3314,7 @@ def repr(self):
 
 The =Quarter= class is represented as a list of lines.
 To put icing on the cake, we also handle a string version of the representation:
-#+begin_src python :noweb-ref "Textual quarter methods"
+#+begin_src python :noweb-ref "Textual quarter methods" :minipage
 def __str__(self):
     return '\n'.join(self.repr())
 #+end_src
@@ -3326,7 +3326,7 @@ Since a =str= conversion is automatically applied in code when =print= is called
 
 When dealing with a list of degrees of appearance, they are merged together.
 #+name: Assemble the degrees of appearance
-#+begin_src python
+#+begin_src python :minipage
 if type(self.appearance) is list:
     assert len(self.appearance) > 0
     assembly = self.raw(self.appearance[0])
@@ -3344,7 +3344,7 @@ To implement =merge_raw_quarters=, we first need to be able to merge two lines t
 With this textual representation, we just have to iterate through the two lines simultaneously and prioritise the point character above every other.
 I also output a collision character when two points collide, because that would mean either a repetition in =appearance= or a mistake in =merge_quarter_lines= and I want both failures to be obvious.
 
-#+begin_src python :noweb-ref "Textual quarter utils"
+#+begin_src python :noweb-ref "Textual quarter utils" :minipage
 def merge_quarter_lines(left, right, valid_points):
     buffer = []
     for cleft, cright in zip(left, right):
@@ -3359,13 +3359,13 @@ def merge_quarter_lines(left, right, valid_points):
 #+end_src
 
 The actual merging method simply uses =merge_quarter_lines= to merge every line into a new list:
-#+begin_src python :noweb-ref "Textual quarter methods"
+#+begin_src python :noweb-ref "Textual quarter methods" :minipage
 def merge_raw_quarters(self, left, right, valid_points):
     return list(merge_quarter_lines(l, r, valid_points) for l, r in zip(left, right))
 #+end_src
 
 Because =reduce= is no longer a primitive in Python3, it must be imported:
-#+begin_src python :noweb-ref "Textual quarter dependencies"
+#+begin_src python :noweb-ref "Textual quarter dependencies" :minipage
 from functools import reduce
 #+end_src
 
@@ -3374,7 +3374,7 @@ from functools import reduce
 To put the quarter into the right orientation, we do =quarter= left rotations.
 It would be faster, for example, to do one right rotation when =quarter == 3= but there is no need for optimisation right now.
 #+name: Rotate the quarter
-#+begin_src python
+#+begin_src python :minipage
 for _ in range(self.quarter):
     assembly = rotate_quarter_representation_left(assembly)
 #+end_src
@@ -3382,7 +3382,7 @@ for _ in range(self.quarter):
 Rotating the representation left is a succession of two tricks:
  1. Replacing vertical characters with horizontal ones and /vice versa/.
  2. Replacing lines with columns, in inverse order (that's what =reversed(list(zip(*lines)))= does).
-#+begin_src python :noweb-ref "Textual quarter utils"
+#+begin_src python :noweb-ref "Textual quarter utils" :minipage
 def rotate_quarter_representation_left(lines):
     replacement = {Quarter.HORIZONTAL: Quarter.VERTICAL,
                    Quarter.VERTICAL: Quarter.HORIZONTAL}
@@ -3398,7 +3398,7 @@ def rotate_quarter_representation_left(lines):
 *** Apply horizontal compensation
 
 Applying horizontal compensation is a must because vertical text space is roughly twice as big as horizontal text space, so the representation is excessively vertical:
-#+begin_src python :eval no-export :exports both
+#+begin_src python :eval no-export :exports both :minipage
 <<Textual quarter>>
 print('\n'.join(Quarter(2).raw(2)))
 #+end_src
@@ -3414,13 +3414,13 @@ ox-x+
 
 Horizontal compensation is the last step to produce the final representation so we are ready to return:
 #+name: Apply horizontal compensation
-#+begin_src python
+#+begin_src python :minipage
 return horizontal_compensation(assembly)
 #+end_src
 
 
 The horizontal compensation function simply pads the top and bottom lines with horizontal characters and the other lines with empty characters.
-#+begin_src python :noweb-ref "Textual quarter utils"
+#+begin_src python :noweb-ref "Textual quarter utils" :minipage
 def horizontal_compensation(lines):
     buffer = [Quarter.HORIZONTAL.join(lines[0])]       # Top.
     for line in lines[1:-1]:
@@ -3430,7 +3430,7 @@ def horizontal_compensation(lines):
 #+end_src
 
 Now the text representation looks much better:
-#+begin_src python :eval no-export :exports both
+#+begin_src python :eval no-export :exports both :minipage
 <<Textual quarter>>
 print('\n'.join(horizontal_compensation(Quarter(2).raw(2))))
 #+end_src
@@ -3450,7 +3450,7 @@ o-x---x-+
 :header-args:python+: :exports both :eval no-export
 :END:
 
-#+begin_src python :exports both
+#+begin_src python :exports both :minipage
 <<Textual quarter>>
 for degree in range(2, 5):
     print(Quarter(degree=degree, appearance=2, quarter=0))
@@ -3504,7 +3504,7 @@ The caller can choose to represent only a subset of the quarter by specifying fo
 The excluded quarters will be represented devoid of points.
 
 #+name: Textual squarified net
-#+begin_src python
+#+begin_src python :minipage
 <<Textual quarter>>
 <<SquareNet utils>>
 class SquareNet:
@@ -3531,7 +3531,7 @@ class SquareNet:
 To generate the final representation, we have to first concatenate horizontally quarter 0 with quarter 1 and quarter 2 with quarter 3.
 Then only one vertical concatenation on the results of those two previous concatenations remain to be done.
 Like with =Quarter=, =repr= returns a list of lines:
-#+begin_src python :noweb-ref "Final squarified net representation"
+#+begin_src python :noweb-ref "Final squarified net representation" :minipage
 def repr(self):
     valid_points_top = self.quarters[1].valid_points | self.quarters[0].valid_points
     top = cat_quarter_horizontally(
@@ -3554,20 +3554,20 @@ def repr(self):
 #+end_src
 
 And =__str__=, the string equivalent:
-#+begin_src python :noweb-ref "Final squarified net representation"
+#+begin_src python :noweb-ref "Final squarified net representation" :minipage
 def __str__(self):
     return '\n'.join(self.repr())
 #+end_src
 
 The vertical concatenation is the easiest ; since the representation is a list of lines, all lines are concatenated, except the central one (the one in common between the two quarters), which is merged:
-#+begin_src python :noweb-ref "SquareNet utils"
+#+begin_src python :noweb-ref "SquareNet utils" :minipage
 def cat_quarter_vertically(top, bottom, valid_points):
     return top[:-1] + [merge_quarter_lines(top[-1], bottom[0], valid_points)] + bottom[1:]
 #+end_src
 
 The horizontal concatenation is a little bit longer because it goes against our vertically-oriented representation.
 It's not that complicated because =merge_quarter_lines= can merge columns as well as lines:
-#+begin_src python :noweb-ref "SquareNet utils"
+#+begin_src python :noweb-ref "SquareNet utils" :minipage
 def cat_quarter_horizontally(left, right, valid_points):
     right_of_left = [line[-1] for line in left]
     left_of_right = [line[0] for line in right]
@@ -3579,7 +3579,7 @@ def cat_quarter_horizontally(left, right, valid_points):
 #+end_src
 
 We can now represent for example the last points of all quarters of a squarified net of degree 2, with the redundant points:
-#+begin_src python :eval no-export :exports both
+#+begin_src python :eval no-export :exports both :minipage
 <<Textual squarified net>>
 print(SquareNet(2, 2, quarters={0, 1, 2, 3}, display_redundant=True))
 #+end_src
@@ -3604,7 +3604,7 @@ v x x x x x x x x
 
 First of all we create the gradations with the help of =lenhalf=, the length of strictly positive (and strictly negative) values on the gradations.
 For example the =gradations= of a squarified net of degree 2 will be =[-4, -3, -2, -1, 0, 1, 2, 3, 4]= and =lenhalf= will be =4=.
-#+begin_src python
+#+begin_src python :minipage
 lenhalf = len(top) - 1
 gradations = list(range(lenhalf, 0, -1))
 gradations = list(map(str, gradations + [0] + list(reversed(gradations))))
@@ -3614,21 +3614,21 @@ The left axis is split into three part:
  1. The axis proper.
  2. The gradation.
  3. The legend (plus and minus signs).
-#+begin_src python
+#+begin_src python :minipage
 leftax = '^|' + '|' * len(result)
 leftgrad = ' ' + ''.join(reversed(gradations))
 leftleg = ' ' + '+' * lenhalf + ' ' + '-' * lenhalf
 #+end_src
 
-Same thing for the bottom ax:
-#+begin_src python
+Same thing for the bottom axis:
+#+begin_src python :minipage
 bottomax = '   +' + '--' * len(result) + '-->'
 bottomgrad = '      ' + ' '.join(gradations)
 bottomleg = '      ' + '- ' * lenhalf + ' ' + ' +' * lenhalf
 #+end_src
 
 Finally we modify the =result= by first inserting the left axis into each line and then appending the bottom axis to it.
-#+begin_src python
+#+begin_src python :minipage
 result = [
     leg + grad + ' ' + ax + '  ' + line
     for leg, grad, ax, line in zip(
@@ -3641,7 +3641,7 @@ result[0] = result[0].rstrip(' ')
 
 
 Demonstration time:
-#+begin_src python :eval no-export :exports both :noweb-ref no
+#+begin_src python :eval no-export :exports both :noweb-ref no :minipage
 <<Textual squarified net>>
 print(SquareNet(2, [0, 2], show_axis=True))
 #+end_src
@@ -3678,7 +3678,7 @@ Because strings are immutable, editing a list of strings in place is a pain.
 The following takes a list of strings applies a list of replacement (a 3-uple composed of the line number, the row number and the replacement string) to it.
 
 #+name: listr_replace
-#+begin_src python
+#+begin_src python :minipage
 def listr_replace(listr, replacements):
     for row, col, content in replacements:
         listr[row] = listr[row][:col] + content + listr[row][col+1:]
