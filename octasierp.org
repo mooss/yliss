@@ -1206,10 +1206,10 @@ return 5;
 return quarter_rectangle_width * i -j + 5 + 3 * quarter_rectangle_cardinality;
 #+end_src
 
-*** Indexing operator
+*** Coordinates overloads
 
 For convenience, here is a square brackets operator that will work on anything with =x= and =y= fields:
-#+begin_src cpp :noweb-ref octasierp/public
+#+begin_src cpp :noweb-ref octasierp/public :minipage
 template<typename Coords>
 const Point& operator[](const Coords& coords) const {
     return point(coords.x, coords.y);
@@ -1219,6 +1219,15 @@ Point& operator[](const Coords& coords) {
     return point(coords.x, coords.y);
 }
 #+end_src
+
+Same thing, but for =index_of=:
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
+template<typename Coords>
+std::size_t index_of(const Coords& coords) const {
+    return index_of(coords.x, coords.y);
+}
+#+end_src
+
 
 
 ** Indexing example
