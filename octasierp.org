@@ -722,6 +722,7 @@ I coudn't resist.
 #+begin_src cpp :minipage
 struct pointless_octasierp {
     const std::size_t degree;
+
     // Maximum value of the half-axis (half-axis cardinality - 1).
     const int extreme_index;
     // Width of the rectangular storage of one quarter.
@@ -745,11 +746,12 @@ Note:
 
 Since everyting is const, the only way to change the degree is to create a new =pointless_octasierp= instance, therefore the various cached variables bound to the degree are guaranteed to be kept in sync.
 
-** Points cardinality
+
+** Point cardinality
 
 The size of an octasierp, previously described as $\vert octasierp_d \vert = 2^{2d+2} + 2$, can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
 #+begin_src cpp :minipage :noweb-ref pointless_octasierp/public
-std::size_t points_cardinality() const {
+std::size_t point_cardinality() const {
     return (1 << (2 * degree + 2)) + 2;
 }
 #+end_src
@@ -763,7 +765,7 @@ int main() {
     for(std::size_t degree: {0, 1, 2, 3, 4}) {
         pointless_octasierp octa(degree);
         printer("This octasierp of degree ", degree, " would have had ",
-                octa.points_cardinality(), " points had it not been pointless.");
+                octa.point_cardinality(), " points had it not been pointless.");
     }
 }
 #+end_src
@@ -791,7 +793,7 @@ class octasierp {
 
     octasierp()=delete;
     octasierp(std::size_t degree, Point const& initial_value):
-        bound_(degree), storage_(bound_.points_cardinality(), initial_value)
+        bound_(degree), storage_(bound_.point_cardinality(), initial_value)
     {}
 
     auto begin() {return storage_.begin();}
