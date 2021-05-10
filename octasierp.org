@@ -2399,7 +2399,7 @@ Some observations:
 
 ** Mirrored points
 
-The goal of this section is to offer tools to manipulate mirrored points, first to detect them and then to reverse their mirror.
+The goal of this section is to offer tools to manipulate mirrored points, first to detect them and then to unmirror them.
 In the illustration below, for quarter 0 at degree 2, the mirror points to detect would be those represented by =\=, and they should be reverted to their =/= equivalents.
 
 # Disabled because customised.
@@ -2443,8 +2443,7 @@ bool is_mirrored_canonical(int degree) const {
 }
 #+end_src
 
-The implementation is fairly straightforward with the help of the illustration above.
-The only thing to look out for is the south pole for degree 1.
+The implementation is fairly straightforward with the help of the illustration above, with the exception of the south pole who is always mirrored for quarters 1, 2 and 3.
 #+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 template<int Quarter>
 bool is_mirrored_canonical_impl(const coordinates<Quarter>& coords, int extremum);
@@ -2455,16 +2454,15 @@ bool is_mirrored_canonical_impl<0>(const coordinates<0>& coords, int extremum) {
 }
 template<>
 bool is_mirrored_canonical_impl<1>(const coordinates<1>& coords, int extremum) {
-    // The south pole must be excluded from this one.
-    return coords.y == extremum && coords.x > 0 && coords.x != extremum;
+    return coords.y == extremum && coords.x > 0;
 }
 template<>
 bool is_mirrored_canonical_impl<2>(const coordinates<2>& coords, int extremum) {
-    return coords.x == -extremum && coords.y > 0;
+    return (coords.x == -extremum || coords.x == extremum) && coords.y > 0;
 }
 template<>
 bool is_mirrored_canonical_impl<3>(const coordinates<3>& coords, int extremum) {
-    return coords.y == -extremum && coords.x < 0;
+    return (coords.y == -extremum && coords.x < 0) || (coords.x == extremum && coords.y == extremum);
 }
 #+end_src
 
@@ -2499,14 +2497,14 @@ int main() {
 #+begin_src text :minipage
 Degree 0
 . . . . .
-. . # # .
+. . # 3 .
 . # # # .
 . . # . .
 . . . . .
 
 Degree 1
 . . . . . . .
-. . . # 3 # .
+. . . # 3 3 .
 . 3 # # # . .
 . # # # # # .
 . . # # # 3 .
@@ -2515,7 +2513,7 @@ Degree 1
 
 Degree 2
 . . . . . . . . . . .
-. . . . . # 3 3 3 # .
+. . . . . # 3 3 3 3 .
 . 3 # # # # # # # . .
 . 3 # # # # # # # . .
 . 3 # # # # # # # . .
