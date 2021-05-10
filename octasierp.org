@@ -2565,6 +2565,39 @@ Degree 2:
 
 #+end_src
 
+*** Unmirror
+
+The mirroring operation is reversible so to unmirror is the same thing as to mirror.
+The name =unmirror= was chosen for the following reasons:
+ - It implies a change to the object whereas =mirror= could as well be a predicate.
+ - Since canonical points are used most of the time anyway, this operation will typically be used after a =is_mirrored= test, making it more natural to =unmirror=.
+
+As usual, it is written as a public method relying on an external helper:
+#+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
+coordinates& unmirror() {
+    return unmirror_impl(*this);
+}
+#+end_src
+
+The implementation only consists in mirroring the right axis for the right quarter:
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
+template<int Quarter>
+coordinates<Quarter>& unmirror_impl(coordinates<Quarter>& coords);
+
+template<> coordinates<0>& unmirror_impl<0>(coordinates<0>& coords) {
+    coords.mirror_y(); return coords;
+}
+template<> coordinates<1>& unmirror_impl<1>(coordinates<1>& coords) {
+    coords.mirror_x(); return coords;
+}
+template<> coordinates<2>& unmirror_impl<2>(coordinates<2>& coords) {
+    coords.mirror_y(); return coords;
+}
+template<> coordinates<3>& unmirror_impl<3>(coordinates<3>& coords) {
+    coords.mirror_x(); return coords;
+}
+#+end_src
+
 ** Binary degree
 
 A naive C++ implementation of the binary degree function will look like this:
