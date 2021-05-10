@@ -2598,6 +2598,142 @@ template<> coordinates<3>& unmirror_impl<3>(coordinates<3>& coords) {
 }
 #+end_src
 
+*** Iteration on *every* coordinates
+
+=forevery_coordinates= is similar to =foreach_coordinates=, except that it also includes mirrored points, as illustrated below for quarter 0 at degree 2.
+
+# Execution disabled because manually modified.
+#+begin_src python :eval never :exports results
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), quarters={0}, show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------+-B-B-B-S
++3 |  |       | B B B /
++2 |  |       | B B B /
++1 |  |       | B B B /
+ 0 |  +-------X-A-A-A-A
+-1 |  |       |       \
+-2 |  |       |       \
+-3 |  |       |       \
+-4 |  +-------+-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =A= :: =foreach='s first step.
+ - =B= :: =foreach='s second step.
+ - =/= :: =forevery='s only step, aka the third step (non canonical mirrored points).
+ - =\= :: Canonical version of those mirrored points, technically belonging to quarter 3.
+ - =X= :: The north pole is excluded, because this point is specific to quarter 0.
+ - =S= :: The south pole is excluded for the same reason.
+
+
+=coordinates_logic/apply= from =foreach_coordinates= is reused to implement the bulk of the iteration logic, the only logic added are the mirrored points (=/=):
+#+begin_src cpp :noweb-ref octasierp/forevery_coordinates :minipage
+namespace forevery_coordinates_details {
+template<class CoordinatesConsumer>
+struct coordinates_logic {
+    CoordinatesConsumer coordinates_consumer; // Should perhaps be a reference (still).
+    const int extremum;
+
+    template<typename Coords>
+    void apply() {
+        <<coordinates_logic/apply>>
+
+        // Third step.
+        point = rotate_from<0, Coords>(extremum, -1);
+        do {
+            coordinates_consumer(point);
+        } while(++point.right.x < extremum); // This is mirrored logic.
+    }
+};
+} // namespace forevery_coordinates_details
+#+end_src
+
+The implementation =forevery_coordinates= itself is copy pasted from =foreach_coordinates=, except for the name and the additional south poles:
+#+begin_src cpp :noweb-ref octasierp/forevery_coordinates :minipage
+template<typename CoordinatesConsumer>
+void forevery_coordinates(const pointless_octasierp& octa, CoordinatesConsumer consumer) {
+    using forevery_coordinates_details::coordinates_logic;
+    const int extremum = 1 << octa.degree;
+    consumer(qoords<0>(0, 0)); // North pole.
+    foreach_quarter(coordinates_logic{consumer, extremum});
+    consumer(qoords<0>( extremum,  extremum)); // Canonical south pole.
+    consumer(qoords<1>( extremum,  extremum)); // Degree 1 mirrored south pole.
+    consumer(qoords<2>(-extremum,  extremum)); // Degree 2 mirrored south pole.
+    consumer(qoords<3>(-extremum, -extremum)); // Degree 3 mirrored south pole.
+}
+#+end_src
+#+depends:octasierp/forevery_coordinates :noweb pointless_octasierp qoords foreach_quarter
+
+The mirrored south poles are very confusing because, since =forevery_coordinates= produces canonical points only, it is the mirrored version that must be produced, i.e. the version of the quarter to the left.
+
+*** Usage
+
+=illustration= contains a kind of ad hoc reimplementation of =squarenet_shadow=
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb pointless_octasierp octasierp/forevery_coordinates out print :cpp vector")>>
+
+void illustration(std::size_t degree, const char* representation) {
+    auto octa = pointless_octasierp(degree);
+    std::size_t side = (1 << (degree + 1)) + 1;
+    std::vector<char> points(side * side, '!');
+    std::size_t last = 0;
+
+    forevery_coordinates(octa, [&](auto coords) {
+        char repr;
+        if(coords.is_mirrored_canonical(degree)) {
+            repr = '_';
+            coords.unmirror(); // Necessary because this is the canonical coordinates,
+                               // from the right quarter.
+        } else
+            repr = representation[last++];
+        int index = -(coords.y - octa.extreme_index) * side + coords.x + octa.extreme_index;
+        points[index] = repr;
+    });
+    for(std::size_t j = 0; j < side; ++j) {
+        for(std::size_t i = 0; i < side; ++i)
+            out(' ', points[j * side + i]);
+        print{};
+    }
+}
+
+int main() {
+    const char* representation = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+";
+    print{"Degree 0:"};
+    illustration(0, representation);
+
+    print{"\nDegree 2:"};
+    illustration(2, representation);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Degree 0:
+ _ 2 5
+ 3 0 1
+ _ 4 _
+
+Degree 2:
+ _ _ _ _ k e f g +
+ w t q n j b c d _
+ v s p m i 8 9 a _
+ u r o l h 5 6 7 _
+ A z y x 0 1 2 3 4
+ _ D C B N R U X /
+ _ G F E O S V Y *
+ _ J I H P T W Z -
+ _ M L K Q _ _ _ _
+#+end_src
+
 ** Binary degree
 
 A naive C++ implementation of the binary degree function will look like this:
