@@ -1947,7 +1947,7 @@ void foreach_coordinates(const pointless_octasierp& octa, CoordinatesConsumer co
 It can be seen in the results below that the iteration order differs from the storage order.
 
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb octasierp octasierp/foreach_coordinates squarenet_shadow")>>
+<<include(":noweb octasierp octasierp/foreach_coordinates squarenet_shadow print")>>
 
 void illustration(std::size_t degree, const char* representation) {
     auto octa = octasierp(degree, '!');
