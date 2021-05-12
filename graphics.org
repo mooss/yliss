@@ -344,7 +344,7 @@ class vertices {
     const GLsizei count_;
 };
 #+end_src
-#+depends:vertices :noweb VBO vertindex_common sum
+#+depends:vertices :noweb VBO vertindex_common sum :cpp span
 
 Vertex attributes are used to specify the layout of the data sent to the GPU.
 The =layout= parameter is used to deduce the required values of each vertex attribute, with a caveat being that it is more restrictive than manually calling =glVertexAttribPointer=.
@@ -376,17 +376,25 @@ vertices<T> vec_vertices(const std::vector<T>& content, const std::vector<std::s
     return vertices<T>(content, layout);
 }
 #+end_src
-#+depends:vec_vertices :cpp vector :noweb vertices
+#+depends:vec_vertices :noweb vertices :cpp vector
+
+#+name: spanvec_vertices
+#+begin_src cpp
+template<typename T>
+vertices<T> spanvec_vertices(std::span<const T> content, const std::vector<std::size_t>& layout) {
+    return vertices<T>(content, layout);
+}
+#+end_src
+#+depends:spanvec_vertices :noweb vertices :cpp span vector
+
 
 *** Indexes
-
-I'm assuming for now that indexes will only be vectors of unsigned int.
 
 #+name: indexes
 #+begin_src cpp
 class indexes {
   public:
-    indexes(const std::vector<GLuint>& content):
+    indexes(const std::span<const GLuint> content):
         count_(content.size())
     {
         // Hardcoded 3 because only triangles are supported.
@@ -402,7 +410,16 @@ class indexes {
     const GLsizei count_;
 };
 #+end_src
-#+depends:indexes :noweb EBO vertindex_common
+#+depends:indexes :noweb EBO vertindex_common :cpp span
+
+Similar to =vec_vertices=, =vec_indexes= allow to create indexes on the fly, with a vector:
+#+name: vec_indexes
+#+begin_src cpp
+indexes vec_indexes(const std::vector<GLuint>& content) {
+    return indexes(content);
+}
+#+end_src
+#+depends:vec_indexes :noweb indexes :cpp vector
 
 
 ** Uniform
@@ -608,7 +625,7 @@ int main(){
 Same thing as above, except we use =indexes= (and therefore =EBO=) as well as =vertices= to draw the two triangles forming a rectangle.
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices indexes")>>
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices vec_indexes")>>
 
 int main(){
     const char *vs_str =
@@ -627,7 +644,7 @@ int main(){
            -0.5, -0.5, 0.0, // Bottom left.
            -0.5,  0.5, 0.0  // Top left.
     }, {3});
-    auto rectangle_indexes = indexes({
+    auto rectangle_indexes = vec_indexes({
             0, 1, 3, // First triangle.
             1, 2, 3  // Second triangle.
     });
@@ -812,7 +829,7 @@ auto colorful_vertices = vec_vertices<GLfloat>({
        -.5, -.5, -.5,   1, 1, 0, // Yellow.
         .5, -.5, -.5,   1, 0, 1  // Magenta.
 }, {3, 3});
-auto colorful_indexes = indexes({
+auto colorful_indexes = vec_indexes({
         3, 2, 6,
         2, 6, 7,
         6, 7, 4,
@@ -827,7 +844,7 @@ auto colorful_indexes = indexes({
         4, 1, 0
 });
 #+end_src
-#+depends:colorful-example :noweb lazy_window shader_program VAO vec_vertices indexes
+#+depends:colorful-example :noweb lazy_window shader_program VAO vec_vertices vec_indexes
 
 ** Matrix transformations
 
