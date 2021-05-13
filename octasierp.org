@@ -2579,8 +2579,11 @@ coordinates& unmirror() {
 }
 #+end_src
 
-The implementation only consists in mirroring the right axis for the right quarter:
-#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
+The implementation consists of two things:
+ 1. Handling the south pole by rotating by the correct amount.
+ 2. Handling the other points by mirroring the right axis.
+
+#+begin_src cpp :noweb-ref quarter_rotation_details/public
 template<int Quarter>
 coordinates<Quarter>& unmirror_impl(coordinates<Quarter>& coords);
 
@@ -2588,13 +2591,25 @@ template<> coordinates<0>& unmirror_impl<0>(coordinates<0>& coords) {
     coords.mirror_y(); return coords;
 }
 template<> coordinates<1>& unmirror_impl<1>(coordinates<1>& coords) {
-    coords.mirror_x(); return coords;
+    if(coords.x == coords.y && coords.x > 0)
+        coords.rotate_left();
+    else
+        coords.mirror_x();
+    return coords;
 }
 template<> coordinates<2>& unmirror_impl<2>(coordinates<2>& coords) {
-    coords.mirror_y(); return coords;
+    if(coords.x > 0 && coords.y > 0)
+        coords.rotate_back();
+    else
+        coords.mirror_y();
+    return coords;
 }
 template<> coordinates<3>& unmirror_impl<3>(coordinates<3>& coords) {
-    coords.mirror_x(); return coords;
+    if(coords.x > 0 && coords.y > 0)
+        coords.rotate_right();
+    else
+        coords.mirror_x();
+    return coords;
 }
 #+end_src
 
@@ -2665,10 +2680,10 @@ void forevery_coordinates(const pointless_octasierp& octa, CoordinatesConsumer c
     const int extremum = 1 << octa.degree;
     consumer(qoords<0>(0, 0)); // North pole.
     foreach_quarter(coordinates_logic{consumer, extremum});
-    consumer(qoords<0>( extremum,  extremum)); // Canonical south pole.
-    consumer(qoords<1>( extremum,  extremum)); // Degree 1 mirrored south pole.
-    consumer(qoords<2>(-extremum,  extremum)); // Degree 2 mirrored south pole.
-    consumer(qoords<3>(-extremum, -extremum)); // Degree 3 mirrored south pole.
+    consumer(qoords<0>(extremum, extremum)); // Canonical south pole.
+    consumer(qoords<1>(extremum, extremum)); // Degree 1 mirrored south pole.
+    consumer(qoords<2>(extremum, extremum)); // Degree 2 mirrored south pole.
+    consumer(qoords<3>(extremum, extremum)); // Degree 3 mirrored south pole.
 }
 #+end_src
 #+depends:octasierp/forevery_coordinates :noweb pointless_octasierp qoords foreach_quarter
