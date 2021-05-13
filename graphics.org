@@ -869,6 +869,7 @@ class transform {
         matrix_ = glm::scale(matrix_, magnitude);
         return *this;
     }
+    transform& scale(float factor) {return scale({factor, factor, factor});}
 
     transform& translate(const glm::vec3& translation) {
         matrix_ = glm::translate(matrix_, translation);
