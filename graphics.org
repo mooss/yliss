@@ -1190,10 +1190,8 @@ class orbital_camera: public camera {
     orbital_camera(
         glm::vec3 focal_point, float radius, float longitude, float latitude,
         glm::vec3 up={0, 1, 0}
-    ):
-        focal_point_(std::move(focal_point)), radius_(radius),
-        longitude_(longitude), latitude_(latitude),
-        camera({0, 0, 0}, {0, 0, 0}, std::move(up))
+    ): camera({0, 0, 0}, {0, 0, 0}, std::move(up)), focal_point_(std::move(focal_point)),
+       radius_(radius), longitude_(longitude), latitude_(latitude)
     {refresh();}
 
     orbital_camera& orient(float delta_longitude, float delta_latitude) {
