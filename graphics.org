@@ -407,7 +407,7 @@ class indexes {
     }
 
   private:
-    const GLsizei count_;
+    GLsizei count_;
 };
 #+end_src
 #+depends:indexes :noweb EBO vertindex_common :cpp span
