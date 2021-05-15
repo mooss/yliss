@@ -4,6 +4,7 @@
 #+property: header-args:bash :eval never
 #+property: header-args:cpp :flags -std=c++20 -Wall -Werror :eval never :main no :noweb no-export :wrap "src text :minipage"
 #+property: header-args:python :noweb no-export :results output :wrap "src text :minipage" :eval never
+#+options: ^:nil
 
 * Prelude
 ** About mathematical rigour
@@ -790,17 +791,18 @@ template<typename Point>
 class octasierp {
   public:
     using value_type = Point;
+    std::vector<Point> storage;
 
     octasierp()=delete;
     octasierp(std::size_t degree, Point const& initial_value):
-        bound_(degree), storage_(bound_.point_cardinality(), initial_value)
+        bound_(degree), storage(bound_.point_cardinality(), initial_value)
     {}
 
-    auto begin() {return storage_.begin();}
-    auto end() {return storage_.end();}
-    auto begin() const {return storage_.begin();}
-    auto end() const {return storage_.end();}
-    auto size() const {return storage_.size();}
+    auto begin() {return storage.begin();}
+    auto end() {return storage.end();}
+    auto begin() const {return storage.begin();}
+    auto end() const {return storage.end();}
+    auto size() const {return storage.size();}
 
     const pointless_octasierp& bound() const {return bound_;}
     auto degree() const {return bound_.degree;}
@@ -809,7 +811,6 @@ class octasierp {
 
   private:
     pointless_octasierp bound_;
-    std::vector<Point> storage_;
 };
 #+end_src
 #+depends:octasierp :noweb pointless_octasierp :cpp vector cmath
@@ -931,11 +932,11 @@ int main() {
 Those indexing methods are delegating all the work to =bound_='s =index_of= method.
 #+begin_src cpp :noweb-ref octasierp/public :minipage
 const Point& point(int x, int y) const {
-    return storage_[bound_.index_of(x, y)];
+    return storage[bound_.index_of(x, y)];
 }
 
 Point& point(int x, int y) {
-    return storage_[bound_.index_of(x, y)];
+    return storage[bound_.index_of(x, y)];
 }
 #+end_src
 
