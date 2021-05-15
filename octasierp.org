@@ -2750,6 +2750,7 @@ Degree 2:
  _ M L K Q _ _ _ _
 #+end_src
 
+
 ** Binary degree
 
 A naive C++ implementation of the binary degree function will look like this:
@@ -2789,7 +2790,209 @@ bindeg(7, 3) = 3
 bindeg(8, 3) = 0
 #+end_src
 
-The binary degree function will be fundamental to point indexation in an octasierp and can probably be optimised using =<strings.h>='s =ffs= (find first set).
+The binary degree function will be fundamental to some octasierp operarations and can probably be optimised using =<strings.h>='s =ffs= (find first set).
+
+
+* The third dimension
+
+** Squarenet visualisation
+
+The visualisation presented here is only three dimensional in the technical sense, since it is still a squarenet, but this time rendered with OpenGL.
+
+*** Vertices and indexes
+
+The function implemented in this section (=squarenet_gl=) builds a bridge between an octasierp and OpenGL, transforming its points into vertices and indexes that can be transmitted to the GPU for rendering.
+
+The implementation is divided in two parts, the first part generating the vertices (=seg_vertices=) and the second generating the indexes (=seg_indexes=).
+
+But first, below is a high level overview of this function with its result type, =side= holding the dimension of one side of the squarenet (it will useful afterwards and is also needed in the implementation).
+The =source= argument holds the data for each point of the octasierp, it is expected to be both of the correct size for the given degree and to respect =octasierp='s storage order.
+#+name: squarenet_gl
+#+begin_src cpp :minipage
+struct squarenet_gl_results {
+    std::vector<GLfloat> vertices;
+    std::vector<GLuint> indexes;
+    std::size_t side;
+};
+
+template<std::size_t SegmentSize>
+auto squarenet_gl(const segvector<GLfloat, SegmentSize>& source, std::size_t degree) {
+    <<squarenet_gl/scope>>
+    return squarenet_gl_results{
+        std::move(seg_vertices.storage),
+        std::move(seg_indexes.storage),
+        squarenet_side
+    };
+}
+#+end_src
+#+depends:squarenet_gl :noweb hash/pair segvector pointless_octasierp octasierp/forevery_coordinates octasierp/foreach_triangle :cpp utility vector unordered_map limits algorithm
+
+The difficulty in generating vertices comes from the need to handle non canonical (aka unorthodox) coordinates.
+The indexes of those coordinates are kept around in =unorthodox_indexes=, because they will be needed in the next step (indexes generation).
+The vertices are kept in a segmented vector whose segments can hold two more floats than the source, those two floats being the coordinates, who are stored first.
+
+Since =source= and =seg_vertices= have neither the same shape or size, the source cannot be reused and must instead be copied.
+
+#+begin_src cpp :noweb-ref squarenet_gl/scope :minipage
+const pointless_octasierp octa(degree);
+std::size_t next_mirrored = octa.point_cardinality();
+std::size_t squarenet_side = (1 << (degree + 1)) + 1;
+std::size_t squarenet_points = squarenet_side * squarenet_side;
+
+std::unordered_map<std::pair<int, int>, std::size_t> unorthodox_indexes;
+segvector<GLfloat, SegmentSize + 2> seg_vertices;
+seg_vertices.resize(squarenet_points, 0);
+
+forevery_coordinates(octa, [&](auto coords) {
+    std::size_t index = octa.index_of(coords);
+    auto source_data = source[index];
+    if(coords.is_mirrored_canonical(degree)) {
+        coords.unmirror();
+        index = next_mirrored;
+        unorthodox_indexes[{coords.x, coords.y}] = next_mirrored++;
+    }
+    auto vertex_data = seg_vertices[index];
+    vertex_data[0] = coords.x; vertex_data[1] = coords.y;
+    std::copy(source_data.begin(), source_data.end(), vertex_data.begin() + 2);
+});
+#+end_src
+
+Since OpenGL indexes correspond to triangles, =foreach_triangle= is used to generate them.
+As mentioned above, the map =unorthodox_indexes= helps us recall the index corresponding to a given unorthodox point.
+
+#+begin_src cpp :noweb-ref squarenet_gl/scope :minipage
+segvector<GLuint, 3> seg_indexes;
+seg_indexes.reserve(octa.triangle_cardinality());
+
+foreach_triangle(octa, [&](auto a, auto b, auto c) {
+    for(auto coords: {a, b, c}) {
+        std::size_t index;
+        if(coords.is_mirrored_canonical(degree)) {
+            coords.unmirror();
+            index = unorthodox_indexes[{coords.x, coords.y}];
+        } else {
+            index = octa.index_of(coords);
+        }
+        seg_indexes.storage.push_back(index);
+    }
+});
+#+end_src
+
+*** Rendering
+:PROPERTIES:
+:header-args:cpp: :noweb no-export
+:END:
+
+The squarenet will be rendered with a color gradient that will provide a nice visualisation of both the storage order and the mirrored points.
+
+This implies a vertex shader with a =vec2= of positions and a =vec3= of colors:
+#+name: squarenet_vs
+#+begin_src glsl :minipage
+#version 330 core
+layout (location = 0) in vec2 position;
+layout (location = 1) in vec3 color_in;
+out vec3 color_fs;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * view * model * vec4(position, 0.0f, 1.0f);
+    color_fs = color_in;
+}
+#+end_src
+
+And a fragment shader simply reusing the position sent by the vertex shader:
+#+name: squarenet_fs
+#+begin_src glsl :minipage
+
+#+begin_src glsl
+#version 330 core
+out vec4 color_out;
+in vec3 color_fs;
+
+void main() {
+    color_out = vec4(color_fs, 1.);
+}
+#+end_src
+
+First each canonical point is colored with a color gradient, then vertices and indexes are prepared via =squarenet_gl= and finally through a bit of OpenGL tweaking the squarenet is rendered with lines and slowly rotated each frame.
+
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb lazy_window shader_program movipr transform VAO vec_vertices indexes segvector pointless_octasierp linear_interpolation segarray squarenet_gl orbital_camera to_span/glm gl_screen_first :defs graphics.org window.org")>>
+
+
+int main(){
+    std::size_t degree = 3;
+    pointless_octasierp octa(degree);
+    segvector<GLfloat, 3> vertices_colors;
+    vertices_colors.resize(octa.point_cardinality(), 0);
+
+    linear_interpolation<segarray<GLfloat, 8, 3>> gradient{
+        1, 0, 0, // Red.
+        1, 0, 1, // Magenta.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        1, 1, 0, // Yellow.
+    };
+    gradient.fill_all(vertices_colors);
+    auto gl_data = squarenet_gl(vertices_colors, degree);
+
+    const char *vs_str =
+        <<include(":noweb squarenet_vs :c-string")>>
+        ;
+    const char *fs_str =
+        <<include(":noweb squarenet_fs :c-string")>>
+        ;
+
+    orbital_camera director({0, 0, 0}, 2, 90, 0);
+    lazy_window lazy("Octasierp colorful squarenet", 640u, 480u);
+    shader_program octa_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+    movipr viper(
+        transform().scale(1.2 / gl_data.side), // Make the squarenet fit into the screen.
+        to_span(director.view()),
+        octa_shader,
+        {.aspect = lazy.aspect()}
+    );
+    auto size_sub = lazy.observe_size([&viper](auto const& size) {
+        viper.projection_parameters.aspect = size.aspect();
+        viper.refresh_projection();
+    });
+
+    VAO octasierp_vao;
+    vec_vertices<GLfloat>(gl_data.vertices, {2, 3});
+    indexes octasierp_indexes(gl_data.indexes);
+
+    // Render with thick lines.
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(8);
+
+    gl_screen_first(lazy, "images/screencaps/gradient_squarenet.png", [&]{
+        octa_shader.use();
+        octasierp_vao.bind();
+        octasierp_indexes.draw();
+        viper.view.send(to_span(director.orient(1, 0).view()));
+    });
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/gradient_squarenet.png]]
+:end:
+
+At first I wanted to use a neat multicolor gradient with two colors per quarter but because of the mirrored points, it was impossible to make it not look like a swastika.
+That is why I settled on this color gradient with one red, one magenta, five cyan and one yellow.
+
+It doesn't have this unfortunate look but still illustrates the point ordering and mirroring for quarter 0 with:
+ - The six original points (and a few more) showing in red.
+ - The canonical points of quarter 0 transitioning from red to magenta to cyan.
+ - The orthodox points of the right border being a mirrored version of the yellow points from the end of quarter 3.
 
 
 * Diagrams generation
