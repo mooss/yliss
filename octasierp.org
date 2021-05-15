@@ -2248,7 +2248,7 @@ triangle_consumer(bottom_right, top_right, top_left);
 
 *** Usage
 
-The code below prints two squarenet shadows using octasierps constructed with the help of =foreach_triangles=.
+The code below prints two squarenet shadows using octasierps constructed with the help of =foreach_triangle=.
 The first octasierp (=order=) illustrate the order in which the points are first used as part of a triangle, while the second one (=counter=) illustrate the number of times a point is used as part of a triangle.
 #+name: triangles_order_counter_shadow
 #+begin_src cpp
