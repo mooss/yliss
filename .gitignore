@@ -1,4 +1,3 @@
 include/miniz*
 include/glm
-include/stb
 *.pdf
