@@ -2906,8 +2906,6 @@ void main() {
 And a fragment shader simply reusing the position sent by the vertex shader:
 #+name: squarenet_fs
 #+begin_src glsl :minipage
-
-#+begin_src glsl
 #version 330 core
 out vec4 color_out;
 in vec3 color_fs;
