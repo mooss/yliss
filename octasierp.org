@@ -1940,15 +1940,15 @@ for(int j = 1; j <= extremum; ++j) {
 All that remains to be done for the implementation of =foreach_coordinates= is to use =foreach_quarter= to transpose by rotation the logic defined above, and to include the north and south poles that were voluntarily left out.
 #+begin_src cpp :noweb-ref octasierp/foreach_coordinates :minipage
 template<typename CoordinatesConsumer>
-void foreach_coordinates(const pointless_octasierp& octa, CoordinatesConsumer consumer) {
+void foreach_coordinates(std::size_t degree, CoordinatesConsumer consumer) {
     using foreach_coordinates_details::coordinates_logic;
-    const int extremum = 1 << octa.degree;
+    const int extremum = 1 << degree;
     consumer(qoords<0>(0, 0)); // North pole.
     foreach_quarter(coordinates_logic{consumer, extremum});
     consumer(qoords<0>(extremum, extremum)); // South pole.
 }
 #+end_src
-#+depends:octasierp/foreach_coordinates :noweb pointless_octasierp qoords foreach_quarter
+#+depends:octasierp/foreach_coordinates :noweb qoords foreach_quarter
 
 *** Usage
 
@@ -1960,7 +1960,7 @@ It can be seen in the results below that the iteration order differs from the st
 void illustration(std::size_t degree, const char* representation) {
     auto octa = octasierp(degree, '!');
     std::size_t last = 0;
-    foreach_coordinates(octa.bound(), [&](const auto& coords) {
+    foreach_coordinates(degree, [&](const auto& coords) {
         octa[coords] = representation[last++];
     });
     squarenet_shadow(octa.bound(), [&octa](const auto& coords) {
@@ -2068,9 +2068,9 @@ struct triangle_logic {
 The proper function delegates the work to =triangle_logic= and =foreach_quarter=, except for degree 0, which had to be hardcoded:
 #+begin_src cpp :noweb-ref octasierp/foreach_triangle :minipage
 template<typename TriangleConsumer>
-void foreach_triangle(const pointless_octasierp& octa, TriangleConsumer consumer) {
+void foreach_triangle(std::size_t degree, TriangleConsumer consumer) {
     using foreach_triangle_details::triangle_logic;
-    if(octa.degree == 0) {
+    if(degree == 0) {
         consumer(qoords<0>(0, 0), qoords<0>(1, 0), qoords<0>(0, 1));
         consumer(qoords<0>(1, 0), qoords<0>(1, 1), qoords<0>(0, 1));
 
@@ -2086,11 +2086,11 @@ void foreach_triangle(const pointless_octasierp& octa, TriangleConsumer consumer
     }
     foreach_quarter(triangle_logic{
         consumer,
-        (1 << octa.degree) - 1
+        (1 << degree) - 1
     });
 }
 #+end_src
-#+depends:octasierp/foreach_triangle :noweb pointless_octasierp qoords foreach_quarter
+#+depends:octasierp/foreach_triangle :noweb qoords foreach_quarter
 
 *** Safe zone
 
@@ -2284,8 +2284,6 @@ Triangle cardinality at degree 2: 128
 Triangle cardinality at degree 3: 512
 #+end_src
 
-
-
 *** Usage
 
 The code below prints two squarenet shadows using octasierps constructed with the help of =foreach_triangle=.
@@ -2298,7 +2296,7 @@ void triangles_order_counter_shadow(std::size_t degree, const char* representati
     int triangle_cardinality = 0;
     octasierp counter(degree, 0);
 
-    foreach_triangle(order.bound(), [&](const auto& a, const auto& b, const auto& c) {
+    foreach_triangle(degree, [&](const auto& a, const auto& b, const auto& c) {
         ++triangle_cardinality;
         for(const auto& coords: {a, b, c}) {
             if(order.bound().valid_coordinates(coords.x, coords.y)) {
@@ -2539,7 +2537,7 @@ int main() {
             }
         };
 
-        foreach_triangle(octa.bound(), count_mirrored);
+        foreach_triangle(degree, count_mirrored);
         out("Degree ", degree, ":\n");
         squarenet_shadow(octa.bound(), [&octa](auto coords) {
             return octa[coords];
@@ -2692,9 +2690,9 @@ struct coordinates_logic {
 The implementation =forevery_coordinates= itself is copy pasted from =foreach_coordinates=, except for the name and the additional south poles:
 #+begin_src cpp :noweb-ref octasierp/forevery_coordinates :minipage
 template<typename CoordinatesConsumer>
-void forevery_coordinates(const pointless_octasierp& octa, CoordinatesConsumer consumer) {
+void forevery_coordinates(std::size_t degree, CoordinatesConsumer consumer) {
     using forevery_coordinates_details::coordinates_logic;
-    const int extremum = 1 << octa.degree;
+    const int extremum = 1 << degree;
     consumer(qoords<0>(0, 0)); // North pole.
     foreach_quarter(coordinates_logic{consumer, extremum});
     consumer(qoords<0>(extremum, extremum)); // Canonical south pole.
@@ -2703,7 +2701,7 @@ void forevery_coordinates(const pointless_octasierp& octa, CoordinatesConsumer c
     consumer(qoords<3>(extremum, extremum)); // Degree 3 mirrored south pole.
 }
 #+end_src
-#+depends:octasierp/forevery_coordinates :noweb pointless_octasierp qoords foreach_quarter
+#+depends:octasierp/forevery_coordinates :noweb qoords foreach_quarter
 
 The mirrored south poles are very confusing because, since =forevery_coordinates= produces canonical points only, it is the mirrored version that must be produced, i.e. the version of the quarter to the left.
 
@@ -2719,7 +2717,7 @@ void illustration(std::size_t degree, const char* representation) {
     std::vector<char> points(side * side, '!');
     std::size_t last = 0;
 
-    forevery_coordinates(octa, [&](auto coords) {
+    forevery_coordinates(degree, [&](auto coords) {
         char repr;
         if(coords.is_mirrored_canonical(degree)) {
             repr = '_';
@@ -2859,7 +2857,7 @@ std::unordered_map<std::pair<int, int>, std::size_t> unorthodox_indexes;
 segvector<GLfloat, SegmentSize + 2> seg_vertices;
 seg_vertices.resize(squarenet_points, 0);
 
-forevery_coordinates(octa, [&](auto coords) {
+forevery_coordinates(degree, [&](auto coords) {
     std::size_t index = octa.index_of(coords);
     auto source_data = source[index];
     if(coords.is_mirrored_canonical(degree)) {
@@ -2880,7 +2878,7 @@ As mentioned above, the map =unorthodox_indexes= helps us recall the index corre
 segvector<GLuint, 3> seg_indexes;
 seg_indexes.reserve(octa.triangle_cardinality());
 
-foreach_triangle(octa, [&](auto a, auto b, auto c) {
+foreach_triangle(degree, [&](auto a, auto b, auto c) {
     for(auto coords: {a, b, c}) {
         std::size_t index;
         if(coords.is_mirrored_canonical(degree)) {
