@@ -789,6 +789,9 @@ The code block below forms the outline of the actual octasierp implementation, t
 #+begin_src cpp :minipage
 template<typename Point>
 class octasierp {
+  private:
+    pointless_octasierp bound_;
+
   public:
     using value_type = Point;
     std::vector<Point> storage;
@@ -808,9 +811,6 @@ class octasierp {
     auto degree() const {return bound_.degree;}
 
     <<octasierp/public>>
-
-  private:
-    pointless_octasierp bound_;
 };
 #+end_src
 #+depends:octasierp :noweb pointless_octasierp :cpp vector cmath
