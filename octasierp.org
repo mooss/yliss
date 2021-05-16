@@ -2246,156 +2246,6 @@ triangle_consumer(bottom_left, bottom_right, top_left);
 triangle_consumer(bottom_right, top_right, top_left);
 #+end_src
 
-*** Usage
-
-The code below prints two squarenet shadows using octasierps constructed with the help of =foreach_triangle=.
-The first octasierp (=order=) illustrate the order in which the points are first used as part of a triangle, while the second one (=counter=) illustrate the number of times a point is used as part of a triangle.
-#+name: triangles_order_counter_shadow
-#+begin_src cpp
-void triangles_order_counter_shadow(std::size_t degree, const char* representation) {
-    octasierp order(degree, ';');
-    int last_repr = 0;
-    octasierp counter(degree, 0);
-
-    foreach_triangle(order.bound(), [&](const auto& a, const auto& b, const auto& c) {
-        for(const auto& coords: {a, b, c}) {
-            if(order.bound().valid_coordinates(coords.x, coords.y)) {
-                ++counter[coords];
-                auto& point = order[coords];
-                if(point == ';') {
-                    point = representation[last_repr++];
-                }
-            } else {
-                print{"Received invalid coordinate:", coords};
-                print{"Triangle is", a, b, c};
-            }
-        }
-    });
-
-    print{"Order:"};
-    squarenet_shadow(order.bound(), [&order](const auto& coords) {
-        return order[coords];
-    });
-    print{};
-    print{"Counter:"};
-    squarenet_shadow(counter.bound(), [&counter](const auto& coords) {
-        switch(counter[coords]) {
-          case 4:  return '4';
-          case 6:  return '6';
-          default: return 'E'; // Error.
-        }
-    });
-}
-#+end_src
-#+depends:triangles_order_counter_shadow :noweb octasierp octasierp/foreach_triangle print <<qoords squarenet_shadow
-
-**** Degree 0
-
-#+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb triangles_order_counter_shadow")>>
-
-int main() {
-    triangles_order_counter_shadow(0, "012345");
-}
-#+end_src
-
-#+RESULTS:
-#+begin_src text :minipage
-Order:
-. . . . .
-. . 2 3 .
-. 4 0 1 .
-. . 5 . .
-. . . . .
-
-Counter:
-. . . . .
-. . 4 4 .
-. 4 4 4 .
-. . 4 . .
-. . . . .
-#+end_src
-\\
-
-**** Degree 1
-
-#+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb triangles_order_counter_shadow")>>
-
-int main() {
-    triangles_order_counter_shadow(1, "0123456789abcdefgh");
-}
-#+end_src
-
-#+RESULTS:
-#+begin_src text :minipage
-Order:
-. . . . . . .
-. . . 4 5 8 .
-. c a 2 3 . .
-. b 9 0 1 6 .
-. . e d h 7 .
-. . g f . . .
-. . . . . . .
-
-Counter:
-. . . . . . .
-. . . 4 6 4 .
-. 6 6 6 6 . .
-. 4 6 4 6 4 .
-. . 6 6 6 6 .
-. . 6 4 . . .
-. . . . . . .
-#+end_src
-\\
-
-**** Degree 2
-
-#+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb triangles_order_counter_shadow")>>
-
-int main() {
-    triangles_order_counter_shadow(2, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
-}
-#+end_src
-
-#+RESULTS:
-#+begin_src text :minipage
-Order:
-. . . . . . . . . . .
-. . . . . g h i j o .
-. E A w s c d e f . .
-. D z v r 8 9 a b . .
-. C y u q 2 3 5 7 . .
-. B x t p 0 1 4 6 k .
-. . I H G F V Y * l .
-. . M L K J W Z - m .
-. . Q P O N X / + n .
-. . U T S R . . . . .
-. . . . . . . . . . .
-
-Counter:
-. . . . . . . . . . .
-. . . . . 4 6 6 6 4 .
-. 6 6 6 6 6 6 6 6 . .
-. 6 6 6 6 6 6 6 6 . .
-. 6 6 6 6 6 6 6 6 . .
-. 4 6 6 6 4 6 6 6 4 .
-. . 6 6 6 6 6 6 6 6 .
-. . 6 6 6 6 6 6 6 6 .
-. . 6 6 6 6 6 6 6 6 .
-. . 6 6 6 4 . . . . .
-. . . . . . . . . . .
-#+end_src
-\\
-Some observations:
- - The =k=, =l=, =m= and =n= points bear witness to the mirrored nature of the right border for quarter 0.
- - All points are part of six triangles, except the six initial points who belong to only four triangles.
-   This is the expected result, as can be seen by looking at the visualisation of the squarified nets for degrees 0, 1 2 and 3 (included below).
-
-#+attr_latex: :placement [H]
-[[file:images/montage_net_squa_degree_0-3.png]]
-
 *** Triangle cardinality
 
 Looking once again at the squarified net visualisation above, we can see the following patterns:
@@ -2433,6 +2283,172 @@ Triangle cardinality at degree 1: 32
 Triangle cardinality at degree 2: 128
 Triangle cardinality at degree 3: 512
 #+end_src
+
+
+
+*** Usage
+
+The code below prints two squarenet shadows using octasierps constructed with the help of =foreach_triangle=.
+The first octasierp (=order=) illustrate the order in which the points are first used as part of a triangle, while the second one (=counter=) illustrate the number of times a point is used as part of a triangle.
+#+name: triangles_order_counter_shadow
+#+begin_src cpp
+void triangles_order_counter_shadow(std::size_t degree, const char* representation) {
+    octasierp order(degree, ';');
+    int last_repr = 0;
+    int triangle_cardinality = 0;
+    octasierp counter(degree, 0);
+
+    foreach_triangle(order.bound(), [&](const auto& a, const auto& b, const auto& c) {
+        ++triangle_cardinality;
+        for(const auto& coords: {a, b, c}) {
+            if(order.bound().valid_coordinates(coords.x, coords.y)) {
+                ++counter[coords];
+                auto& point = order[coords];
+                if(point == ';') {
+                    point = representation[last_repr++];
+                }
+            } else {
+                print{"Received invalid coordinate:", coords};
+                print{"Triangle is", a, b, c};
+            }
+        }
+    });
+
+    print{
+        order.bound().triangle_cardinality(), "triangles in theory",
+        triangle_cardinality, "triangles in practice\n"
+    };
+
+    print{"Order:"};
+    squarenet_shadow(order.bound(), [&order](const auto& coords) {
+        return order[coords];
+    });
+    print{};
+    print{"Counter:"};
+    squarenet_shadow(counter.bound(), [&counter](const auto& coords) {
+        switch(counter[coords]) {
+          case 4:  return '4';
+          case 6:  return '6';
+          default: return 'E'; // Error.
+        }
+    });
+}
+#+end_src
+#+depends:triangles_order_counter_shadow :noweb octasierp octasierp/foreach_triangle print <<qoords squarenet_shadow
+
+**** Degree 0
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb triangles_order_counter_shadow")>>
+
+int main() {
+    triangles_order_counter_shadow(0, "012345");
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+8 triangles in theory 8 triangles in practice
+
+Order:
+. . . . .
+. . 2 3 .
+. 4 0 1 .
+. . 5 . .
+. . . . .
+
+Counter:
+. . . . .
+. . 4 4 .
+. 4 4 4 .
+. . 4 . .
+. . . . .
+#+end_src
+\\
+
+**** Degree 1
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb triangles_order_counter_shadow")>>
+
+int main() {
+    triangles_order_counter_shadow(1, "0123456789abcdefgh");
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+32 triangles in theory 32 triangles in practice
+
+Order:
+. . . . . . .
+. . . 4 5 8 .
+. c a 2 3 . .
+. b 9 0 1 6 .
+. . e d h 7 .
+. . g f . . .
+. . . . . . .
+
+Counter:
+. . . . . . .
+. . . 4 6 4 .
+. 6 6 6 6 . .
+. 4 6 4 6 4 .
+. . 6 6 6 6 .
+. . 6 4 . . .
+. . . . . . .
+#+end_src
+\\
+
+**** Degree 2
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb triangles_order_counter_shadow")>>
+
+int main() {
+    triangles_order_counter_shadow(2, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+");
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+128 triangles in theory 128 triangles in practice
+
+Order:
+. . . . . . . . . . .
+. . . . . g h i j o .
+. E A w s c d e f . .
+. D z v r 8 9 a b . .
+. C y u q 2 3 5 7 . .
+. B x t p 0 1 4 6 k .
+. . I H G F V Y * l .
+. . M L K J W Z - m .
+. . Q P O N X / + n .
+. . U T S R . . . . .
+. . . . . . . . . . .
+
+Counter:
+. . . . . . . . . . .
+. . . . . 4 6 6 6 4 .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 4 6 6 6 4 6 6 6 4 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 4 . . . . .
+. . . . . . . . . . .
+#+end_src
+\\
+Some observations:
+ - The =k=, =l=, =m= and =n= points bear witness to the mirrored nature of the right border for quarter 0.
+ - All points are part of six triangles, except the six initial points who belong to only four triangles.
+   This is the expected result, as can be seen by looking at the visualisation of the squarified nets for degrees 0, 1 2 and 3 (included below).
+
+#+attr_latex: :placement [H]
+[[file:images/montage_net_squa_degree_0-3.png]]
+
 
 
 
