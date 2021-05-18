@@ -2765,6 +2765,83 @@ Degree 2:
 #+end_src
 
 
+** Foreach adapters
+
+This section contains helpers dedicated to adapting the behaviour of the foreach loops operating on octasierp coordinates.
+
+*** Degree shifter
+
+This utility's goal is to adapt foreach loops to higher degrees.
+With it, the coordinates transmitted to a given consumer can be shifted by a number of degrees, making it possible to, say, iterate on all points of degree $\leq 2$ but with the coordinates those points would have at degree 4.
+
+First, support for scalar multiplication of coordinates is needed:
+#+begin_src cpp :noweb-ref coordinates<Quarter>/public :minipage
+coordinates& operator*=(int n) {
+    __private_x *= n;
+    __private_y *= n;
+    return *this;
+}
+#+end_src
+\\
+
+The code below adds =_shift= degrees to each coordinates transmitted to the given consumer.
+In practice, this is simply a multiplication by $2^{\_shift}$.
+This can be explained by the fact that each new subdivision degree adds a new point between each pre-existing one, thereby doubling the value of the =x= and =y= components.
+#+name: degree_shifter
+#+begin_src cpp :minipage
+template<class Consumer>
+struct degree_shifter {
+    int shift;
+    Consumer consumer;
+    degree_shifter(int _shift, Consumer _consumer):
+        shift(1 << _shift), consumer(_consumer)
+    {}
+
+    template<class... Coordinates>
+    void operator()(Coordinates... coords) {
+        shift_it(coords...);
+        consumer(coords...);
+    }
+
+    void shift_it() const {}
+    template<class Head, class... Tail>
+    void shift_it(Head& head, Tail&... tail) {
+        head *= shift;
+        shift_it(tail...);
+    }
+};
+#+end_src
+
+Usage:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb degree_shifter octasierp/foreach_coordinates qoords <<qoords out print")>>
+
+int main() {
+    auto print_coordinates = [](const auto& coords) {
+        out(" ", coords, ';');
+    };
+    for(std::size_t shift = 0; shift < 3; ++shift) {
+        out("\n\nCoordinates of degree 0 in an octasierp of degree ", shift, ":\n");
+        foreach_coordinates(0, degree_shifter(shift, print_coordinates));
+    }
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+
+
+Coordinates of degree 0 in an octasierp of degree 0:
+ (+0, +0); (+1, +0); (+0, +1); (-1, +0); (+0, -1); (+1, +1);
+
+Coordinates of degree 0 in an octasierp of degree 1:
+ (+0, +0); (+2, +0); (+0, +2); (-2, +0); (+0, -2); (+2, +2);
+
+Coordinates of degree 0 in an octasierp of degree 2:
+ (+0, +0); (+4, +0); (+0, +4); (-4, +0); (+0, -4); (+4, +4);
+#+end_src
+
+
 ** Binary degree
 
 A naive C++ implementation of the binary degree function will look like this:
