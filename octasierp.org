@@ -2936,6 +2936,86 @@ Segments:        0, 2; 2, 3; 3, 1; 0, 3; 3, 4; 4, 1; 0, 4; 4, 5; 5, 1; 0, 5; 5, 
 
 Those results make me think that I must have missed some clever trick to implement triangles and segments iteration in one go.
 
+*** Adapt to representation
+
+The adapters implemented here modify the behaviour of foreach policies by changing what is transmitted to the consumer depending on the first argument they receive.
+
+When the first argument is a =std::size_t=, the consumer is used as-is:
+#+name: adapt_repr/size_t
+#+begin_src cpp :minipage
+namespace adapt_repr {
+template<class Foreach, class Consumer>
+void apply(std::size_t degree, Consumer consumer) {
+    Foreach::apply(degree, consumer);
+}
+} // namespace adapt_repr
+#+end_src
+
+On the other hand, when the first argument is an octasierp, the consumer is wrapped so that what it actually consumes are the points of the octasierp:
+#+name: adapt_repr/octasierp
+#+begin_src cpp :minipage
+namespace adapt_repr {
+template<class Point, class Consumer>
+struct to_points_consumer {
+    octasierp<Point>& octa;
+    Consumer consumer;
+
+    template<class... Coordinates>
+    void operator()(Coordinates... coordinates) {
+        consumer(octa[coordinates]...);
+    }
+};
+
+template<class Foreach, class Point, class Consumer>
+void apply(octasierp<Point>& octa, Consumer consumer) {
+    Foreach::apply(octa.degree(), to_points_consumer{octa, consumer});
+}
+} // namespace adapt_repr
+#+end_src
+#+depends:adapt_repr/octasierp :noweb octasierp
+
+This design is very handy because it allows the caller to avoid indexing the octasierp coordinates by coordinates when only the points are needed, as can be the case when initialising an octasierp's storage:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb print cse_lambda octasierp adapt_repr/octasierp adapt_repr/size_t ForeachCoordinates ForeachTriangle <<qoords")>>
+
+int main() {
+    octasierp octa(0, '-');
+    char next_repr = 'a';
+    adapt_repr::apply<ForeachCoordinates>(octa, [&](auto& point) {
+        point = next_repr++;
+    });
+
+    auto print_lambda = cse_lambda<print<>>();
+    print{"Triangle coordinates:"};
+    adapt_repr::apply<ForeachTriangle>(octa.degree(), print_lambda);
+    print{"\nTriangle points:"};
+    adapt_repr::apply<ForeachTriangle>(octa, print_lambda);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Triangle coordinates:
+(+0, +0) (+1, +0) (+0, +1)
+(+1, +0) (+1, +1) (+0, +1)
+(+0, +0) (+0, +1) (-1, +0)
+(+0, +1) (+1, +1) (-1, +0)
+(+0, +0) (-1, +0) (+0, -1)
+(-1, +0) (+1, +1) (+0, -1)
+(+0, +0) (+0, -1) (+1, +0)
+(+0, -1) (+1, +1) (+1, +0)
+
+Triangle points:
+a b c
+b f c
+a c d
+c f d
+a d e
+d f e
+a e b
+e f b
+#+end_src
+
 ** Binary degree
 
 A naive C++ implementation of the binary degree function will look like this:
