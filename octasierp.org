@@ -1583,7 +1583,7 @@ std::ostream& operator<<(std::ostream& os, const coordinates<Quarter>& c) {
 }
 } // namespace quarter_rotation_details
 #+end_src
-#+depends: <<qoords :noweb quarter_rotation_details :cpp iostream
+#+depends:<<qoords :noweb quarter_rotation_details :cpp iostream
 
 The name of this block is shortened to =<<qoords= rather than something like =<<octasierp/quarter-coordinates=, for the sake of brevity.
 
