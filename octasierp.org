@@ -2468,6 +2468,264 @@ Some observations:
 [[file:images/montage_net_squa_degree_0-3.png]]
 
 
+** Iteration on segments
+
+This section is heavily based on the iteration on triangles, with a few adjustements to filter out unorthodox segments.
+
+#+begin_src cpp :noweb-ref octasierp/foreach_segment :minipage
+namespace foreach_segment_details {
+template<class SegmentConsumer>
+struct segment_logic {
+    SegmentConsumer segment_consumer;
+    // Last index that can only refer to a canonical point.
+    int safe;
+
+    template<typename Coords>
+    void apply()  {
+        <<segment_logic/apply/safe_zone>>
+        <<segment_logic/apply/borders>>
+    }
+}; // struct segment_logic
+} // namespace foreach_segment_details
+#+end_src
+
+As with =foreach_triangle=, degree 0 is hardcoded.
+#+begin_src cpp :noweb-ref octasierp/foreach_segment :minipage
+template<typename SegmentConsumer>
+void foreach_segment(std::size_t degree, SegmentConsumer consumer) {
+    using foreach_segment_details::segment_logic;
+    if(degree == 0) {
+        consumer(qoords<0>(0, 0), qoords<0>(1, 0));
+        consumer(qoords<0>(0, 1), qoords<0>(1, 0));
+        consumer(qoords<0>(0, 1), qoords<0>(1, 1));
+
+        consumer(qoords<1>(0, 0), qoords<1>(0, 1));
+        consumer(qoords<1>(-1, 0), qoords<1>(0, 1));
+        consumer(qoords<1>(-1, 0), qoords<1>(1, 1));
+
+        consumer(qoords<2>(0, 0), qoords<2>(-1, 0));
+        consumer(qoords<2>(0, -1), qoords<2>(-1, 0));
+        consumer(qoords<2>(0, -1), qoords<2>(1, 1));
+
+        consumer(qoords<3>(0, 0), qoords<3>(0, -1));
+        consumer(qoords<3>(1, 0), qoords<3>(0, -1));
+        consumer(qoords<3>(1, 0), qoords<3>(1, 1));
+        return;
+    }
+
+    foreach_quarter(segment_logic{
+        consumer,
+        (1 << degree) - 1
+    });
+}
+#+end_src
+#+depends:octasierp/foreach_segment :noweb qoords foreach_quarter
+
+*** Safe zone
+
+The segments in the safe zone are handled in batches of three, as can be seen in the following illustration for quarter 0 at degree 2:
+# Execution disabled because manual tweaking.
+#+begin_src python :eval never :exports results
+<<QuarterSequence>>
+printer = QuarterSequence(2)
+printer.print_n(6, legend=True)
+print()
+printer.print_n(6, legend=True)
+#+end_src
+
+
+#+begin_src text :minipage
+
+1.           2.           3.           4.           5.           6.
++-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.
+| . . . |    | . . . |    | . . . |    | . . . |    | . . . |    | . . . |
+| . . . | -> | . . . | -> | . . . | -> | . . . | -> | . . . | -> | . . . |
+| . . . |    a . . . |    | a . . |    | . . . |    | a . . |    | . a . |
+A-b-.-.-.    X-b-.-.-.    X-b-.-.-.    X-a-b-.-.    X-.-b-.-.    X-.-b-.-.
+
+7.           8.           9.           10.          11.          12.
++-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.    +-.-.-.-.
+| . . . |    | . . . |    | . . . |    | . . . |    | . . . |    | . . . |
+| . . . | -> | . . . | -> | . . . | -> | . . . | -> a . . . | -> | a . . |
+| . . . |    | . a . |    | . . a |    a b . . |    | b . . |    | b . . |
+X-.-a-b-.    X-.-.-b-.    X-.-.-b-.    X-.-.-.-.    X-.-.-.-.    X-.-.-.-.
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =A, a, b= :: Points of the segment.
+ - =.= :: Other points of quarter 0.
+\\
+
+Note that =a= is systematically to the left and/or above =b=.
+This property is respected for all segments, and will be useful later on.
+
+#+name: segment_logic/apply/safe_zone
+#+begin_src cpp :minipage
+for(int j = 0; j <= safe; ++j) {
+    auto a = rotate_from<0, Coords>(0, j);
+    auto b = rotate_from<0, Coords>(1, j);
+    while(true) {
+        segment_consumer(a, b);
+        ++a.main.y;
+        segment_consumer(a, b);
+        ++a.main.x;
+        segment_consumer(a, b);
+        if(*a.main.x >= safe)
+            break;
+        --a.main.y;
+        ++b.main.x;
+    }
+}
+#+end_src
+
+*** Top border
+
+This section handles the points at the top of quarter 0, south pole included.
+# Execution disabled because manual tweaking.
+#+begin_src python :eval never :exports results
+<<QuarterSequence>>
+printer = QuarterSequence(2)
+printer.print_n(4, legend=True)
+#+end_src
+
+
+#+begin_src text :minipage
+1.           2.           3.           4.
+a-b-.-.-S    +-a-b-.-S    +-.-a-b-S    +-.-.-a-B
+| . . . |    | . . . |    | . . . |    | . . . |
+| . . . | -> | . . . | -> | . . . | -> | . . . |
+| . . . |    | . . . |    | . . . |    | . . . |
+X-.-.-.-.    X-.-.-.-.    X-.-.-.-.    X-.-.-.-.
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =S= :: South pole.
+ - =a, b, B= :: Points of the segment.
+ - =.= :: Other points of quarter 0.
+\\
+
+Note that the representation above is exhaustive for quarter 0 at degree 2.
+
+#+begin_src cpp :noweb-ref segment_logic/apply/borders :minipage
+auto a = rotate_from<0, Coords>(0, safe + 1);
+auto b = rotate_from<0, Coords>(1, safe + 1);
+while(true) {
+    segment_consumer(a, b);
+    if(++a.main.x >= safe)
+        break;
+    ++b.main.x;
+}
+// South pole.
+b = Coords(safe + 1, safe + 1);
+segment_consumer(a, b);
+#+end_src
+
+*** Right border
+
+The right border is handled like the safe zone, except that the vertical segment is not included since it belongs to quarter 3 (or its rotated equivalent).
+# Execution disabled because manual tweaking.
+#+begin_src python :eval never :exports results
+<<QuarterSequence>>
+printer = QuarterSequence(2)
+printer.print_n(4, legend=True)
+print()
+printer.print_n(4, legend=True)
+#+end_src
+
+
+#+begin_src text :minipage
+1.           2.           3.           4.
++-.-.-.-S    +-.-.-.-S    +-.-.-.-S    +-.-.-.-S
+| . . . |    | . . . |    | . . . |    | . . . |
+| . . . | -> | . . . | -> | . . . | -> | . . a |
+| . . . |    | . . a |    | . . a b    | . . . b
+X-.-.-a b    X-.-.-.-b    X-.-.-.-.    X-.-.-.-.
+
+5.           6.           7.           8.
++-.-.-.-S    +-.-.-.-S    +-.-.-.-S    +-.-.-a-S
+| . . . |    | . . a |    | . . a b    | . . . b
+| . . a b -> | . . . b -> | . . . | -> | . . . |
+| . . . |    | . . . |    | . . . |    | . . . |
+X-.-.-.-.    X-.-.-.-.    X-.-.-.-.    X-.-.-.-.
+#+end_src
+\\
+Legend:
+ - =X= :: North pole.
+ - =S= :: South pole.
+ - =a, b, B= :: Points of the segment.
+ - =.= :: Other points of quarter 0.
+\\
+
+Once again, the representation above is exhaustive for quarter 0 at degree 2.
+Another important thing to observe is that only =b= is located on the border, =a= is always a canonical point.
+
+#+begin_src cpp :noweb-ref segment_logic/apply/borders :minipage
+a = rotate_from<0, Coords>(safe, 0);
+b = rotate_from<0, Coords>(safe + 1, 0);
+while(true) {
+    segment_consumer(a, b);
+    ++a.main.y;
+    segment_consumer(a, b);
+    if(*a.main.y > safe)
+        break;
+    ++b.right.x; // This is mirrored logic.
+}
+#+end_src
+
+*** Segment cardinality
+
+I can't really explain the segment cardinality right now, the logic with which it was deduced escapes me now.
+A path of reflection is the fact that the number of new points at degree $d$ is equal to the number of segments at degree $d - 1$, since new points appear in the middle of segments.
+
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
+std::size_t segment_cardinality() const {
+    return 3 << (2 * degree + 1) << 1;
+}
+#+end_src
+
+*** Usage
+
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb octasierp print qoords <<qoords octasierp/foreach_segment squarenet_shadow")>>
+
+int main() {
+    octasierp segments(2, '0');
+    int segment_cardinality = 0;
+    foreach_segment(segments.degree(), [&](const auto& a, const auto& b) {
+        ++segments[a]; ++segments[b];
+        ++segment_cardinality;
+    });
+    print{
+        segments.bound().segment_cardinality(), "segments in theory",
+        segment_cardinality, "segments in practice\n"
+    };
+    squarenet_shadow(segments.degree(), [&](const auto& coords) {
+        return segments[coords];
+    });
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+192 segments in theory 192 segments in practice
+
+. . . . . . . . . . .
+. . . . . 4 6 6 6 4 .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 4 6 6 6 4 6 6 6 4 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 4 . . . . .
+. . . . . . . . . . .
+#+end_src
+
+Those results are echoing the ones obtained with =foreach_triangle=.
+Intuitively, that is because the squarenet shadow above represents the number of neighbours of each point.
 
 
 ** Mirrored points
@@ -2863,7 +3121,6 @@ Coordinates of degree 0 in an octasierp of degree 2:
  (+0, +0); (+4, +0); (+0, +4); (-4, +0); (+0, -4); (+4, +4);
 #+end_src
 
-
 *** Foreach policies
 
 The policies implemented here will allow the foreach functions to be used as template parameters.
@@ -3060,6 +3317,116 @@ a e b
 e f b
 #+end_src
 
+*** Foreach subdivision
+
+The foreach policy =ForeachSubdivision= iterates on each subdivisions that will occur when passing from =degree= to =degree + 1=.
+It is rather concise because it uses the fact that a new point is created in between each segment.
+
+I really prefer the foreach policies to the foreach function so =foreach_subdivision= is skipped.
+#+name: ForeachSubdivision
+#+begin_src cpp :minipage
+struct ForeachSubdivision {
+    template<class Consumer>
+    static void apply(std::size_t degree, Consumer consumer) {
+        ForeachSegment::apply(degree, degree_shifter(1, [&consumer,degree](auto a, auto b) {
+            auto midpoint = b;
+            if(b.is_mirrored_canonical(degree + 1))
+                midpoint.unmirror();
+
+            if(a.main.x != midpoint.main.x) // a is on the left.
+                --midpoint.main.x;
+            if(a.main.y != midpoint.main.y) // a is above.
+                ++midpoint.main.y;
+
+            consumer(midpoint, a, b);
+        }));
+    }
+};
+#+end_src
+#+depends:ForeachSubdivision :noweb ForeachSegment degree_shifter
+
+# Well technically =foreach_segment=.
+Because of the way =ForeachSegment= has been implemented, it is guaranteed that all mirrored points are contained in =b=, this is why the mirroring only has to be tested on it.
+This is also why =midpoint= does not need to be mirrored back, it is necessarily shifted away from the border, thereby becoming a canonical point.
+
+Usage:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb print ForeachSubdivision apply_foreach/size_t <<qoords")>>
+
+int main() {
+    apply<ForeachSubdivision>(0, [](auto midpoint, auto a, auto b) {
+        print{"The midpoint of", a, "and", b, "is", midpoint};
+    });
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+The midpoint of (+0, +0) and (+2, +0) is (+1, +0)
+The midpoint of (+0, +2) and (+2, +0) is (+1, +1)
+The midpoint of (+0, +2) and (+2, +2) is (+1, +2)
+The midpoint of (+0, +0) and (+0, +2) is (+0, +1)
+The midpoint of (-2, +0) and (+0, +2) is (-1, +1)
+The midpoint of (-2, +0) and (+2, +2) is (-2, +1)
+The midpoint of (+0, +0) and (-2, +0) is (-1, +0)
+The midpoint of (+0, -2) and (-2, +0) is (-1, -1)
+The midpoint of (+0, -2) and (+2, +2) is (-1, -2)
+The midpoint of (+0, +0) and (+0, -2) is (+0, -1)
+The midpoint of (+2, +0) and (+0, -2) is (+1, -1)
+The midpoint of (+2, +0) and (+2, +2) is (+2, -1)
+#+end_src
+
+*** Forevery subdivision
+
+This foreach (well, forevery) policy iterates upon every subdivision occuring for all degrees, starting with degree 0.
+The intended use case for this is the construction of an octasierp (the first six points must have already been constructed).
+
+#+name: ForeverySubdivision
+#+begin_src cpp :minipage
+struct ForeverySubdivision {
+    template<class Consumer>
+    static void apply(std::size_t degree, Consumer consumer) {
+        for(std::size_t sub_degree = 0; sub_degree < degree; ++sub_degree)
+            ForeachSubdivision::apply(
+                sub_degree,
+                degree_shifter(degree - sub_degree - 1, consumer)
+            );
+    }
+};
+#+end_src
+#+depends:ForeverySubdivision :noweb ForeachSubdivision degree_shifter
+
+The following code will first construct an octasierp with each point represented by its degree of apparition, and then print its shadow:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb ForeverySubdivision octasierp apply_foreach/octasierp squarenet_shadow max")>>
+
+int main() {
+    octasierp apparition(2, '0');
+    apply<ForeverySubdivision>(apparition, [&](auto& midpoint, auto& a, auto& b) {
+        midpoint = max(a, b) + 1;
+    });
+    squarenet_shadow(apparition.degree(), [&](const auto& coords) {
+        return apparition[coords];
+    });
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+. . . . . . . . . . .
+. . . . . 0 2 1 2 0 .
+. 2 2 2 2 2 2 2 2 . .
+. 1 2 1 2 1 2 1 2 . .
+. 2 2 2 2 2 2 2 2 . .
+. 0 2 1 2 0 2 1 2 0 .
+. . 2 2 2 2 2 2 2 2 .
+. . 2 1 2 1 2 1 2 1 .
+. . 2 2 2 2 2 2 2 2 .
+. . 2 1 2 0 . . . . .
+. . . . . . . . . . .
+#+end_src
+
+
 ** Binary degree
 
 A naive C++ implementation of the binary degree function will look like this:
@@ -3228,7 +3595,6 @@ First each canonical point is colored with a color gradient, then vertices and i
 
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
 <<include(":noweb lazy_window shader_program movipr transform VAO vec_vertices indexes segvector pointless_octasierp linear_interpolation segarray squarenet_gl orbital_camera to_span/glm gl_screen_first :defs graphics.org window.org")>>
-
 
 int main(){
     std::size_t degree = 3;
