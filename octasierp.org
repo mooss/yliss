@@ -1283,12 +1283,14 @@ namespace quarter_rotation_details {
 
 *** Directed axes
 
-Since quarters 1, 2, 3 are successive left rotations of quarter 0, moving a point in a given direction will have a different meaning depending on the quarter.
+Since quarters 1, 2 and 3 are successive left rotations of quarter 0, moving a point in a given direction will have a different meaning depending on the quarter.
 For example, quarter 2 is the exact opposite of quarter 1.
 This means that incrementing x in quarter 2 is like decrementing it in quarter 0.
 
 The first step toward supporting this behaviour is directed axes, implemented in =natural_axis= and =inverted_axis=.
-The =value_= stored is not directly accessible on purpose, as those classes are only meant to represent operations on an axis.
+The =value_= stored is not directly accessible on purpose, as those classes meant to represent a restricted set of operations on an axis.
+
+=axis= forms the base of =natural_axis= and =inverted_axis=, with only four operations delcared:
 #+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 enum class direction {natural, inverted};
 template<direction Dir> class axis {
@@ -1299,11 +1301,16 @@ template<direction Dir> class axis {
 
     int operator++();
     int operator--();
+    int operator*();
+    bool operator==(const axis& other) const=default;
 
   private:
     int value_;
 };
+#+end_src
 
+Incrementation and decrementation:
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 template<> int axis<direction::natural>::operator++()
 {++value_; return value_;}
 template<> int axis<direction::natural>::operator--()
@@ -1313,30 +1320,43 @@ template<> int axis<direction::inverted>::operator++()
 {--value_; return -value_;}
 template<> int axis<direction::inverted>::operator--()
 {++value_; return -value_;}
+#+end_src
 
+Note that the inverted operators return a negated value, this is done in order to allow the usage of iteration on both inverted and natural axes on the same way.
+Alternatively, the operator =*= can be used for this:
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
+template<> int axis<direction::natural>::operator*() {return value_;}
+template<> int axis<direction::inverted>::operator*() {return -value_;}
+#+end_src
+
+Proper definition of =natural_axis= and =inverted_axis=:
+#+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
 using natural_axis = axis<direction::natural>;
 using inverted_axis = axis<direction::inverted>;
 #+end_src
 
-Note that the inverted operators return a negated value, this is done in order to allow the usage of iteration on both inverted and natural axes on the same way:
+Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb quarter_rotation_details/public print")>>
 
 int main() {
     inverted_axis inv(0);
     natural_axis nat(0);
-    while(++inv < 15) {}
-    while(++nat < 15) {}
+    while(++inv < 15);
+    while(++nat < 15);
     print{++inv, ++nat};
+    print{*inv, *nat};
 }
 #+end_src
 
 #+RESULTS:
 #+begin_src text :minipage
 16 16
+16 16
 #+end_src
-
-Once again, the axes are only meant to represent operations, the intended way to use their values will be explained later on.
+\\
+The usefulness of those classes is not apparent right now.
+The fact is that while using them in this manner gives the same behaviour, their actual state (=_value=) is different, which will become pertinent later on.
 
 *** Quarter reference frame
 
