@@ -2996,22 +2996,44 @@ void apply(octasierp<Point>& octa, Consumer consumer) {
 #+end_src
 #+depends:adapt_repr/octasierp :noweb octasierp
 
-This design is very handy because it allows the caller to avoid indexing the octasierp coordinates by coordinates when only the points are needed, as can be the case when initialising an octasierp's storage:
+The two =apply_foreach/= code blocks below are pure syntactic sugar.
+I opted to not simply name the actual implementation =apply= because this name is way too generic.
+This way if there is a conflict with another =apply= function, it will still be possible to fall back on =adapt_repr::apply=.
+#+name: apply_foreach/size_t
+#+begin_src cpp :minipage
+template<class Foreach, class Consumer>
+void apply(std::size_t degree, Consumer consumer) {
+    adapt_repr::apply<Foreach>(degree, consumer);
+}
+#+end_src
+#+depends:apply_foreach/size_t :noweb adapt_repr/size_t
+
+#+name: apply_foreach/octasierp
+#+begin_src cpp :minipage
+template<class Foreach, class Point, class Consumer>
+void apply(octasierp<Point>& octa, Consumer consumer) {
+    adapt_repr::apply<Foreach>(octa, consumer);
+}
+#+end_src
+#+depends:apply_foreach/octasierp :noweb adapt_repr/octasierp
+#+depends:apply_foreach/* :noweb apply_foreach/octasierp apply_foreach/size_t
+
+This design can be very handy because it allows the caller to avoid indexing the octasierp coordinates by coordinates when only the points are needed, as can be the case when initialising an octasierp's storage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb print cse_lambda octasierp adapt_repr/octasierp adapt_repr/size_t ForeachCoordinates ForeachTriangle <<qoords")>>
+<<include(":noweb print cse_lambda octasierp apply_foreach/* ForeachCoordinates ForeachTriangle <<qoords")>>
 
 int main() {
     octasierp octa(0, '-');
     char next_repr = 'a';
-    adapt_repr::apply<ForeachCoordinates>(octa, [&](auto& point) {
+    apply<ForeachCoordinates>(octa, [&](auto& point) {
         point = next_repr++;
     });
 
     auto print_lambda = cse_lambda<print<>>();
     print{"Triangle coordinates:"};
-    adapt_repr::apply<ForeachTriangle>(octa.degree(), print_lambda);
+    apply<ForeachTriangle>(octa.degree(), print_lambda);
     print{"\nTriangle points:"};
-    adapt_repr::apply<ForeachTriangle>(octa, print_lambda);
+    apply<ForeachTriangle>(octa, print_lambda);
 }
 #+end_src
 
