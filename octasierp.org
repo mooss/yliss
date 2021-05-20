@@ -2582,7 +2582,6 @@ Degree 2:
 
 *** Unmirror
 
-The mirroring operation is reversible so to unmirror is the same thing as to mirror.
 The name =unmirror= was chosen for the following reasons:
  - It implies a change to the object whereas =mirror= could as well be a predicate.
  - Since canonical points are used most of the time anyway, this operation will typically be used after a =is_mirrored= test, making it more natural to =unmirror=.
@@ -2627,6 +2626,9 @@ template<> coordinates<3>& unmirror_impl<3>(coordinates<3>& coords) {
     return coords;
 }
 #+end_src
+
+At first I thought that calling =unmirror= twice would leave the object in the same state as it was before, but the south pole required special attention so in the end that is not the case.
+This operation must therefore be used carefully.
 
 *** Iteration on *every* coordinates
 
