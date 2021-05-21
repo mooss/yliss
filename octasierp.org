@@ -3230,7 +3230,36 @@ void apply(std::size_t degree, Consumer consumer) {
 } // namespace adapt_repr
 #+end_src
 
-On the other hand, when the first argument is an octasierp, the consumer is wrapped so that what it actually consumes are the points of the octasierp:
+The degree can be wrapped in =index_of= to produce indexes instead of raw coordinates:
+#+name: adapt_repr/index_of
+#+begin_src cpp :minipage
+struct index_of {
+    std::size_t degree;
+};
+namespace adapt_repr {
+template<class Consumer>
+struct to_index_consumer {
+    pointless_octasierp octa;
+    Consumer consumer;
+
+    template<class... Coordinates>
+    void operator()(Coordinates... coordinates) {
+        consumer(octa.index_of(coordinates)...);
+    }
+};
+
+template<class Foreach, class Consumer>
+void apply(index_of wrapper, Consumer consumer) {
+    Foreach::apply(
+        wrapper.degree,
+        to_index_consumer(pointless_octasierp{wrapper.degree}, consumer)
+    );
+}
+} // namespace adapt_repr
+#+end_src
+#+depends:adapt_repr/index_of :noweb pointless_octasierp
+
+Finally, when the first argument is an octasierp, the underlying points of the octasierp are produced:
 #+name: adapt_repr/octasierp
 #+begin_src cpp :minipage
 namespace adapt_repr {
@@ -3252,19 +3281,22 @@ void apply(octasierp<Point>& octa, Consumer consumer) {
 } // namespace adapt_repr
 #+end_src
 #+depends:adapt_repr/octasierp :noweb octasierp
-
-The two =apply_foreach/= code blocks below are pure syntactic sugar.
+\\
+The =apply_foreach/= code blocks below are pure syntactic sugar.
 I opted to not simply name the actual implementation =apply= because this name is way too generic.
 This way if there is a conflict with another =apply= function, it will still be possible to fall back on =adapt_repr::apply=.
-#+name: apply_foreach/size_t
+#+name: apply_foreach
 #+begin_src cpp :minipage
-template<class Foreach, class Consumer>
-void apply(std::size_t degree, Consumer consumer) {
-    adapt_repr::apply<Foreach>(degree, consumer);
+template<class Foreach, class Repr, class Consumer>
+void apply(Repr repr, Consumer consumer) {
+    adapt_repr::apply<Foreach>(repr, consumer);
 }
 #+end_src
-#+depends:apply_foreach/size_t :noweb adapt_repr/size_t
-
+# Commented out waiting for a fix of include.pl, see next TODO.
+# #+depends:apply_foreach/size_t :noweb adapt_repr/size_t apply_foreach
+# #+depends:apply_foreach/index_of :noweb adapt_repr/index_of apply_foreach
+\\
+Special care must be taken to pass an =octasierp= representation by reference, both to allow the actual points to be modified and to avoid a copy of this potentially huge object.
 #+name: apply_foreach/octasierp
 #+begin_src cpp :minipage
 template<class Foreach, class Point, class Consumer>
@@ -3273,10 +3305,11 @@ void apply(octasierp<Point>& octa, Consumer consumer) {
 }
 #+end_src
 #+depends:apply_foreach/octasierp :noweb adapt_repr/octasierp
-#+depends:apply_foreach/* :noweb apply_foreach/octasierp apply_foreach/size_t
-
-This design can be very handy because it allows the caller to avoid indexing the octasierp coordinates by coordinates when only the points are needed, as can be the case when initialising an octasierp's storage:
-#+begin_src cpp :eval no-export :exports both :minipage
+# TODO: Force include.pl to respect the order of dependencies. i.e. adapt_repr/index_of should be included before apply_foreach because of the way apply_foreach/index_of is defined. I should not have to hardcode low-level dependencies below (the adapt_repr/) to enforce a correct order.
+#+depends:apply_foreach/* :noweb apply_foreach/octasierp adapt_repr/index_of adapt_repr/size_t apply_foreach
+\\
+Usage:
+#+begin_src cpp :eval no-export :exports both :minipage :wrap "src text"
 <<include(":noweb print cse_lambda octasierp apply_foreach/* ForeachCoordinates ForeachTriangle <<qoords")>>
 
 int main() {
@@ -3289,13 +3322,15 @@ int main() {
     auto print_lambda = cse_lambda<print<>>();
     print{"Triangle coordinates:"};
     apply<ForeachTriangle>(octa.degree(), print_lambda);
+    print{"\nTriangle indexes:"};
+    apply<ForeachTriangle>(index_of{octa.degree()}, print_lambda);
     print{"\nTriangle points:"};
     apply<ForeachTriangle>(octa, print_lambda);
 }
 #+end_src
 
 #+RESULTS:
-#+begin_src text :minipage
+#+begin_src text
 Triangle coordinates:
 (+0, +0) (+1, +0) (+0, +1)
 (+1, +0) (+1, +1) (+0, +1)
@@ -3305,6 +3340,16 @@ Triangle coordinates:
 (-1, +0) (+1, +1) (+0, -1)
 (+0, +0) (+0, -1) (+1, +0)
 (+0, -1) (+1, +1) (+1, +0)
+
+Triangle indexes:
+0 2 3
+2 1 3
+0 3 4
+3 1 4
+0 4 5
+4 1 5
+0 5 2
+5 1 2
 
 Triangle points:
 a b c
@@ -3351,7 +3396,7 @@ This is also why =midpoint= does not need to be mirrored back, it is necessarily
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb print ForeachSubdivision apply_foreach/size_t <<qoords")>>
+<<include(":noweb print ForeachSubdivision adapt_repr/size_t apply_foreach <<qoords")>>
 
 int main() {
     apply<ForeachSubdivision>(0, [](auto midpoint, auto a, auto b) {
@@ -3501,7 +3546,7 @@ auto squarenet_gl(const segvector<GLfloat, SegmentSize>& source, std::size_t deg
     };
 }
 #+end_src
-#+depends:squarenet_gl :noweb hash/pair segvector pointless_octasierp octasierp/forevery_coordinates octasierp/foreach_triangle :cpp utility vector unordered_map limits algorithm
+#+depends:squarenet_gl :noweb hash/pair segvector pointless_octasierp adapt_repr/size_t apply_foreach ForeveryCoordinates ForeachTriangle :cpp utility vector unordered_map limits algorithm
 
 The difficulty in generating vertices comes from the need to handle non canonical (aka unorthodox) coordinates.
 The indexes of those coordinates are kept around in =unorthodox_indexes=, because they will be needed in the next step (indexes generation).
@@ -3519,7 +3564,7 @@ std::unordered_map<std::pair<int, int>, std::size_t> unorthodox_indexes;
 segvector<GLfloat, SegmentSize + 2> seg_vertices;
 seg_vertices.resize(squarenet_points, 0);
 
-forevery_coordinates(degree, [&](auto coords) {
+apply<ForeveryCoordinates>(degree, [&](auto coords) {
     std::size_t index = octa.index_of(coords);
     auto source_data = source[index];
     if(coords.is_mirrored_canonical(degree)) {
@@ -3540,7 +3585,7 @@ As mentioned above, the map =unorthodox_indexes= helps us recall the index corre
 segvector<GLuint, 3> seg_indexes;
 seg_indexes.reserve(octa.triangle_cardinality());
 
-foreach_triangle(degree, [&](auto a, auto b, auto c) {
+apply<ForeachTriangle>(degree, [&](auto a, auto b, auto c) {
     for(auto coords: {a, b, c}) {
         std::size_t index;
         if(coords.is_mirrored_canonical(degree)) {
