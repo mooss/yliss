@@ -200,6 +200,10 @@ class opengl_buffer {
 
     opengl_buffer() : id_(generate()) {}
 
+    ~opengl_buffer() {
+        glDeleteBuffers(1, &id_);
+    }
+
   private:
     const GLuint id_;
     static GLuint generate() {
@@ -323,7 +327,7 @@ class vertices {
         if(layout.size() == 0)
             throw std::runtime_error("Empty vertex layouts are illegal.");
         details::assert_multiple(content.size(), stride_, "vertices for the given layout");
-        VBO vbo{}; vbo.send(content);
+        vbo_.send(content);
         <<Process vertices layout>>
     }
 
@@ -337,6 +341,7 @@ class vertices {
   private:
     const GLsizei stride_;
     const GLsizei count_;
+    const VBO vbo_;
 };
 #+end_src
 #+depends:vertices :noweb VBO vertindex_common sum :cpp span
@@ -393,7 +398,7 @@ class indexes {
     {
         // Hardcoded 3 because only triangles are supported.
         details::assert_multiple(content.size(), 3, "indexes");
-        EBO ebo{}; ebo.send(content);
+        ebo_.send(content);
     }
 
     void draw() {
@@ -401,6 +406,7 @@ class indexes {
     }
 
   private:
+    EBO ebo_;
     GLsizei count_;
 };
 #+end_src

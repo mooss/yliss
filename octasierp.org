@@ -3682,7 +3682,7 @@ int main(){
     });
 
     VAO octasierp_vao;
-    vec_vertices<GLfloat>(gl_data.vertices, {2, 3});
+    auto octasierp_vertices = vec_vertices<GLfloat>(gl_data.vertices, {2, 3});
     indexes octasierp_indexes(gl_data.indexes);
 
     // Render with thick lines.
@@ -3818,7 +3818,10 @@ int main() {
     });
 
     VAO octasierp_vao;
-    spanvec_vertices<GLfloat>(std::span(octa.storage[0].data(), 6 * octa.storage.size()), {3, 3});
+    auto octasierp_vertices = spanvec_vertices<GLfloat>(
+        std::span(octa.storage[0].data(), 6 * octa.storage.size()),
+        {3, 3}
+    );
     indexes octasierp_indexes(seg_indexes.storage);
 
     // Render with thick lines.
