@@ -189,17 +189,16 @@ class shader_program {
 
 #+name: opengl_buffer
 #+begin_src cpp
+template<class Target>
 class opengl_buffer {
   protected:
     template<typename T>
     void send(const std::span<const T> data) const {
-        glBindBuffer(target(), id_);
-        glBufferData(target(), data.size() * sizeof(T), data.data(), GL_STATIC_DRAW);
+        glBindBuffer(Target::get(), id_);
+        glBufferData(Target::get(), data.size() * sizeof(T), data.data(), GL_STATIC_DRAW);
     }
 
     opengl_buffer() : id_(generate()) {}
-
-    virtual GLenum target() const=0;
 
   private:
     const GLuint id_;
@@ -217,15 +216,13 @@ class opengl_buffer {
 VBOs are what is used to send vertices to the GPU.
 #+name: VBO
 #+begin_src cpp
-class VBO: public opengl_buffer {
+struct __details_VBO_target {static GLenum get() {return GL_ARRAY_BUFFER;}};
+class VBO: public opengl_buffer<__details_VBO_target> {
   public:
     VBO(): opengl_buffer() {}
     void send(const std::span<const GLfloat> data) const {
         opengl_buffer::send<GLfloat>(data);
     }
-
-  protected:
-    GLenum target() const override { return GL_ARRAY_BUFFER; }
 };
 #+end_src
 #+depends:VBO :noweb opengl_buffer
@@ -237,15 +234,13 @@ This way, vertices shared by several triangles can be send only once and used mu
 
 #+name: EBO
 #+begin_src cpp
-class EBO: public opengl_buffer {
+struct __details_EBO_target {static GLenum get() {return GL_ELEMENT_ARRAY_BUFFER;}};
+class EBO: public opengl_buffer<__details_EBO_target> {
   public:
     EBO(): opengl_buffer() {}
     void send(const std::span<const GLuint> data) const {
         opengl_buffer::send<GLuint>(data);
     }
-
-  protected:
-    GLenum target() const override { return GL_ELEMENT_ARRAY_BUFFER; }
 };
 #+end_src
 #+depends:EBO :noweb opengl_buffer
@@ -386,7 +381,6 @@ vertices<T> spanvec_vertices(std::span<const T> content, const std::vector<std::
 }
 #+end_src
 #+depends:spanvec_vertices :noweb vertices :cpp span vector
-
 
 *** Indexes
 
