@@ -3624,7 +3624,7 @@ void main() {
 }
 #+end_src
 
-And a fragment shader simply reusing the position sent by the vertex shader:
+And a fragment shader simply reusing the color sent by the vertex shader:
 #+name: squarenet_fs
 #+begin_src glsl :minipage
 #version 330 core
@@ -3711,6 +3711,138 @@ It doesn't have this unfortunate look but still illustrates the point ordering a
  - The six original points (and a few more) showing in red.
  - The canonical points of quarter 0 transitioning from red to magenta to cyan.
  - The orthodox points of the right border being a mirrored version of the yellow points from the end of quarter 3.
+
+
+** Octasierp visualisation
+:PROPERTIES:
+:header-args:cpp: :noweb no-export
+:END:
+
+The goal of this section is to display mostly the same data as the previous section, but this time in full 3d.
+It is much simpler to implement because there is no need to take mirrored points into account.
+
+The fragment shader can be reused, it still only needs to display the color forwarded by the vertex shader.
+Since the position is now three-dimensional, the vertex shader must be updated to take a =vec3= this time:
+#+name: octasierp_vs
+#+begin_src glsl :minipage
+#version 330 core
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec3 color_in;
+out vec3 color_fs;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * view * model * vec4(position, 1.0f);
+    color_fs = color_in;
+}
+#+end_src
+\\
+The only new elements when compared with the previous section is first the definition of the six initial points' positions, and then the interpolation of the subsequent positions with =ForeverySubdivision= and =fill_midpoint=.
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb octasierp apply_foreach/octasierp ForeverySubdivision fill_midpoint linear_interpolation segarray to_span segvector adapt_repr/index_of apply_foreach ForeachTriangle orbital_camera lazy_window shader_program movipr VAO spanvec_vertices indexes gl_screen_first :cpp array span :defs graphics.org window.org")>>
+
+int main() {
+    //////////////////////////
+    // Vertices and indexes //
+    std::size_t degree = 3;
+    octasierp octa(degree, std::array<GLfloat, 6>{
+        0,  0,  0, // Position.
+       -1, -1, -1  // Color.
+    });
+    // Colors are filled with garbage for now because they will be defined later.
+    octa.storage[0] = {/* North pole */  0,  0,  1, /* Garbage */ -1, -1, -1};
+    octa.storage[1] = {/* South pole */  0,  0, -1, /* Garbage */ -1, -1, -1};
+    octa.storage[2] = {/* Corner 0   */  1,  0,  0, /* Garbage */ -1, -1, -1};
+    octa.storage[3] = {/* Corner 1   */  0,  1,  0, /* Garbage */ -1, -1, -1};
+    octa.storage[4] = {/* Corner 2   */ -1,  0,  0, /* Garbage */ -1, -1, -1};
+    octa.storage[5] = {/* Corner 3   */  0, -1,  0, /* Garbage */ -1, -1, -1};
+
+    apply<ForeverySubdivision>(octa, [](auto& midpoint, const auto& a, const auto& b) {
+        // Cannot compile without putting it in a temporary variable.
+        auto position = to_span<3>(midpoint);
+        fill_midpoint(position, a, b);
+    });
+
+    // Coloring the north pole in black and the south pole in white.
+    octa.storage[0][3] = 0; octa.storage[0][4] = 0; octa.storage[0][5] = 0;
+    octa.storage[1][3] = 1; octa.storage[1][4] = 1; octa.storage[1][5] = 1;
+    // Filling the other colors with the ones from the squarenet visualisation.
+    linear_interpolation<segarray<GLfloat, 8, 3>> gradient{
+        1, 0, 0, // Red.
+        1, 0, 1, // Magenta.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        0, 1, 1, // Cyan.
+        1, 1, 0, // Yellow.
+    };
+    for(std::size_t i = 2; i < octa.storage.size(); ++i)
+        gradient.fill(to_span<3, 3>(octa.storage[i]), i, octa.storage.size());
+
+    // Constructing indexes is rather trivial.
+    segvector<GLuint, 3> seg_indexes;
+    seg_indexes.reserve(octa.bound().triangle_cardinality());
+    apply<ForeachTriangle>(index_of{degree}, [&seg_indexes](auto a, auto b, auto c) {
+        seg_indexes.push_back(a, b, c);
+    });
+
+    ////////////
+    // OpenGL //
+    const char *vs_str =
+        <<include(":noweb octasierp_vs :c-string")>>
+        ;
+    const char *fs_str =
+        <<include(":noweb squarenet_fs :c-string")>>
+        ;
+
+    orbital_camera director(
+        {0, 0, 0}, 2, // Pointed at the origin, at a distance of 2.
+        6, 6,         // With a bit of an angle to be able to see most points.
+        {0, 0, 1}     // The up vector is the z axis, placing the north pole up and the south pole down.
+    );
+    lazy_window lazy("3d Octasierp", 640u, 480u);
+    shader_program octa_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+    movipr viper(
+        transform().scale(.6), // Make the octasierp fit into the screen.
+        to_span(director.view()),
+        octa_shader,
+        {.aspect = lazy.aspect()}
+    );
+    auto size_sub = lazy.observe_size([&viper](auto const& size) {
+        viper.projection_parameters.aspect = size.aspect();
+        viper.refresh_projection();
+    });
+
+    VAO octasierp_vao;
+    spanvec_vertices<GLfloat>(std::span(octa.storage[0].data(), 6 * octa.storage.size()), {3, 3});
+    indexes octasierp_indexes(seg_indexes.storage);
+
+    // Render with thick lines.
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(8);
+
+    gl_screen_first(lazy, "images/screencaps/3d_octasierp.png", [&]{
+        octa_shader.use();
+        octasierp_vao.bind();
+        octasierp_indexes.draw();
+        viper.model.transformation.rotate_rad(.015, {0, 0, 1});
+        viper.model.send();
+    });
+
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/3d_octasierp.png]]
+:end:
+
+This is not the prettiest color scheme, but it does corresponds to the squarenet visualisation, except for the north pole displayed in black and the south pole in white, to make them stand out a bit more.
 
 
 * Diagrams generation
