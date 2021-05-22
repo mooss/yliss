@@ -488,7 +488,7 @@ def mat_uniform(code):
     with Pyogen('src cpp', name=name, depends=':noweb shader_program :cpp cassert span'):
         with cpp.struct(name):
             location_ctor(name)
-            with cpp.par('void send(const std::span<const GLfloat>& content) const'):
+            with cpp.par('void send(std::span<const GLfloat> content) const'):
                 cpp('assert(content.size() == ' + str(cardinality * cardinality) + ');')
                 cpp('glUniformMatrix' + code[1:] + 'v(location, 1, GL_FALSE, content.data());')
 
@@ -527,7 +527,7 @@ struct uniform_m4f {
     uniform_m4f(const GLchar* name, const shader_program& program):
         location(glGetUniformLocation(program.id, name))
     {}
-    void send(const std::span<const GLfloat>& content) const {
+    void send(std::span<const GLfloat> content) const {
         assert(content.size() == 16);
         glUniformMatrix4fv(location, 1, GL_FALSE, content.data());
     }
@@ -1037,9 +1037,9 @@ struct variables {
 The perfect forwarding used for =model= will be useful to define transformations in place using =transform='s translation, scaling and rotation methods.
 Because those methods return references to =transform= but transformations matrices should be moved in other cases.
 #+begin_src cpp :noweb-ref movipr/public
-template<class Transform, class Data>
+template<class Transform>
 movipr(
-    Transform&& _model, const Data& view_data, const shader_program& shader,
+    Transform&& _model, std::span<const GLfloat> view_data, const shader_program& shader,
     const perspective_projection& proj, const variables& names
 ): model(std::forward<Transform>(_model), names.model, shader),
    view(names.view.c_str(), shader),
@@ -1057,9 +1057,9 @@ I had to make an additional constructor to use the default value for the variabl
 For some reason defining the last argument of the other constructor to src_cpp[]{const variables& names=variables()} didn't compile.
 Perhaps I forgot something about C++ syntax but I thought it was valid.
 #+begin_src cpp :noweb-ref movipr/public
-template<class Transform, class Data>
+template<class Transform>
 movipr(
-    Transform&& model, const Data& view_data, const shader_program& shader,
+    Transform&& model, std::span<const GLfloat> view_data, const shader_program& shader,
     const perspective_projection& proj
 ): movipr(std::forward<Transform>(model), view_data, shader, proj, variables{})
 {}
