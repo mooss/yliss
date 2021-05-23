@@ -991,15 +991,17 @@ struct transform_uniform {
 #+end_src
 #+depends:transform_uniform :noweb transform uniform_m4f shader_program :cpp string
 
-The three matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long), whose very minimalist outline can be seen below.
+The three matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long), whose basic outline can be seen below.
 Note that the model is the only matrix whose data is directly stored within =movipr=, the other matrices will be generated on demand.
 #+name: movipr
 #+begin_src cpp
+namespace movipr_details {
+<<movipr_details/public>>
+} // namespace movipr_details
 struct movipr {
     transform_uniform model;
     uniform_m4f view;
     uniform_m4f projection;
-
     <<movipr/public>>
 };
 #+end_src
@@ -1031,12 +1033,18 @@ perspective_projection params{.aspect=4./3., .fov=80};
 #+end_src
 
 The other construction parameters are the variable names for the model, view and projection uniforms.
-#+begin_src cpp :noweb-ref movipr/public
+#+begin_src cpp :noweb-ref movipr_details/public
 struct variables {
     std::string model{"model"};
     std::string view{"view"};
     std::string projection{"projection"};
 };
+#+end_src
+
+=variables= is defined outside of =movipr=, otherwise it cannot be used to generate a default value in the constructor (GCC fails with =default member initializer for ‘movipr::variables::model’ required before the end of its enclosing class= and similar messages for =view= and =projection=).
+For ease of use, an alias is declared in =movipr=:
+#+begin_src cpp :noweb-ref movipr/public
+using variables = movipr_details::variables;
 #+end_src
 
 *** Constructors
@@ -1048,7 +1056,7 @@ template<class Transform>
 movipr(
     Transform&& _model, std::span<const GLfloat> view_data,
     const perspective_projection& proj, const shader_program& shader,
-    const variables& names
+    const variables& names=variables{}
 ): model(std::forward<Transform>(_model), names.model, shader),
    view(names.view.c_str(), shader),
    projection(names.projection.c_str(), shader),
@@ -1059,18 +1067,6 @@ movipr(
     view.send(view_data);
     refresh_projection();
 }
-#+end_src
-
-I had to make an additional constructor to use the default value for the variable names.
-For some reason defining the last argument of the other constructor to src_cpp[]{const variables& names=variables()} didn't compile.
-Perhaps I forgot something about C++ syntax but I thought it was valid.
-#+begin_src cpp :noweb-ref movipr/public
-template<class Transform>
-movipr(
-    Transform&& model, std::span<const GLfloat> view_data,
-    const perspective_projection& proj, const shader_program& shader
-): movipr(std::forward<Transform>(model), view_data, proj, shader, variables{})
-{}
 #+end_src
 
 *** Update
