@@ -269,25 +269,26 @@ Those states changes can be enacted again later by simply bounding the VAO, acti
 #+begin_src cpp
 class VAO {
   public:
-    VAO(): id_(generate())
-    {
-        bind(); // For now.
+    void bind() const {
+        glBindVertexArray(vertex_array_link_->id);
     }
 
-    void bind() const {
-        glBindVertexArray(id_);
-    }
+    VAO():
+        vertex_array_link_(std::make_unique<autoclean>())
+    {bind();}
+    VAO(VAO&&)=default;
+    VAO& operator=(VAO&&)=default;
 
   private:
-    const GLuint id_;
-    static GLuint generate() {
+    struct autoclean {
         GLuint id;
-        glGenVertexArrays(1, &id);
-        return id;
-    }
+        autoclean() {glGenVertexArrays(1, &id);}
+        ~autoclean() {glDeleteVertexArrays(1, &id);}
+    };
+    std::unique_ptr<autoclean> vertex_array_link_;
 };
 #+end_src
-
+#+depends:VAO :cpp memory
 
 ** Vertices and indexes
 
