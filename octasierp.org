@@ -3673,8 +3673,8 @@ int main(){
     movipr viper(
         transform().scale(1.2 / gl_data.side), // Make the squarenet fit into the screen.
         to_span(director.view()),
-        octa_shader,
-        {.aspect = lazy.aspect()}
+        {.aspect = lazy.aspect()},
+        octa_shader
     );
     auto size_sub = lazy.observe_size([&viper](auto const& size) {
         viper.projection_parameters.aspect = size.aspect();
@@ -3809,8 +3809,8 @@ int main() {
     movipr viper(
         transform().scale(.6), // Make the octasierp fit into the screen.
         to_span(director.view()),
-        octa_shader,
-        {.aspect = lazy.aspect()}
+        {.aspect = lazy.aspect()},
+        octa_shader
     );
     auto size_sub = lazy.observe_size([&viper](auto const& size) {
         viper.projection_parameters.aspect = size.aspect();

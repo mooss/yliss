@@ -1046,8 +1046,9 @@ Because those methods return references to =transform= but transformations matri
 #+begin_src cpp :noweb-ref movipr/public
 template<class Transform>
 movipr(
-    Transform&& _model, std::span<const GLfloat> view_data, const shader_program& shader,
-    const perspective_projection& proj, const variables& names
+    Transform&& _model, std::span<const GLfloat> view_data,
+    const perspective_projection& proj, const shader_program& shader,
+    const variables& names
 ): model(std::forward<Transform>(_model), names.model, shader),
    view(names.view.c_str(), shader),
    projection(names.projection.c_str(), shader),
@@ -1066,9 +1067,9 @@ Perhaps I forgot something about C++ syntax but I thought it was valid.
 #+begin_src cpp :noweb-ref movipr/public
 template<class Transform>
 movipr(
-    Transform&& model, std::span<const GLfloat> view_data, const shader_program& shader,
-    const perspective_projection& proj
-): movipr(std::forward<Transform>(model), view_data, shader, proj, variables{})
+    Transform&& model, std::span<const GLfloat> view_data,
+    const perspective_projection& proj, const shader_program& shader
+): movipr(std::forward<Transform>(model), view_data, proj, shader, variables{})
 {}
 #+end_src
 
@@ -1114,8 +1115,8 @@ movipr viper(
     .rotate_deg(270, {0, 1, 0})
     .rotate_deg(90, {1, 0, 1}),
     transform().translate({0, 0, -2}),
-    colorful_shader,
-    {.aspect = lazy.aspect()}
+    {.aspect = lazy.aspect()},
+    colorful_shader
 );
 
 auto size_sub = lazy.observe_size([](auto const& size) {
