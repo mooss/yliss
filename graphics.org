@@ -944,6 +944,31 @@ transform nonsensical_transformation{nonsensical_matrix};
  - The conversion operator to =std::span= makes sending a transformation to the gpu a breeze.
 \\
 
+*** Transform uniform
+
+The struct =transform_uniform= is a shortcut for a transformation matrix with its associated uniform.
+#+name: transform_uniform
+#+begin_src cpp
+struct transform_uniform {
+    transform transformation;
+    uniform_m4f uniform;
+
+    template<typename Transform>
+    transform_uniform(Transform&& t, const std::string& name, const shader_program& shader):
+        transformation(std::forward<Transform>(t)), uniform(name.c_str(), shader)
+    {send();}
+
+    void send() const {
+        uniform.send(transformation);
+    }
+
+    transform* operator->() {return &transformation;}
+};
+#+end_src
+#+depends:transform_uniform :noweb transform uniform_m4f shader_program :cpp string
+
+*** Usage
+
 To experiment with transformations, this vertex shader transmits the input color it received to the fragment shader and applies a given transformation matrix to its original position:
 #+name: colorattr_transform_vs
 #+begin_src glsl :minipage
@@ -959,7 +984,7 @@ void main() {
 }
 #+end_src
 
-All is put together here by sending a custom transformation to the shader using =uniform_m4f= and =transform=.
+This sends a custom transformation to the shader using a =transform_uniform=:
 #+begin_src cpp :eval no-export :exports both
 const char *vs_str =
     <<shader("colorattr_transform_vs")>>
@@ -967,24 +992,24 @@ const char *vs_str =
 const char *fs_str =
     <<shader("color_as_attribute_fs")>>
     ;
-<<include(":noweb colorful-example uniform_m4f transform gl_screen_first")>>
+<<include(":noweb colorful-example transform transform_uniform gl_screen_first")>>
 
 int main() {
     colorful_shader.use();
-    uniform_m4f transform_u("transformation", colorful_shader);
-    auto transformation = transform()
-        .translate({-.3, 0, 0})
-        .scale({.5, .5, 1})
-        .rotate_deg(45, {0, 0, 1});
-    transform_u.send(transformation);
+    transform_uniform cube_transformation(
+        transform().translate({-.3, 0, 0})
+                   .scale({.5, .5, 1})
+                   .rotate_deg(45, {0, 0, 1}),
+        "transformation", colorful_shader
+    );
 
     gl_screen_first(lazy, "images/screencaps/cube_transformation.png", [&]{
         colorful_shader.use();
         colorful_vao.bind();
         colorful_indexes.draw();
         // Keep rotating a bit every frame.
-        transformation.rotate_rad(.015, {1, 1, 0});
-        transform_u.send(transformation);
+        cube_transformation->rotate_rad(.015, {1, 1, 0});
+        cube_transformation.send();
     });
 }
 #+end_src
@@ -996,7 +1021,7 @@ int main() {
 
 Note that the image above really is a cube.
 I choosed to pick an angle where only a side was visible because it was pretty.
-For an image with more of a 3d feeling, see the next example.
+For an image with more of a 3d feeling, see the next usage example.
 
 
 ** Model, view and projection matrices
@@ -1008,24 +1033,6 @@ The model, view and projection matrices are transformation matrices each doing t
  - Projection transforms view space to clip space (where only what must be rendered is located, the rest being clipped off).
 # TODO: Verify the above with other sources, I don't think I understood everything I needed.
 
-The struct =transform_uniform= is a shortcut for a transformation matrix with its associated uniform.
-#+name: transform_uniform
-#+begin_src cpp
-struct transform_uniform {
-    transform transformation;
-    uniform_m4f uniform;
-
-    template<typename Transform>
-    transform_uniform(Transform&& t, const std::string& name, const shader_program& shader):
-        transformation(std::forward<Transform>(t)), uniform(name.c_str(), shader)
-    {}
-
-    void send() const {
-        uniform.send(transformation);
-    }
-};
-#+end_src
-#+depends:transform_uniform :noweb transform uniform_m4f shader_program :cpp string
 
 The three matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long), whose basic outline can be seen below.
 Note that the model is the only matrix whose data is directly stored within =movipr=, the other matrices will be generated on demand.
@@ -1099,7 +1106,6 @@ movipr(
    projection_parameters(proj)
 {
     shader.use();
-    model.send();
     view.send(view_data);
     refresh_projection();
 }
