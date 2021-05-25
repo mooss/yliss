@@ -6,24 +6,24 @@
 #+property: header-args :eval never :main no :exports both :noweb no-export
 #+property: header-args:cpp+ :flags -std=c++20 -I include -ldl -lGL -lglfw src/glad.c
 
-* Prelude :noexport:
+* Prelude
 
 ** Inclusion
 
+General include script:
 #+name: include
 #+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
 ./litlib/include.pl "window.org litlib/cpp.org graphics.org" "$args"
 #+end_src
 
 Specialised block for shaders (makes things slightly more readable):
-
 #+name: shader
 #+begin_src bash :var noweb="" :results output :wrap "src text" :eval no-export
 ./litlib/include.pl "graphics.org" ":noweb $noweb :c-string"
 #+end_src
 
 
-** Log the output of OpenGL commands
+** Log the output of OpenGL commands :noexport:
 
 With the help of some pretty awesome black magic, =sed= can be used to replace OpenGL calls with a logging call via =LOG_AND_CALL=.
 
@@ -52,6 +52,21 @@ To adapt the regexes above, remember that backslashes must be escaped because th
 It should be possible to make the logging calls work for initialisation lists by adding a templated =log_and_call= function.
 
 
+** Design guidelines
+
+To talk about design principles here would be a bit too much since I really don't have enough experience in graphics programming.
+
+*** Early action
+
+Perform any relevant OpenGL action in the constructor of its wrapper.
+For example, when applied to a shader, this guideline advises to trigger its immediate compilation on construction.
+
+I'm not sure this is a very good idea because there are probably tons of situations in which those actions should be deffered, but this is very handy to avoid noisy =.use()=, =.bind()=, =.send()= so I want to see if I can make it work.
+
+*** Early failure
+
+Fail immediately when an error occurs.
+
 * OpenGL primitives
 
 In this section are defined various OpenGL-related objects that let us draw things.
@@ -66,14 +81,13 @@ Of course, those things will be "unconsted" when needed.
 
 ** Shader
 
-A design principle used in shader-related classes is to build everything early and to fail immediately when an error occurs.
-For =shader_base=, this principle manifests itself by an immediate compilation of the shader in the constructor followed by a call to =ensure_success= that will throw should a compilation error have occured.
+The design guidelines of early action and early failure manifest themselves in =shader_base= with the immediate compilation of the shader in the constructor followed by a call to =ensure_success= that will throw should a compilation error have occured.
 
 Apparently, shaders are supposed to be deleted once they are linked, hence the custom desctuctor.
-This means that =shader_base= objects should only be used as temporary objects and should perhaps not be copyable.
-I will see at some point if this becomes a problem.
-I don't want to ==delete= the copy constructor and assignment operator yet because I want to have a feature in the include script that does it for me at some point.
-Having this slightly unfinished code is a useful reminder to eventually implement this feature.
+This means that =shader_base= objects should only be used as temporary objects, that's why they are not copyable or movable.
+They probably should not be objects at all then, but I'll think about this another day.
+
+# Using explicit =delete instead of waiting for the ability of include.pl to execute code blocks, since it will not happen anytime soon.
 
 #+name: shader_base
 #+begin_src cpp
@@ -89,10 +103,18 @@ class shader_base {
     shader_base(const char* source, int type):
         id(glCreateShader(type))
     {
+        // Early action.
         glShaderSource(id, 1, &source, nullptr);
         glCompileShader(id);
+        // Early failure.
         ensure_success();
     }
+
+    shader_base(shader_base&&)=delete;
+    shader_base& operator=(shader_base&&)=delete;
+    shader_base(const shader_base&)=delete;
+    shader_base& operator=(const shader_base&)=delete;
+    shader_base()=delete;
 
   private:
     bool compiled() const {
@@ -142,6 +164,7 @@ A shader program links together a vertex shader and a fragment shader.
 The build immediately, fail early principle is used here once again, this time for the linking step.
 
 Rvalue references are used for the =vertex_shader= and =fragment_shader= parameters to enforce the idea that those are only temporary objects that should be destroyed as soon as they are used.
+In fact the only reason to use those parameter types and not =const char*= is to make it impossible to invert them.
 
 #+name: shader_program
 #+begin_src cpp
@@ -154,6 +177,7 @@ class shader_program {
         glAttachShader(id, fs.id);
         glLinkProgram(id);
         ensure_success();
+        use();
     }
 
     void use() const {
