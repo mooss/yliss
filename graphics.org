@@ -1033,29 +1033,30 @@ The model, view and projection matrices are transformation matrices each doing t
  - Projection transforms view space to clip space (where only what must be rendered is located, the rest being clipped off).
 # TODO: Verify the above with other sources, I don't think I understood everything I needed.
 
-
 The three matrices are abstracted away in =movipr= (=mvp= was too short and =model_view_projection= was too long), whose basic outline can be seen below.
-Note that the model is the only matrix whose data is directly stored within =movipr=, the other matrices will be generated on demand.
+Note that no matrices are directly stored within =movipr=, the =uniform_m4f= only represent the link with uniforms in the shaders.
 #+name: movipr
 #+begin_src cpp
 namespace movipr_details {
 <<movipr_details/public>>
 } // namespace movipr_details
 struct movipr {
-    transform_uniform model;
+    uniform_m4f model;
     uniform_m4f view;
     uniform_m4f projection;
     <<movipr/public>>
 };
 #+end_src
-#+depends:movipr :noweb transform_uniform uniform_m4f shader_program mandatory to_span/glm :cpp string glm/ext/matrix_clip_space.hpp glm/trigonometric.hpp
+#+depends:movipr :noweb uniform_m4f shader_program mandatory to_span/glm :cpp string glm/ext/matrix_clip_space.hpp glm/trigonometric.hpp
 
 *** Construction parameters
 
 In an attempt to make =movipr= easy to use and concise (for the user), the designated keywords arguments pattern is used.
 It is justified by the fact that reasonable default values can be defined for most parameters.
-The keyword arguments are separated in two group, the first group is dedicated to the projection parameter (only the perspective projection is supported).
-The only parameter without reasonably defined default values is the =aspect= ratio, hence why it is marked as =mandatory=.
+The keyword arguments are separated in two groups.
+
+The first parameter group is dedicated to the projection parameter (only perspective projection is supported).
+The only parameter without reasonably defined default values is the =aspect= ratio, hence it is marked as =mandatory=.
 #+begin_src cpp :noweb-ref movipr/public
 struct perspective_projection {
     mandatory<float> aspect;
@@ -1066,16 +1067,15 @@ struct perspective_projection {
         return glm::perspective(glm::radians(fov), *aspect, near, far);
     }
 };
-perspective_projection projection_parameters;
+perspective_projection projection_parameters; // Mandatory to be able to refresh the projection.
 #+end_src
-# TODO: use shared_ptr for view and projection and make a "half duplicate" factory.
 
 An instance of perspective projection can be constructed like shown below, and a construction attempt without a value for =aspect= will not compile.
 #+begin_src cpp
 perspective_projection params{.aspect=4./3., .fov=80};
 #+end_src
 
-The other construction parameters are the variable names for the model, view and projection uniforms.
+The second parameter group contains the variable names for the model, view and projection uniforms.
 #+begin_src cpp :noweb-ref movipr_details/public
 struct variables {
     std::string model{"model"};
@@ -1095,17 +1095,16 @@ using variables = movipr_details::variables;
 The perfect forwarding used for =model= will be useful to define transformations in place using =transform='s translation, scaling and rotation methods.
 Because those methods return references to =transform= but transformations matrices should be moved in other cases.
 #+begin_src cpp :noweb-ref movipr/public
-template<class Transform>
 movipr(
-    Transform&& _model, std::span<const GLfloat> view_data,
+    std::span<const GLfloat> model_data, std::span<const GLfloat> view_data,
     const perspective_projection& proj, const shader_program& shader,
     const variables& names=variables{}
-): model(std::forward<Transform>(_model), names.model, shader),
+): model(names.model.c_str(), shader),
    view(names.view.c_str(), shader),
    projection(names.projection.c_str(), shader),
    projection_parameters(proj)
 {
-    shader.use();
+    model.send(model_data);
     view.send(view_data);
     refresh_projection();
 }
@@ -1146,12 +1145,13 @@ A window size observer is also setup to update the projection's aspect ratio whe
 #+name: colorful-viper-example
 #+begin_src cpp
 glm::vec3 cube_location{-.5, 0, 0};
+auto cube_transformation = transform().translate(cube_location)
+                                    .scale(          {.5, .5, .5})
+                                    .rotate_deg(45,  { 0,  0,  1})
+                                    .rotate_deg(270, { 0,  1,  0})
+                                    .rotate_deg(90,  { 1,  0,  1});
 movipr viper(
-    transform().translate(cube_location)
-    .scale({.5, .5, .5})
-    .rotate_deg(45, {0, 0, 1})
-    .rotate_deg(270, {0, 1, 0})
-    .rotate_deg(90, {1, 0, 1}),
+    cube_transformation,
     transform().translate({0, 0, -2}),
     {.aspect = lazy.aspect()},
     colorful_shader
@@ -1181,8 +1181,8 @@ int main() {
         colorful_vao.bind();
         colorful_indexes.draw();
         // Keep rotating a bit every frame.
-        viper.model.transformation.rotate_rad(-.015, {1, 0, 1});
-        viper.model.send();
+        cube_transformation.rotate_rad(-.015, {1, 0, 1});
+        viper.model.send(cube_transformation);
     });
 }
 #+end_src
@@ -1308,8 +1308,8 @@ int main() {
         colorful_indexes.draw();
 
         // Rotate the model.
-        viper.model.transformation.rotate_rad(-.015, {1, 0, 1});
-        viper.model.send();
+        cube_transformation.rotate_rad(-.015, {1, 0, 1});
+        viper.model.send(cube_transformation);
 
         // And the camera.
         viper.view.send(to_span(director.orient(2, 0).view()));

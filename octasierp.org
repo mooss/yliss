@@ -3742,7 +3742,7 @@ void main() {
 \\
 The only new elements when compared with the previous section is first the definition of the six initial points' positions, and then the interpolation of the subsequent positions with =ForeverySubdivision= and =fill_midpoint=.
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb octasierp apply_foreach/octasierp ForeverySubdivision fill_midpoint linear_interpolation segarray to_span segvector adapt_repr/index_of apply_foreach ForeachTriangle orbital_camera lazy_window shader_program movipr VAO spanvec_vertices indexes gl_screen_first :cpp array span :defs graphics.org window.org")>>
+<<include(":noweb octasierp apply_foreach/octasierp ForeverySubdivision fill_midpoint linear_interpolation segarray to_span segvector adapt_repr/index_of apply_foreach ForeachTriangle orbital_camera lazy_window shader_program movipr transform VAO spanvec_vertices indexes gl_screen_first :cpp array span :defs graphics.org window.org")>>
 
 int main() {
     //////////////////////////
@@ -3806,8 +3806,9 @@ int main() {
     );
     lazy_window lazy("3d Octasierp", 640u, 480u);
     shader_program octa_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
+    auto octa_transform = transform().scale(.6); // Make the octasierp fit into the screen.
     movipr viper(
-        transform().scale(.6), // Make the octasierp fit into the screen.
+        octa_transform,
         to_span(director.view()),
         {.aspect = lazy.aspect()},
         octa_shader
@@ -3832,8 +3833,8 @@ int main() {
         octa_shader.use();
         octasierp_vao.bind();
         octasierp_indexes.draw();
-        viper.model.transformation.rotate_rad(.015, {0, 0, 1});
-        viper.model.send();
+        octa_transform.rotate_rad(.015, {0, 0, 1});
+        viper.model.send(octa_transform);
     });
 
     return 0;
