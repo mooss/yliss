@@ -444,7 +444,7 @@ class indexes {
         ebo_.send(content);
     }
 
-    void draw() {
+    void draw() const {
         glDrawElements(GL_TRIANGLES, count_, GL_UNSIGNED_INT, 0);
     }
 
