@@ -189,7 +189,7 @@ class shader_program {
 
 =opengl_buffer= establishes a link with the GPU to send data to it.
 
-The documentation of both [[http://docs.gl/gl3/glDeleteBuffers][=glDeleteBuffers=]] and [[http://docs.gl/gl3/glDeleteVertexArrays][=glDeleteVertexArrays]] state that deleting objects whose name is 0 does nothing and that calling those function on a defined name reverts said name to 0.
+The documentation of [[http://docs.gl/gl3/glDeleteBuffers][=glDeleteBuffers=]] states that deleting a buffer whose name is 0 does nothing and that calling this function with a defined name reverts said name to 0.
 This property and RAII are used to manage the ownership of the link.
 
 #+name: opengl_buffer
@@ -267,7 +267,7 @@ VAOs function is to remember various calls made on data held by VBOs.
 Once a VAO is bound, it remembers state changes caused by various subsequent OpenGL calls.
 Those states changes can be enacted again later by simply bounding the VAO, acting like a sort of shortcut.
 
-The deleting logic was adapted from =opengl_buffer=.
+Since [[http://docs.gl/gl3/glDeleteVertexArrays][=glDeleteVertexArrays=]] behaves in the same way as =glDeleteBuffers=, the ownership logic from =opengl_buffer= is reused here.
 
 #+name: VAO
 #+begin_src cpp
