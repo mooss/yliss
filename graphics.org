@@ -40,8 +40,9 @@ First, the following code block (from https://stackoverflow.com/a/66090390) must
 #+end_src
 
 Then execute the following elisp command via =C-x C-e=:
-(shell-command-on-buffer "sed -r 's| (gl[a-zA-Z]+[^(]+)\\(| LOG_AND_CALL(\\1, |'")
+(shell-command-on-buffer "sed -r 's| (gl[a-ln-zA-Z]+[^(]+)\\(| LOG_AND_CALL(\\1, |'")
 There is a space at the beginning of the regex to avoid matching initialisation lists.
+=m= is excluded from the match to avoid glm functions.
 
 Regex to transform logging calls back to plain opengl calls:
 (shell-command-on-buffer "sed -r 's|LOG_AND_CALL\\((gl[a-zA-Z]+[^,]+), |\\1(|'")
