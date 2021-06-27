@@ -1319,6 +1319,166 @@ int main() {
 #+end_src
 
 
+* Higher level OpenGL tools
+
+** Minor utilities
+
+*** =vertindex=
+=vertindex= is simply a combination of =vertices= with =indexes=, with a =draw= method.
+
+#+name: vertindex
+#+begin_src cpp
+template<class VertexT>
+struct vertindex {
+    vertices<VertexT> vert;
+    indexes index;
+    void draw() const {index.draw();}
+};
+#+end_src
+#+depends:vertindex :noweb vertices indexes
+
+# This Drawable concept is shelved for now but I want to keep it around, if only to have the example at hands.
+# #+name: Drawable
+# #+begin_src cpp
+# template<class T>
+# concept Drawable = requires(T t) {t.draw();};
+# #+end_src
+
+*** =vertindex_data=
+
+=vertindex_data= is here to carry vertices and indexes data around without sending them to the GPU.
+It is necessary for two reasons:
+ 1. The =vertices= and =indexes= instances in =vertindex= automatically sends data to the GPU on creation.
+ 2. Those instances do not store anything in the first place anyway.
+
+#+name: vertindex_data
+#+begin_src cpp
+template<class VertexT>
+struct vertindex_data {
+    const std::vector<VertexT>& content;
+    const std::vector<std::size_t>& layout;
+    const std::vector<GLuint>& indexes;
+    auto instantiate() const {
+        return vertindex<VertexT>{
+            {content, layout},
+            {indexes}
+        };
+    }
+};
+#+end_src
+#+depends:vertindex_data :noweb vertindex :cpp vector
+
+*** =shader_sources=
+
+=shader_sources= can help disambiguate the shader sources, the caller can set them as designated keyword arguments, line ={.vertex=vs, .fragment=fs}=.
+#+name: shader_sources
+#+begin_src cpp
+struct shader_sources {
+    mandatory<const char*> vertex;
+    mandatory<const char*> fragment;
+};
+#+end_src
+#+depends:shader_sources :noweb mandatory
+
+
+** Shader unit
+
+# TODO: Fix to_span/glm to use static extents.
+
+A shader unit gathers everything needed to draw something, i.e. a shader, a VAO, OpenGL buffers and the model, view and projection matrices.
+
+Some assumptions are being made, namely that indexes are used to draw the model, that the shader requires model, view and projection uniforms and that one and only one model is needed per shader.
+Those assumptions will certainly prove to be some combination of stupid and short-sighted but I can't make progress and learn new things without taking poor decisions.
+
+#+name: shader_unit
+#+begin_src cpp
+template<class VertexT = float>
+class shader_unit {
+  public:
+    shader_unit(
+        const shader_sources& sources, const transform& _model,
+        std::span<const GLfloat> view, const movipr::perspective_projection& projection,
+        const vertindex_data<VertexT>& data, const movipr::variables& names=movipr::variables{}
+    ): shader_(vertex_shader(*sources.vertex), fragment_shader(*sources.fragment)),
+       vao_(), drawable(data.instantiate()), model(_model),
+       viper_(model, view, projection, shader_, names)
+    {}
+
+    shader_program shader_;
+    VAO vao_;
+    vertindex<VertexT> drawable;
+    transform model;
+    movipr viper_;
+
+    void draw() const {
+        shader_.use();
+        vao_.bind();
+        drawable.draw();
+    }
+};
+#+end_src
+#+depends:shader_unit :noweb shader_sources transform movipr vertindex_data shader_program VAO :cpp span
+
+The following utility function ties a =window='s aspect ratio with a =shader_unit='s projection matrix:
+#+name: sync_window_size
+#+begin_src cpp
+template<class DrawableMaker>
+auto sync_window_size(shader_unit<DrawableMaker>& su, window& w) {
+    return w.observe_size([&](auto const& size) {
+        su.viper_.projection_parameters.aspect = size.aspect();
+        su.viper_.refresh_projection();
+    });
+}
+#+end_src
+#+depends:sync_window_size :noweb shader_unit window
+
+*** Usage
+
+#+begin_src cpp :eval no-export :exports both :results silent
+<<include(":noweb print lazy_window orbital_camera shader_unit transform to_span/glm sync_window_size")>>
+
+int main() {
+    lazy_window lazy("Shader unit example");
+
+    glm::vec3 cube_location{-.5, 0, 0};
+    orbital_camera director(cube_location, 2, 0, 0);
+    auto colorful_cube = shader_unit(
+        {.vertex =
+         <<shader("model_view_projection_vs")>>
+         , .fragment =
+         <<shader("color_as_attribute_fs")>>}, // Shader sources.
+        transform().translate(cube_location)
+                   .scale({.5, .5, .5})
+                   .rotate_deg(45, {0, 0, 1}),  // Model.
+        to_span(director.view()),               // View.
+        {.aspect=lazy.aspect()},                // Projection.
+        {.content={                             // Model data.
+            // Positions    // Colors
+            .5,  .5,  .5,   1, 1, 0, // Yellow.
+           -.5,  .5,  .5,   1, 0, 1, // Magenta.
+            .5,  .5, -.5,   1, 1, 1, // White.
+           -.5,  .5, -.5,   0, 1, 1, // Cyan.
+            .5, -.5,  .5,   0, 1, 1, // Cyan.
+           -.5, -.5,  .5,   1, 1, 1, // White.
+           -.5, -.5, -.5,   1, 1, 0, // Yellow.
+            .5, -.5, -.5,   1, 0, 1  // Magenta.
+        }, .layout={3, 3}, .indexes={
+            3, 2, 6,   2, 6, 7,   6, 7, 4,
+            7, 4, 2,   4, 2, 0,   2, 0, 3,
+            0, 3, 1,   3, 1, 6,   1, 6, 5,
+            6, 5, 4,   5, 4, 1,   4, 1, 0
+        }}
+    );
+
+    auto sync_anchor = sync_window_size(colorful_cube, lazy);
+
+    lazy.game_loop([&]{
+        colorful_cube.draw();
+    });
+}
+#+end_src
+
+
 * GLM utils
 
 ** Conversion
