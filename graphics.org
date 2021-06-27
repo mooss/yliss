@@ -1396,25 +1396,34 @@ template<class VertexT = float>
 class shader_unit {
   public:
     shader_unit(
-        const shader_sources& sources, const transform& _model,
+        const shader_sources& sources, const transform& model,
         std::span<const GLfloat> view, const movipr::perspective_projection& projection,
         const vertindex_data<VertexT>& data, const movipr::variables& names=movipr::variables{}
     ): shader_(vertex_shader(*sources.vertex), fragment_shader(*sources.fragment)),
-       vao_(), drawable(data.instantiate()), model(_model),
-       viper_(model, view, projection, shader_, names)
+       vao_(), drawable_(data.instantiate()), model_(model),
+       viper(model, view, projection, shader_, names)
     {}
-
-    shader_program shader_;
-    VAO vao_;
-    vertindex<VertexT> drawable;
-    transform model;
-    movipr viper_;
 
     void draw() const {
         shader_.use();
         vao_.bind();
-        drawable.draw();
+        drawable_.draw();
     }
+
+    template<class Lambda>
+    void with_model(Lambda fun) {
+        fun(model_);
+        viper.model.send(model_);
+    }
+
+  private:
+    shader_program shader_;
+    VAO vao_;
+    vertindex<VertexT> drawable_;
+    transform model_;
+
+  public:
+    movipr viper;
 };
 #+end_src
 #+depends:shader_unit :noweb shader_sources transform movipr vertindex_data shader_program VAO :cpp span
@@ -1425,8 +1434,8 @@ The following utility function ties a =window='s aspect ratio with a =shader_uni
 template<class DrawableMaker>
 auto sync_window_size(shader_unit<DrawableMaker>& su, window& w) {
     return w.observe_size([&](auto const& size) {
-        su.viper_.projection_parameters.aspect = size.aspect();
-        su.viper_.refresh_projection();
+        su.viper.projection_parameters.aspect = size.aspect();
+        su.viper.refresh_projection();
     });
 }
 #+end_src
@@ -1449,10 +1458,10 @@ int main() {
          <<shader("color_as_attribute_fs")>>}, // Shader sources.
         transform().translate(cube_location)
                    .scale({.5, .5, .5})
-                   .rotate_deg(45, {0, 0, 1}),  // Model.
-        to_span(director.view()),               // View.
-        {.aspect=lazy.aspect()},                // Projection.
-        {.content={                             // Model data.
+                   .rotate_deg(45, {0, 0, 1}), // Model.
+        to_span(director.view()),              // View.
+        {.aspect=lazy.aspect()},               // Projection.
+        {.content={                            // Model data.
             // Positions    // Colors
             .5,  .5,  .5,   1, 1, 0, // Yellow.
            -.5,  .5,  .5,   1, 0, 1, // Magenta.
@@ -1474,6 +1483,9 @@ int main() {
 
     lazy.game_loop([&]{
         colorful_cube.draw();
+        colorful_cube.with_model([](auto& model){
+            model.rotate_rad(-.015, {1, 0, 1});
+        });
     });
 }
 #+end_src
