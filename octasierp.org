@@ -3639,14 +3639,12 @@ void main() {
 First each canonical point is colored with a color gradient, then vertices and indexes are prepared via =squarenet_gl= and finally through a bit of OpenGL tweaking the squarenet is rendered with lines and slowly rotated each frame.
 
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb lazy_window shader_program movipr transform VAO vec_vertices indexes segvector pointless_octasierp linear_interpolation segarray squarenet_gl orbital_camera to_span/glm gl_screen_first :defs graphics.org window.org")>>
+<<include(":noweb pointless_octasierp segvector linear_interpolation segarray squarenet_gl orbital_camera lazy_window shader_unit to_span/glm sync_window_size gl_screen_first refresh_view :defs graphics.org window.org")>>
 
 int main(){
     std::size_t degree = 3;
     pointless_octasierp octa(degree);
     segvector<GLfloat, 3> vertices_colors;
-    vertices_colors.resize(octa.point_cardinality(), 0);
-
     linear_interpolation<segarray<GLfloat, 8, 3>> gradient{
         1, 0, 0, // Red.
         1, 0, 1, // Magenta.
@@ -3657,43 +3655,35 @@ int main(){
         0, 1, 1, // Cyan.
         1, 1, 0, // Yellow.
     };
+
+    vertices_colors.resize(octa.point_cardinality(), 0);
     gradient.fill_all(vertices_colors);
     auto gl_data = squarenet_gl(vertices_colors, degree);
 
-    const char *vs_str =
-        <<include(":noweb squarenet_vs :c-string")>>
-        ;
-    const char *fs_str =
-        <<include(":noweb squarenet_fs :c-string")>>
-        ;
-
     orbital_camera director({0, 0, 0}, 2, 90, 0);
-    lazy_window lazy("Octasierp colorful squarenet", 640u, 480u);
-    shader_program octa_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
-    movipr viper(
-        transform().scale(1.2 / gl_data.side), // Make the squarenet fit into the screen.
-        to_span(director.view()),
-        {.aspect = lazy.aspect()},
-        octa_shader
-    );
-    auto size_sub = lazy.observe_size([&viper](auto const& size) {
-        viper.projection_parameters.aspect = size.aspect();
-        viper.refresh_projection();
-    });
+    lazy_window lazy("Octasierp colorful squarenet");
 
-    VAO octasierp_vao;
-    auto octasierp_vertices = vec_vertices<GLfloat>(gl_data.vertices, {2, 3});
-    indexes octasierp_indexes(gl_data.indexes);
+    shader_unit squarenet(
+        {.vertex =
+         <<include(":noweb squarenet_vs :c-string")>>,
+         .fragment =
+         <<include(":noweb squarenet_fs :c-string")>>},
+        transform().scale(1.2 / gl_data.side), // Model.
+        to_span(director.view()),              // View.
+        {.aspect=lazy.aspect()},               // Projection
+        {.content=gl_data.vertices,            // Mesh.
+         .layout={2, 3},
+         .indexes=gl_data.indexes}
+    );
+    auto sync_anchor = sync_window_size(squarenet, lazy);
 
     // Render with thick lines.
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glLineWidth(8);
 
     gl_screen_first(lazy, "images/screencaps/gradient_squarenet.png", [&]{
-        octa_shader.use();
-        octasierp_vao.bind();
-        octasierp_indexes.draw();
-        viper.view.send(to_span(director.orient(1, 0).view()));
+        squarenet.draw();
+        refresh_view(squarenet, director.orient(1, 0));
     });
     return 0;
 }
@@ -3741,8 +3731,9 @@ void main() {
 #+end_src
 \\
 The only new elements when compared with the previous section is first the definition of the six initial points' positions, and then the interpolation of the subsequent positions with =ForeverySubdivision= and =fill_midpoint=.
+
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb octasierp apply_foreach/octasierp ForeverySubdivision fill_midpoint linear_interpolation segarray to_span segvector adapt_repr/index_of apply_foreach ForeachTriangle orbital_camera lazy_window shader_program movipr transform VAO spanvec_vertices indexes gl_screen_first :cpp array span :defs graphics.org window.org")>>
+<<include(":noweb octasierp apply_foreach/octasierp ForeverySubdivision fill_midpoint linear_interpolation segarray to_span segvector adapt_repr/index_of apply_foreach ForeachTriangle orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp array span :defs graphics.org window.org")>>
 
 int main() {
     //////////////////////////
@@ -3792,49 +3783,35 @@ int main() {
 
     ////////////
     // OpenGL //
-    const char *vs_str =
-        <<include(":noweb octasierp_vs :c-string")>>
-        ;
-    const char *fs_str =
-        <<include(":noweb squarenet_fs :c-string")>>
-        ;
-
     orbital_camera director(
         {0, 0, 0}, 2, // Pointed at the origin, at a distance of 2.
         6, 6,         // With a bit of an angle to be able to see most points.
         {0, 0, 1}     // The up vector is the z axis, placing the north pole up and the south pole down.
     );
-    lazy_window lazy("3d Octasierp", 640u, 480u);
-    shader_program octa_shader{vertex_shader(vs_str), fragment_shader(fs_str)};
-    auto octa_transform = transform().scale(.6); // Make the octasierp fit into the screen.
-    movipr viper(
-        octa_transform,
+    lazy_window lazy("3d Octasierp");
+    shader_unit<std::span<float>> octasierp3d(
+        {.vertex =
+         <<include(":noweb octasierp_vs :c-string")>>,
+         .fragment =
+         <<include(":noweb squarenet_fs :c-string")>>},
+        transform().scale(.6), // Make the octasierp fit into the screen.
         to_span(director.view()),
-        {.aspect = lazy.aspect()},
-        octa_shader
+        {.aspect=lazy.aspect()},
+        {.content=std::span(octa.storage[0].data(), 6 * octa.storage.size()),
+         .layout={3, 3},
+         .indexes=seg_indexes.storage}
     );
-    auto size_sub = lazy.observe_size([&viper](auto const& size) {
-        viper.projection_parameters.aspect = size.aspect();
-        viper.refresh_projection();
-    });
-
-    VAO octasierp_vao;
-    auto octasierp_vertices = spanvec_vertices<GLfloat>(
-        std::span(octa.storage[0].data(), 6 * octa.storage.size()),
-        {3, 3}
-    );
-    indexes octasierp_indexes(seg_indexes.storage);
+    auto sync_anchor = sync_window_size(octasierp3d, lazy);
 
     // Render with thick lines.
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glLineWidth(8);
 
     gl_screen_first(lazy, "images/screencaps/3d_octasierp.png", [&]{
-        octa_shader.use();
-        octasierp_vao.bind();
-        octasierp_indexes.draw();
-        octa_transform.rotate_rad(.015, {0, 0, 1});
-        viper.model.send(octa_transform);
+        octasierp3d.draw();
+        octasierp3d.with_model([](auto& model){
+            model.rotate_rad(.015, {0, 0, 1});
+        });
     });
 
     return 0;

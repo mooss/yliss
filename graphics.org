@@ -1344,29 +1344,34 @@ struct vertindex {
 # concept Drawable = requires(T t) {t.draw();};
 # #+end_src
 
-*** =vertindex_data=
+*** =mesh_data=
 
-=vertindex_data= is here to carry vertices and indexes data around without sending them to the GPU.
+=mesh_data= is here to carry vertices and indexes data around without sending them to the GPU.
 It is necessary for two reasons:
  1. The =vertices= and =indexes= instances in =vertindex= automatically sends data to the GPU on creation.
  2. Those instances do not store anything in the first place anyway.
 
-#+name: vertindex_data
+Note that it does not actually stores anything since it only uses const references.
+This is more of an exchange struct.
+
+#+name: mesh_data
 #+begin_src cpp
-template<class VertexT>
-struct vertindex_data {
-    const std::vector<VertexT>& content;
+// template<class VertexT>
+template<class ContentT>
+struct mesh_data {
+    // const std::vector<VertexT>& content;
+    const ContentT& content;
     const std::vector<std::size_t>& layout;
-    const std::vector<GLuint>& indexes;
+    const std::vector<unsigned int>& indexes;
     auto instantiate() const {
-        return vertindex<VertexT>{
+        return vertindex<typename ContentT::value_type>{
             {content, layout},
             {indexes}
         };
     }
 };
 #+end_src
-#+depends:vertindex_data :noweb vertindex :cpp vector
+#+depends:mesh_data :noweb vertindex :cpp vector
 
 *** =shader_sources=
 
@@ -1392,13 +1397,14 @@ Those assumptions will certainly prove to be some combination of stupid and shor
 
 #+name: shader_unit
 #+begin_src cpp
-template<class VertexT = float>
+template<class VerticesT = std::vector<float>>
 class shader_unit {
   public:
+    using VertexT = VerticesT::value_type;
     shader_unit(
         const shader_sources& sources, const transform& model,
         std::span<const GLfloat> view, const movipr::perspective_projection& projection,
-        const vertindex_data<VertexT>& data, const movipr::variables& names=movipr::variables{}
+        const mesh_data<VerticesT>& data, const movipr::variables& names=movipr::variables{}
     ): shader_(vertex_shader(*sources.vertex), fragment_shader(*sources.fragment)),
        vao_(), drawable_(data.instantiate()), model_(model),
        viper(model, view, projection, shader_, names)
@@ -1416,6 +1422,10 @@ class shader_unit {
         viper.model.send(model_);
     }
 
+    void refresh_view(std::span<const GLfloat> view_data) const {
+        viper.view.send(view_data);
+    }
+
   private:
     shader_program shader_;
     VAO vao_;
@@ -1426,20 +1436,30 @@ class shader_unit {
     movipr viper;
 };
 #+end_src
-#+depends:shader_unit :noweb shader_sources transform movipr vertindex_data shader_program VAO :cpp span
+#+depends:shader_unit :noweb shader_sources transform movipr mesh_data shader_program VAO :cpp span
 
 The following utility function ties a =window='s aspect ratio with a =shader_unit='s projection matrix:
 #+name: sync_window_size
 #+begin_src cpp
-template<class DrawableMaker>
-auto sync_window_size(shader_unit<DrawableMaker>& su, window& w) {
-    return w.observe_size([&](auto const& size) {
-        su.viper.projection_parameters.aspect = size.aspect();
-        su.viper.refresh_projection();
+template<class ShaderUnit>
+auto sync_window_size(ShaderUnit& unit, window& win) {
+    return win.observe_size([&](auto const& size) {
+        unit.viper.projection_parameters.aspect = size.aspect();
+        unit.viper.refresh_projection();
     });
 }
 #+end_src
 #+depends:sync_window_size :noweb shader_unit window
+
+This one can be used to refresh a view directly from a camera:
+#+name: refresh_view
+#+begin_src cpp
+template<class ShaderUnit>
+void refresh_view(const ShaderUnit& unit, const camera& cam) {
+    unit.refresh_view(to_span(cam.view()));
+}
+#+end_src
+#+depends:refresh_view :noweb shader_unit camera to_span/glm
 
 *** Usage
 
@@ -1453,8 +1473,8 @@ int main() {
     orbital_camera director(cube_location, 2, 0, 0);
     auto colorful_cube = shader_unit(
         {.vertex =
-         <<shader("model_view_projection_vs")>>
-         , .fragment =
+         <<shader("model_view_projection_vs")>>,
+         .fragment =
          <<shader("color_as_attribute_fs")>>}, // Shader sources.
         transform().translate(cube_location)
                    .scale({.5, .5, .5})
