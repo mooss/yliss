@@ -189,6 +189,8 @@ struct lazy_window: public window {
         glClearColor(.5f, .5f, .5f, 0.0f);
     }
 
+    lazy_window(const std::string& title): lazy_window(title, 640, 480) {}
+
     <<lazy_window/public>>;
 };
 #+end_src
