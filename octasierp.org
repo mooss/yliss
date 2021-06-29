@@ -3711,6 +3711,8 @@ It doesn't have this unfortunate look but still illustrates the point ordering a
 The goal of this section is to display mostly the same data as the previous section, but this time in full 3d.
 It is much simpler to implement because there is no need to take mirrored points into account.
 
+*** Shaders
+
 The fragment shader can be reused, it still only needs to display the color forwarded by the vertex shader.
 Since the position is now three-dimensional, the vertex shader must be updated to take a =vec3= this time:
 #+name: octasierp_vs
@@ -3729,17 +3731,15 @@ void main() {
     color_fs = color_in;
 }
 #+end_src
-\\
-The only new elements when compared with the previous section is first the definition of the six initial points' positions, and then the interpolation of the subsequent positions with =ForeverySubdivision= and =fill_midpoint=.
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb octasierp apply_foreach/octasierp ForeverySubdivision fill_midpoint linear_interpolation segarray to_span segvector adapt_repr/index_of apply_foreach ForeachTriangle orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp array span :defs graphics.org window.org")>>
+*** Vertices
 
-int main() {
-    //////////////////////////
-    // Vertices and indexes //
-    std::size_t degree = 3;
-    octasierp octa(degree, std::array<GLfloat, 6>{
+The only novel elements when compared with the previous section are first the definition of the six initial points' positions, and then the interpolation of the subsequent positions with =ForeverySubdivision= and =fill_midpoint=.
+
+#+name: octaviz_init_positions
+#+begin_src cpp
+auto octaviz_init_positions(std::size_t degree) {
+    octasierp octa(degree, std::array<float, 6>{
         0,  0,  0, // Position.
        -1, -1, -1  // Color.
     });
@@ -3756,12 +3756,20 @@ int main() {
         auto position = to_span<3>(midpoint);
         fill_midpoint(position, a, b);
     });
+    return octa;
+}
+#+end_src
+#+depends:octaviz_init_positions :noweb octasierp apply_foreach/octasierp ForeverySubdivision to_span fill_midpoint :cpp array
 
-    // Coloring the north pole in black and the south pole in white.
+The coloration logic is only slightly changed by coloring the north pole in black and the south pole in white to make them stand out a bit more.
+
+#+name: octaviz_fill_colors
+#+begin_src cpp
+void octaviz_fill_colors(octasierp<std::array<float, 6>>& octa) {
     octa.storage[0][3] = 0; octa.storage[0][4] = 0; octa.storage[0][5] = 0;
     octa.storage[1][3] = 1; octa.storage[1][4] = 1; octa.storage[1][5] = 1;
     // Filling the other colors with the ones from the squarenet visualisation.
-    linear_interpolation<segarray<GLfloat, 8, 3>> gradient{
+    linear_interpolation<segarray<float, 8, 3>> gradient{
         1, 0, 0, // Red.
         1, 0, 1, // Magenta.
         0, 1, 1, // Cyan.
@@ -3773,13 +3781,44 @@ int main() {
     };
     for(std::size_t i = 2; i < octa.storage.size(); ++i)
         gradient.fill(to_span<3, 3>(octa.storage[i]), i, octa.storage.size());
+}
+#+end_src
+#+depends:octaviz_fill_colors :noweb octasierp linear_interpolation segarray to_span :cpp array
 
-    // Constructing indexes is rather trivial.
-    segvector<GLuint, 3> seg_indexes;
-    seg_indexes.reserve(octa.bound().triangle_cardinality());
-    apply<ForeachTriangle>(index_of{degree}, [&seg_indexes](auto a, auto b, auto c) {
-        seg_indexes.push_back(a, b, c);
+*** Indexes
+
+The indexes used by OpenGL to draw meshes correspond to the indexes of an octasierp's triangles, making their computation rather straightforward with the tools already at our disposal.
+
+#+name: compute_octasierp_indexes
+#+begin_src cpp
+auto compute_octasierp_indexes(const pointless_octasierp& octa) {
+    std::vector<unsigned int> result;
+    result.reserve(octa.triangle_cardinality() * 3);
+    apply<ForeachTriangle>(index_of{octa.degree}, [&result](auto a, auto b, auto c) {
+        result.push_back(a); result.push_back(b); result.push_back(c);
     });
+    return result;
+}
+#+end_src
+#+depends:compute_octasierp_indexes :noweb pointless_octasierp adapt_repr/index_of ForeachTriangle apply_foreach :cpp vector
+
+*** Note about the =apply_foreach= bug
+
+=apply_foreach= is not listed in the dependencies of =octaviz_fill_colors=, only in those of =compute_octasierp_indexes= because it has to be included *after* =adapt_repr/index_of=.
+A long term solution would be to adapt the foreach code to bypass this need or add a dependency reordering feature in =include.pl=.
+
+*** Rendering
+
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb octaviz_init_positions octaviz_fill_colors compute_octasierp_indexes orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp array span :defs graphics.org window.org")>>
+
+int main() {
+    //////////////////////////
+    // Vertices and indexes //
+    std::size_t degree = 3;
+    auto octa = octaviz_init_positions(degree);
+    octaviz_fill_colors(octa);
+    auto indexes = compute_octasierp_indexes(octa.bound());
 
     ////////////
     // OpenGL //
@@ -3799,7 +3838,7 @@ int main() {
         {.aspect=lazy.aspect()},
         {.content=std::span(octa.storage[0].data(), 6 * octa.storage.size()),
          .layout={3, 3},
-         .indexes=seg_indexes.storage}
+         .indexes=indexes}
     );
     auto sync_anchor = sync_window_size(octasierp3d, lazy);
 
@@ -3823,7 +3862,6 @@ int main() {
 [[file:images/screencaps/3d_octasierp.png]]
 :end:
 
-This is not the prettiest color scheme, but it does corresponds to the squarenet visualisation, except for the north pole displayed in black and the south pole in white, to make them stand out a bit more.
 
 
 * Diagrams generation
