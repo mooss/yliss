@@ -3768,6 +3768,7 @@ The coloration logic is only slightly changed by coloring the north pole in blac
 void octaviz_fill_colors(octasierp<std::array<float, 6>>& octa) {
     octa.storage[0][3] = 0; octa.storage[0][4] = 0; octa.storage[0][5] = 0;
     octa.storage[1][3] = 1; octa.storage[1][4] = 1; octa.storage[1][5] = 1;
+
     // Filling the other colors with the ones from the squarenet visualisation.
     linear_interpolation<segarray<float, 8, 3>> gradient{
         1, 0, 0, // Red.
@@ -3779,6 +3780,7 @@ void octaviz_fill_colors(octasierp<std::array<float, 6>>& octa) {
         0, 1, 1, // Cyan.
         1, 1, 0, // Yellow.
     };
+
     for(std::size_t i = 2; i < octa.storage.size(); ++i)
         gradient.fill(to_span<3, 3>(octa.storage[i]), i, octa.storage.size());
 }
@@ -3809,30 +3811,24 @@ A long term solution would be to adapt the foreach code to bypass this need or a
 
 *** Rendering
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb octaviz_init_positions octaviz_fill_colors compute_octasierp_indexes orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp array span :defs graphics.org window.org")>>
-
-int main() {
-    //////////////////////////
-    // Vertices and indexes //
-    std::size_t degree = 3;
-    auto octa = octaviz_init_positions(degree);
-    octaviz_fill_colors(octa);
+First some boilerplate that can be reused for later renderings:
+#+name: octasierp_wireframe
+#+begin_src cpp
+template<class Point, class LambdaRender>
+void octasierp_wireframe(
+    const char* vs_str, const char* fs_str, const std::string& capture_dest,
+    octasierp<Point>& octa, LambdaRender render
+) {
     auto indexes = compute_octasierp_indexes(octa.bound());
 
-    ////////////
-    // OpenGL //
     orbital_camera director(
         {0, 0, 0}, 2, // Pointed at the origin, at a distance of 2.
         6, 6,         // With a bit of an angle to be able to see most points.
         {0, 0, 1}     // The up vector is the z axis, placing the north pole up and the south pole down.
     );
-    lazy_window lazy("3d Octasierp");
-    shader_unit<std::span<float>> octasierp3d(
-        {.vertex =
-         <<include(":noweb octasierp_vs :c-string")>>,
-         .fragment =
-         <<include(":noweb squarenet_fs :c-string")>>},
+    lazy_window lazy("Octasierp wireframe");
+    shader_unit<std::span<float>> octasierp_unit(
+        {.vertex=vs_str, .fragment=fs_str},
         transform().scale(.6), // Make the octasierp fit into the screen.
         to_span(director.view()),
         {.aspect=lazy.aspect()},
@@ -3840,19 +3836,43 @@ int main() {
          .layout={3, 3},
          .indexes=indexes}
     );
-    auto sync_anchor = sync_window_size(octasierp3d, lazy);
+    auto sync_anchor = sync_window_size(octasierp_unit, lazy);
 
     // Render with thick lines.
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glLineWidth(8);
+    gl_screen_first(lazy, capture_dest, [&]{
+        render(octasierp_unit);
+    });
+}
 
-    gl_screen_first(lazy, "images/screencaps/3d_octasierp.png", [&]{
-        octasierp3d.draw();
-        octasierp3d.with_model([](auto& model){
+template<class Point> void octasierp_wireframe(
+    const char* vs_str, const char* fs_str, const std::string& capture_dest, octasierp<Point>& octa
+) {
+    octasierp_wireframe(vs_str, fs_str, capture_dest, octa, [](auto& unit) {
+        unit.draw();
+        unit.with_model([](auto& model){
             model.rotate_rad(.015, {0, 0, 1});
         });
     });
+}
+#+end_src
+#+depends:octasierp_wireframe :noweb octasierp compute_octasierp_indexes orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp array span
 
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb octasierp_wireframe octaviz_init_positions octaviz_fill_colors :defs graphics.org window.org")>>
+
+int main() {
+    std::size_t degree = 3;
+    auto octa = octaviz_init_positions(degree);
+    octaviz_fill_colors(octa);
+
+    octasierp_wireframe(
+        <<include(":noweb octasierp_vs :c-string")>>,
+        <<include(":noweb squarenet_fs :c-string")>>,
+        "images/screencaps/3d_octasierp.png",
+        octa
+    );
     return 0;
 }
 #+end_src
