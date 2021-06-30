@@ -3883,6 +3883,182 @@ int main() {
 :end:
 
 
+** Repartition strategy
+
+A repartition strategy transforms elevations into positions.
+There are two main types of repartition strategy:
+ 1. The octahedral one that can be obtained by successive interpolations of the midpoints.
+ 2. The spherical one, akin to inflating the octahedral repartition to form a ball.
+
+*** Spherical repartition
+
+The properties of the squarenet coordinates system can be abused to first transform squarenet coordinates into spherical coordinates and then into cartesian coordinates.
+This is handled by =spherical_converter=, whose outline can be seen below.
+
+#+name: spherical_converter
+#+begin_src cpp
+class spherical_converter {
+  public:
+    const int max_slice;
+    const int mid_slice;
+
+    spherical_converter(const pointless_octasierp& octa):
+        max_slice(octa.extreme_index * 2),
+        mid_slice(octa.extreme_index)
+    {}
+
+    struct cartesian_coordinates {
+        float x;
+        float y;
+        float z;
+    };
+
+    struct spherical_coordinates {
+        float polar;
+        float azimuth;
+        auto to_cartesian(float radius) {
+            return cartesian_coordinates{
+                .x=radius * cosf(azimuth) * sinf(polar),
+                .y=radius * sinf(azimuth) * sinf(polar),
+                .z=radius * cosf(polar)
+            };
+        }
+    };
+
+    <<spherical_converter/public>>
+
+  private:
+    static constexpr float pi = std::numbers::pi_v<float>;
+    static constexpr float half_pi = pi / 2;
+    <<spherical_converter/private>>
+}; // spherical_converter
+#+end_src
+#+depends:spherical_converter :noweb pointless_octasierp qoords :cpp numbers cmath
+
+=convert_raw_quarter0= converts octasierp coordinates to spherical coordinates for quarter 0 only.
+
+The distance from the north pole corresponds to the slice number (lines parallel to the equator), which can be converted to the =polar= coordinate using the principle that the first slice corresponds to a polar value of $0\ rad$ and the last slice to a polar value of $\pi\ rad$.
+In a similar way, the azimuth corresponds to the angle from the north pole, with the following angles:
+ - $0\ rad$ to corner 0.
+ - $\frac{\pi}{2}\ rad$ to corner 1.
+ - $\pi\ rad$ to corner 2.
+ - $\frac{3 \pi}{2}\ rad$ to corner 3.
+
+The =polar= and =azimuth= values will be multiplied by $\pi$ and $\frac{\pi}{2}$ later because it is easier this way.
+
+#+begin_src cpp :noweb-ref spherical_converter/private
+spherical_coordinates convert_raw_quarter0(int abs_x, int abs_y) const {
+    // Expects both coordinates to be absolute values, since this is quarter 0.
+    spherical_coordinates result;
+    int slice = abs_x + abs_y;
+    // out("[", abs_x, ", ", abs_y, "]");
+    // out(" slice ", slice);
+    if(slice >= mid_slice) { // Replace southern hemisphere with northern hemisphere equivalent.
+        // out(" > ", mid_slice);
+        abs_x = mid_slice - abs_x;
+        abs_y = mid_slice - abs_y;
+        std::swap(abs_x, abs_y);
+        // out(" equiv northern: [", abs_x, ", ", abs_y, "]");
+    } // else out(" <= ", mid_slice);
+
+    if(abs_x >= abs_y) {
+        // out(" first azimuth");
+        if(abs_x == 0)
+            result.azimuth = 0;
+        else
+            result.azimuth = float(abs_y) / (2 * abs_x);
+    } else {
+        // out(" second azimuth");
+        result.azimuth = 1 - float(abs_x) / (2 * abs_y);
+    }
+
+    result.polar = float(slice) / max_slice;
+    // out(" ", result, "\n");
+    return result;
+}
+#+end_src
+
+The user-facing method below uses the fact that quarter 1, 2 and 3 are left rotations of quarter 0 to compute the correct azimuth.
+
+#+begin_src cpp :noweb-ref spherical_converter/public
+template<int Quarter>
+spherical_coordinates convert(qoords<Quarter>& coords) const {
+    auto coords_q0 = qoords<0>::from<Quarter>(coords.x, coords.y);
+    spherical_coordinates result = convert_raw_quarter0(coords_q0.x, coords_q0.y);
+    result.azimuth += Quarter; // Quarter is the number of left rotations from quarter 0.
+    result.azimuth *= half_pi;
+    result.polar *= pi;
+    return result;
+}
+#+end_src
+
+Redirection operator:
+#+name: <<spherical_coordinates
+#+begin_src cpp
+std::ostream& operator<<(std::ostream& os, const spherical_converter::spherical_coordinates& c) {
+    return os << "(polar=" << c.polar << ", azimuth=" << c.azimuth << ")";
+}
+#+end_src
+#+depends:<<spherical_coordinates :noweb spherical_converter :cpp iostream
+
+With its brutal use of lambdas and =reinterpret_cast=, =spherical_repartition= can fill cartesian coordinates for a whole octasierp.
+The addresses returned by =get_dest= must point to three continuous floats.
+
+#+name: spherical_repartition
+#+begin_src cpp
+template<class LambdaHeight, class LambdaDest>
+void spherical_repartition(
+    const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
+) {
+    using sphc = spherical_converter::cartesian_coordinates;
+    spherical_converter to_spherical(octa);
+    apply<ForeachCoordinates>(octa.degree, [&](auto coords) {
+        auto index = octa.index_of(coords);
+        *reinterpret_cast<sphc*>(get_dest(index)) = to_spherical.convert(coords).to_cartesian(get_height(index));
+    });
+}
+#+end_src
+#+depends:spherical_repartition :noweb pointless_octasierp spherical_converter adapt_repr/size_t ForeachCoordinates
+
+*** Spherical repartition rendering
+:PROPERTIES:
+:header-args:cpp: :noweb no-export
+:END:
+
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb spherical_repartition octaviz_fill_colors octasierp_wireframe :defs graphics.org window.org")>>
+
+int main() {
+    std::size_t degree = 3;
+    octasierp octa(degree, std::array<float, 6>{
+        0,  0,  0, // Position.
+       -1, -1, -1  // Color.
+    });
+    spherical_repartition(
+        octa.bound(),
+        [](auto ignore) {return 1;},
+        [&octa](auto index) {return &octa.storage[index][0];}
+    );
+    octaviz_fill_colors(octa);
+
+    octasierp_wireframe(
+        <<include(":noweb octasierp_vs :c-string")>>,
+        <<include(":noweb squarenet_fs :c-string")>>,
+        "images/screencaps/spherical_octasierp.png",
+        octa
+    );
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/spherical_octasierp.png]]
+:end:
+
+As can be seen in the picture above, this way of transforming coordinates is flawed because the lines are squished around the four corners.
+I kinda like the effect though.
+
 
 * Diagrams generation
 
