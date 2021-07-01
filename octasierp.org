@@ -3639,13 +3639,13 @@ void main() {
 First each canonical point is colored with a color gradient, then vertices and indexes are prepared via =squarenet_gl= and finally through a bit of OpenGL tweaking the squarenet is rendered with lines and slowly rotated each frame.
 
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb pointless_octasierp segvector linear_interpolation segarray squarenet_gl orbital_camera lazy_window shader_unit to_span/glm sync_window_size gl_screen_first refresh_view :defs graphics.org window.org")>>
+<<include(":noweb pointless_octasierp segvector rgb_interpolation segarray squarenet_gl orbital_camera lazy_window shader_unit to_span/glm sync_window_size gl_screen_first refresh_view :defs graphics.org window.org")>>
 
 int main(){
     std::size_t degree = 3;
     pointless_octasierp octa(degree);
     segvector<GLfloat, 3> vertices_colors;
-    linear_interpolation<segarray<GLfloat, 8, 3>> gradient{
+    rgb_interpolation<segarray, 8> gradient{
         1, 0, 0, // Red.
         1, 0, 1, // Magenta.
         0, 1, 1, // Cyan.
@@ -3770,7 +3770,7 @@ void octaviz_fill_colors(octasierp<std::array<float, 6>>& octa) {
     octa.storage[1][3] = 1; octa.storage[1][4] = 1; octa.storage[1][5] = 1;
 
     // Filling the other colors with the ones from the squarenet visualisation.
-    linear_interpolation<segarray<float, 8, 3>> gradient{
+    rgb_interpolation<segarray, 8> gradient{
         1, 0, 0, // Red.
         1, 0, 1, // Magenta.
         0, 1, 1, // Cyan.
@@ -3785,7 +3785,7 @@ void octaviz_fill_colors(octasierp<std::array<float, 6>>& octa) {
         gradient.fill(to_span<3, 3>(octa.storage[i]), i, octa.storage.size());
 }
 #+end_src
-#+depends:octaviz_fill_colors :noweb octasierp linear_interpolation segarray to_span :cpp array
+#+depends:octaviz_fill_colors :noweb octasierp rgb_interpolation segarray to_span :cpp array
 
 *** Indexes
 
