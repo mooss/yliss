@@ -4240,6 +4240,103 @@ As can be seen in the picture above, this way of transforming coordinates is fla
 I kinda like the effect though.
 
 
+** Elevation
+:PROPERTIES:
+:header-args:cpp: :noweb no-export
+:END:
+
+*** Midpoint displacement
+
+The general principle of midpoint displacement consist of computing heights by starting from a few origin points.
+Then the heights of a midpoint, a new point between some of those origin points, can be calculated by averaging the heights of its origins and adding a random (but controlled) amount.
+This processus can generate an accidented landscape, reminding of mountaineous terrain.
+
+When adapted to an octasierp, the midpoint displacement algorithm gives better results with an additional initialisation phase, during which all height computations are independant, i.e. no midpoints are used.
+
+This initialisation phase is represented by the parameter =last_init_degree=, the last degree whose height is independant of its surroundings.
+=seed= is used to initialise the random number generator, =range= is the initial variation of size and =degree= is the degree of the desired octasierp.
+
+#+name: midpoint_displacement_octasierp
+#+begin_src cpp :minipage
+octasierp<float> midpoint_displacement_octasierp(
+    std::size_t degree, unsigned int seed, float range, std::size_t last_init_degree
+) {
+    if(last_init_degree > degree) // Avoid overflows in the initialisation phase.
+        last_init_degree = degree;
+
+    octasierp<float> result(degree, 0);
+    <<midpoint_displacement_octasierp/impl>>
+    return result;
+}
+#+end_src
+#+depends:midpoint_displacement_octasierp :noweb octasierp ForeachSpontaneous ForeachSubdivision adapt_repr/size_t apply_foreach degree_shifter :cpp random
+
+To keep some coherence in the generated heights, the further the algorithm progresses, the smaller the random element must be.
+Another way to formulate this is the closer the points are, the smaller their average height difference must be, otherwise the heights might as well be fully randomised.
+The approach adopted here is analogous to dividing the range by two:
+#+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
+auto make_distribution = [range](std::size_t degree) {
+    auto delta = range / (2 << degree);
+    return std::uniform_real_distribution<float>(-delta, delta);
+};
+#+end_src
+
+As mentionned before, during the initialisation phase, the points heights are kept independant:
+#+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
+std::mt19937_64 engine(seed);
+auto distrib = make_distribution(0);
+for(std::size_t current = 0; current <= last_init_degree; ++current) {
+    apply<ForeachSpontaneous>(current, degree_shifter(degree - current, [&](auto coords) {
+        result[coords] = 1 + distrib(engine);
+    }));
+}
+#+end_src
+
+The proper midpoint displacement occurs here, using =ForeachSubdivision=, with the random height displacement getting smaller each new degree.
+#+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
+for(std::size_t parent = last_init_degree; parent < degree; ++parent) {
+    distrib = make_distribution(parent - last_init_degree + 1);
+    apply<ForeachSubdivision>(parent, degree_shifter(degree - parent - 1, [&](auto midpoint, auto a, auto b) {
+        result[midpoint] = (result[a] + result[b]) / 2 + distrib(engine);
+    }));
+}
+#+end_src
+
+Illustration:
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb spherical_repartition octaviz_fill_colors octasierp_wireframe midpoint_displacement_octasierp prerender_thick_lines :defs graphics.org window.org")>>
+
+int main() {
+    std::size_t degree = 3;
+    octasierp octa(degree, std::array<float, 6>{
+        0,  0,  0, // Position.
+       -1, -1, -1  // Color.
+    });
+
+    auto height = midpoint_displacement_octasierp(degree, 162342, .3, 0);
+    spherical_repartition(
+        octa.bound(),
+        [&height](auto index) {return height.storage[index];},
+        [&octa](auto index) {return &octa.storage[index][0];}
+    );
+    octaviz_fill_colors(octa);
+
+    octasierp_wireframe(
+        <<include(":noweb octasierp_vs :c-string")>>,
+        <<include(":noweb squarenet_fs :c-string")>>,
+        "images/screencaps/spherical_midpoint_octasierp.png",
+        octa, prerender_thick_lines
+    );
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/spherical_midpoint_octasierp.png]]
+:end:
+
+
 * Diagrams generation
 
 The diagrams are generated in python, using Gizeh for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
