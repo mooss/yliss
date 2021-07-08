@@ -1299,10 +1299,12 @@ template<direction Dir> class axis {
         value_(value)
     {}
 
-    int operator++();
-    int operator--();
+    int operator+=(int);
+    int operator-=(int);
     int operator*();
-    bool operator==(const axis& other) const=default;
+    bool operator==(const axis&) const=default;
+    int operator++() {return *this += 1;}
+    int operator--() {return *this -= 1;}
 
   private:
     int value_;
@@ -1311,15 +1313,15 @@ template<direction Dir> class axis {
 
 Incrementation and decrementation:
 #+begin_src cpp :noweb-ref quarter_rotation_details/public :minipage
-template<> int axis<direction::natural>::operator++()
-{++value_; return value_;}
-template<> int axis<direction::natural>::operator--()
-{--value_; return value_;}
+template<> int axis<direction::natural>::operator+=(int n)
+{return value_ += n;}
+template<> int axis<direction::natural>::operator-=(int n)
+{return value_ -= n;}
 
-template<> int axis<direction::inverted>::operator++()
-{--value_; return -value_;}
-template<> int axis<direction::inverted>::operator--()
-{++value_; return -value_;}
+template<> int axis<direction::inverted>::operator+=(int n)
+{value_ -= n; return -value_;}
+template<> int axis<direction::inverted>::operator-=(int n)
+{value_ += n; return -value_;}
 #+end_src
 
 Note that the inverted operators return a negated value, this is done in order to allow the usage of iteration on both inverted and natural axes on the same way.
@@ -2018,6 +2020,162 @@ Degree 2:
 . . G F E O S V Y * .
 . . J I H P T W Z - .
 . . M L K Q . . . . .
+. . . . . . . . . . .
+#+end_src
+
+
+** Iteration on spontaneous coordinates
+
+Spontaneous points are points that have just appeared at a given degree, so where the code from the previous section iterates on all coordinates of degree $\leq d$, this section will focus on coordinates of degree $= d$.
+
+The illustration below shows the spontaneous points for quarter 0 at degree 3:
+#+begin_src python :eval no-export :exports results
+<<Textual quarter>>
+d = 3
+print(Quarter(d, list(range(d + 1)), quarter=0, display_points=['0', 'x', '^', '.']))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
++-.-^-.-x-.-^-.-0
+| . . . . . . . |
+| . ^ . ^ . ^ . |
+| . . . . . . . |
+| . ^ . x . ^ . |
+| . . . . . . . |
+| . ^ . ^ . ^ . |
+| . . . . . . . |
+X-.-^-.-x-.-^-.-0
+#+end_src
+Legend:
+ - =X= :: Origin, aka north pole.
+ - =0= :: Other points of degree 0.
+ - =x= :: Points of degree 1.
+ - =^= :: Points of degree 2.
+ - =.= :: Spontaneous points of degree 3.
+
+Looking only at quarter 0, spontaneous points can be divided in two categories, even and odd, according to their x coordinate.
+For a given odd x coordinate, all valid y coordinate will correspond to a spontaneous point, whereas for even x coordinate, only odd y coordinates will correspond to a spontaneous point.
+
+*** Boilerplate
+
+#+begin_src cpp :noweb-ref octasierp/foreach_spontaneous :minipage
+namespace foreach_spontaneous_details {
+template<class SpontaneousConsumer>
+struct spontaneous_logic {
+    SpontaneousConsumer spontaneous_consumer;
+    const int extremum;
+
+    template<typename Coords>
+    void apply() {
+        <<spontaneous_logic/apply>>
+    }
+};
+} // namespace foreach_spontaneous_details
+#+end_src
+
+*** Logic
+
+Odd coordinates:
+#+begin_src cpp :noweb-ref spontaneous_logic/apply :minipage
+for(int i = 1; i < extremum; i += 2) {
+    auto point = rotate_from<0, Coords>(i, 0);
+    do {
+        spontaneous_consumer(point);
+    } while(++point.main.y <= extremum);
+}
+#+end_src
+
+Even coordinates:
+#+begin_src cpp :noweb-ref spontaneous_logic/apply :minipage
+for(int i = 2; i < extremum; i += 2) {
+    auto point = rotate_from<0, Coords>(i, 1);
+    do {
+        spontaneous_consumer(point);
+    } while((point.main.y += 2) < extremum);
+}
+#+end_src
+
+The logic implemented here will not work for degree 0.
+
+*** Application on all quarters by rotation
+
+Only degree 0 must be hardcoded, the rest can rely on the logic defined above and on =foreach_quarter=.
+#+begin_src cpp :noweb-ref octasierp/foreach_spontaneous :minipage
+template<class SpontaneousConsumer>
+void foreach_spontaneous(std::size_t degree, SpontaneousConsumer consumer) {
+    using foreach_spontaneous_details::spontaneous_logic;
+    if(degree == 0) {
+        consumer(qoords<0>(0, 0)); // North pole.
+        consumer(qoords<0>(1, 0)); // Corner 0.
+        consumer(qoords<0>(1, 1)); // South pole.
+        consumer(qoords<1>(0, 1)); // Corner 1.
+        consumer(qoords<2>(-1, 0)); // Corner 2.
+        consumer(qoords<3>(0, -1)); // Corner 3.
+    }
+    foreach_quarter(spontaneous_logic{consumer, 1 << degree});
+}
+#+end_src
+#+depends:octasierp/foreach_spontaneous :noweb qoords foreach_quarter
+
+*** Usage
+
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb octasierp octasierp/foreach_spontaneous squarenet_shadow print")>>
+
+void illustration(std::size_t degree, const char* representation) {
+    auto octa = octasierp(degree, '/');
+    std::size_t last = 0;
+    foreach_spontaneous(degree, [&](const auto& coords) {
+        octa[coords] = representation[last++];
+    });
+    squarenet_shadow(octa.bound(), [&octa](const auto& coords) {
+        return octa[coords];
+    });
+}
+
+int main() {
+    const char* representation = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/*-+";
+    print{"Degree 0:"};
+    illustration(0, representation);
+
+    print{"\nDegree 1:"};
+    illustration(1, representation);
+
+    print{"\nDegree 2:"};
+    illustration(2, representation);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Degree 0:
+. . . . .
+. . 3 2 .
+. 4 0 1 .
+. . 5 . .
+. . . . .
+
+Degree 1:
+. . . . . . .
+. . . / 2 / .
+. 5 4 3 1 . .
+. / 6 / 0 / .
+. . 7 9 a b .
+. . 8 / . . .
+. . . . . . .
+
+Degree 2:
+. . . . . . . . . . .
+. . . . . / 4 / 9 / .
+. l k j i h 3 b 8 . .
+. / n / m / 2 / 7 . .
+. g f e d c 1 a 6 . .
+. / t / o / 0 / 5 / .
+. . u y p A B C D E .
+. . v / q / K / L / .
+. . w z r F G H I J .
+. . x / s / . . . . .
 . . . . . . . . . . .
 #+end_src
 
@@ -3135,6 +3293,17 @@ struct ForeachCoordinates {
 };
 #+end_src
 #+depends:ForeachCoordinates :noweb octasierp/foreach_coordinates
+
+#+name: ForeachSpontaneous
+#+begin_src cpp :minipage
+struct ForeachSpontaneous {
+    template<class Consumer>
+    static void apply(std::size_t degree, Consumer consumer) {
+        foreach_spontaneous(degree, consumer);
+    }
+};
+#+end_src
+#+depends:ForeachSpontaneous :noweb octasierp/foreach_spontaneous
 
 #+name: ForeachTriangle
 #+begin_src cpp :minipage
