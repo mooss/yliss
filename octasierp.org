@@ -4022,7 +4022,7 @@ template<class Point, class LambdaPreRender> void octasierp_wireframe(
     octasierp_wireframe(vs_str, fs_str, capture_dest, octa, prerender, [](auto& unit) {
         unit.draw();
         unit.with_model([](auto& model){
-            model.rotate_rad(.015, {0, 0, 1});
+            model.rotate_rad(.01, {0, 0, 1});
         });
     });
 }
