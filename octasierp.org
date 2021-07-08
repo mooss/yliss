@@ -4337,6 +4337,99 @@ int main() {
 :end:
 
 
+** Coloration
+:PROPERTIES:
+:header-args:cpp: :noweb no-export
+:END:
+
+*** Height
+
+The hard work of height coloration is done by =rgb_scaled_interpolation=, aka the color scheme.
+The only thing that the function below does is to find the min and max height to adapt the color scheme to those values.
+#+name: height_coloration
+#+begin_src cpp :minipage
+template<typename ScalarT, typename InterpT, class LambdaHeight, class LambdaDest>
+void height_coloration(
+    const pointless_octasierp& octa, rgb_scaled_interpolation<ScalarT, InterpT> color_scheme,
+    LambdaHeight get_height, LambdaDest get_dest
+) {
+    auto min = get_height(0); auto max = min;
+    auto end_index = octa.point_cardinality();
+    for(std::size_t i = 1; i < end_index; ++i) {
+        auto height = get_height(i);
+        if(height < min) min = height;
+        if(height > max) max = height;
+    }
+
+    transform_scaled_interpolation(color_scheme, min, max);
+    for(std::size_t i = 0; i < end_index; ++i)
+        color_scheme.fill(get_dest(i), get_height(i));
+}
+#+end_src
+#+depends:height_coloration :noweb pointless_octasierp rgb_scaled_interpolation transform_scaled_interpolation
+
+The color scheme below was adapted from godefarig, my previous procedural planet generator.
+#+name: gfg_color_scheme
+#+begin_src cpp :minipage
+rgb_scaled_interpolation<float> gfg_color_scheme{{
+    {0, {0, 0, 0}},
+    {15, {0, 0, .07}},      // abyss
+    {73, {0, .05, .3}},     // deep waters
+    {90, {0, .6, 9}},       // surface waters
+    {98, {.05, .28, .05}},  // light green
+    {102, {.05, .28, .05}}, // light green
+    {106, {.1, .23, .1}},
+    {110, {.06, .2, .05}},  // dark green
+    {118, {.02, .1, 0}},    // darker green
+    {124, {.28, .12, .08}}, // mountain (light dirt)
+    {128, {.2, .1, .05}},   // mountain (dirt)
+    {140, {.2, .2, .2}},    // mountain (rock)
+    {180, {1, 1, 1}}        // snow
+}};
+#+end_src
+#+depends:gfg_color_scheme :noweb rgb_scaled_interpolation
+
+Height coloration at degree 3 is not very impressive, so the code below renders at degree 8:
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb print octasierp spherical_repartition height_coloration gfg_color_scheme octasierp_wireframe midpoint_displacement_octasierp midpoint_displacement_octasierp nothing :defs graphics.org window.org")>>
+
+int main() {
+    std::size_t degree = 8;
+    octasierp octa(degree, std::array<float, 6>{
+        0,  0,  0, // Position.
+       -1, -1, -1  // Color.
+    });
+
+    auto height = midpoint_displacement_octasierp(degree, 162342, .07, 3);
+
+    height_coloration(
+        octa.bound(), gfg_color_scheme,
+        [&height](auto index) {return height.storage[index];},
+        [&octa](auto index) {return std::span<float, 3>(&octa.storage[index][3], 3);}
+    );
+
+    spherical_repartition(
+        octa.bound(),
+        [&height](auto index) {return height.storage[index];},
+        [&octa](auto index) {return &octa.storage[index][0];}
+    );
+
+    octasierp_wireframe(
+        <<include(":noweb octasierp_vs :c-string")>>,
+        <<include(":noweb squarenet_fs :c-string")>>,
+        "images/screencaps/spherical_midpoint_gfgcolors_octasierp.png",
+        octa, nothing
+    );
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/spherical_midpoint_gfgcolors_octasierp.png]]
+:end:
+
+
 * Diagrams generation
 
 The diagrams are generated in python, using Gizeh for the geometry and =moviepy= for stiching images together into animations, inspired by this [[http://zulko.github.io/blog/2014/09/20/vector-animations-with-python/][blogpost]].
