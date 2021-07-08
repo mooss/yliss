@@ -3983,10 +3983,10 @@ A long term solution would be to adapt the foreach code to bypass this need or a
 First some boilerplate that can be reused for later renderings:
 #+name: octasierp_wireframe
 #+begin_src cpp
-template<class Point, class LambdaRender>
+template<class Point, class LambdaPreRender, class LambdaRender>
 void octasierp_wireframe(
     const char* vs_str, const char* fs_str, const std::string& capture_dest,
-    octasierp<Point>& octa, LambdaRender render
+    octasierp<Point>& octa, LambdaPreRender prerender, LambdaRender render
 ) {
     auto indexes = compute_octasierp_indexes(octa.bound());
 
@@ -4008,17 +4008,17 @@ void octasierp_wireframe(
     auto sync_anchor = sync_window_size(octasierp_unit, lazy);
 
     // Render with thick lines.
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glLineWidth(8);
+    prerender();
     gl_screen_first(lazy, capture_dest, [&]{
         render(octasierp_unit);
     });
 }
 
-template<class Point> void octasierp_wireframe(
-    const char* vs_str, const char* fs_str, const std::string& capture_dest, octasierp<Point>& octa
+template<class Point, class LambdaPreRender> void octasierp_wireframe(
+    const char* vs_str, const char* fs_str, const std::string& capture_dest,
+    octasierp<Point>& octa, LambdaPreRender prerender
 ) {
-    octasierp_wireframe(vs_str, fs_str, capture_dest, octa, [](auto& unit) {
+    octasierp_wireframe(vs_str, fs_str, capture_dest, octa, prerender, [](auto& unit) {
         unit.draw();
         unit.with_model([](auto& model){
             model.rotate_rad(.015, {0, 0, 1});
@@ -4028,8 +4028,18 @@ template<class Point> void octasierp_wireframe(
 #+end_src
 #+depends:octasierp_wireframe :noweb octasierp compute_octasierp_indexes orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp array span
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb octasierp_wireframe octaviz_init_positions octaviz_fill_colors :defs graphics.org window.org")>>
+The lambda below can be used as a prerender.
+#+name: prerender_thick_lines
+#+begin_src cpp :minipage
+void prerender_thick_lines() {
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(8);
+}
+#+end_src
+
+
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c :minipage
+<<include(":noweb octasierp_wireframe octaviz_init_positions octaviz_fill_colors prerender_thick_lines :defs graphics.org window.org")>>
 
 int main() {
     std::size_t degree = 3;
@@ -4040,7 +4050,7 @@ int main() {
         <<include(":noweb octasierp_vs :c-string")>>,
         <<include(":noweb squarenet_fs :c-string")>>,
         "images/screencaps/3d_octasierp.png",
-        octa
+        octa, prerender_thick_lines
     );
     return 0;
 }
@@ -4195,7 +4205,7 @@ void spherical_repartition(
 :END:
 
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb spherical_repartition octaviz_fill_colors octasierp_wireframe :defs graphics.org window.org")>>
+<<include(":noweb spherical_repartition octaviz_fill_colors octasierp_wireframe prerender_thick_lines :defs graphics.org window.org")>>
 
 int main() {
     std::size_t degree = 3;
@@ -4214,7 +4224,7 @@ int main() {
         <<include(":noweb octasierp_vs :c-string")>>,
         <<include(":noweb squarenet_fs :c-string")>>,
         "images/screencaps/spherical_octasierp.png",
-        octa
+        octa, prerender_thick_lines
     );
     return 0;
 }
