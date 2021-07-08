@@ -1,9 +1,13 @@
 * Yliss
 
-This is supposed to become one day a procedural planet generator.
-For now, this is mostly a literate programing OpenGL sandbox (see [[file:graphics.org]], [[file:window.org]]) and a pretty logo generator (see [[file:octasierp.org]] and the picture below).
-
 [[file:images/octahedron_logo.png]]
+
+This is a procedural planet generator written in litterate C++.
+Here is a planet generated with this project:
+[[file:images/screencaps/spherical_midpoint_gfgcolors_octasierp.png]]
+
+For now the only way to make it run is to use an up-to-date version of Emacs to execute the relevant Org mode code blocks.
+There is probably a bunch of other constraints, like having a suitable version of GLFW installed.
 
 ** Files included from other projects
 
@@ -36,3 +40,4 @@ Currently lithel's =include.pl= has been adapted to perform some tangling duties
 ** Sources
 
  - https://learnopengl.com :: for most things related to OpenGL.
+ - https://github.com/mooss/godefarig :: a similar project I did a few years ago.
