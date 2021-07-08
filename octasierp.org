@@ -73,6 +73,7 @@ This representation is strongly reminiscent of the Peirce quincuncial projection
 #+attr_latex: :placement [H]
 #+name: montage_squa_degree_0-3
 #+caption: Octasierp squarified net for degrees 0, 1, 2 and 3
+
 [[file:images/montage_net_squa_degree_0-3.png]]
 
 The figure above provides a nice visualisation, but since it's an image (i.e. a binary file), its not so easy to hack upon, so for the rest of the document I will use a text representation to illustrate the various steps of representation and manipulation of an octasierp.
@@ -717,7 +718,7 @@ By combining 2. and 3., we can deduce the values of the other even points, becau
 
 * Implementation
 
-An =pointless_octasierp= is an octasierp that does not store points and is therefore only useful for theoretical manipulation.
+A =pointless_octasierp= is an octasierp that does not store points and is therefore only useful for theoretical manipulation.
 I coudn't resist.
 #+name: pointless_octasierp
 #+begin_src cpp :minipage
@@ -746,7 +747,6 @@ Note:
  - =extreme_index= in an =int= because the coordinate system uses negative indexes.
 
 Since everyting is const, the only way to change the degree is to create a new =pointless_octasierp= instance, therefore the various cached variables bound to the degree are guaranteed to be kept in sync.
-
 
 ** Point cardinality
 
@@ -1959,7 +1959,7 @@ for(int j = 1; j <= extremum; ++j) {
 
 *** Iteration on all quarters by rotation
 
-All that remains to be done for the implementation of =foreach_coordinates= is to use =foreach_quarter= to transpose by rotation the logic defined above, and to include the north and south poles that were voluntarily left out.
+All that remains to be done for the implementation of =foreach_coordinates= is to use =foreach_quarter= to transpose by rotation the logic defined above, and to include the north and south poles that were left out on purpose.
 #+begin_src cpp :noweb-ref octasierp/foreach_coordinates :minipage
 template<typename CoordinatesConsumer>
 void foreach_coordinates(std::size_t degree, CoordinatesConsumer consumer) {
@@ -2311,6 +2311,7 @@ class QuarterSequence:
 <<QuarterSequence>>
 printer = QuarterSequence(2)
 printer.print_n(6, legend=True)
+print()
 printer.print_n(6, legend=True)
 #+end_src
 
@@ -3252,7 +3253,7 @@ struct degree_shifter {
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb degree_shifter octasierp/foreach_coordinates qoords <<qoords out print")>>
+<<include(":noweb degree_shifter octasierp/foreach_coordinates qoords <<qoords out")>>
 
 int main() {
     auto print_coordinates = [](const auto& coords) {
@@ -4159,7 +4160,7 @@ spherical_coordinates convert_raw_quarter0(int abs_x, int abs_y) const {
 
 The user-facing method below uses the fact that quarter 1, 2 and 3 are left rotations of quarter 0 to compute the correct azimuth.
 
-#+begin_src cpp :noweb-ref spherical_converter/public
+#+begin_src cpp :noweb-ref spherical_converter/public :minipage
 template<int Quarter>
 spherical_coordinates convert(qoords<Quarter>& coords) const {
     auto coords_q0 = qoords<0>::from<Quarter>(coords.x, coords.y);
@@ -4173,7 +4174,7 @@ spherical_coordinates convert(qoords<Quarter>& coords) const {
 
 Redirection operator:
 #+name: <<spherical_coordinates
-#+begin_src cpp
+#+begin_src cpp :minipage
 std::ostream& operator<<(std::ostream& os, const spherical_converter::spherical_coordinates& c) {
     return os << "(polar=" << c.polar << ", azimuth=" << c.azimuth << ")";
 }
@@ -4184,7 +4185,7 @@ With its brutal use of lambdas and =reinterpret_cast=, =spherical_repartition= c
 The addresses returned by =get_dest= must point to three continuous floats.
 
 #+name: spherical_repartition
-#+begin_src cpp
+#+begin_src cpp :minipage
 template<class LambdaHeight, class LambdaDest>
 void spherical_repartition(
     const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
