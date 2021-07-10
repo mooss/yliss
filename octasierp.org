@@ -4253,50 +4253,54 @@ This processus can generate an accidented landscape, reminding of mountaineous t
 
 When adapted to an octasierp, the midpoint displacement algorithm gives better results with an additional initialisation phase, during which all height computations are independant, i.e. no midpoints are used.
 
-This initialisation phase is represented by the parameter =last_init_degree=, the last degree whose height is independant of its surroundings.
-=seed= is used to initialise the random number generator, =range= is the initial variation of size and =degree= is the degree of the desired octasierp.
+This initialisation phase is represented by the parameter =init_degree=, the last degree whose height is independant of its surroundings, this parameter should be smaller or equal to the actual =degree= of the octasierp.
+The =seed= parameter is used to initialise the random number generator, =average= is the initial height and =range= corresponds to the greatest variation of height possible.
+With the default values, this means that the height will vary between 0.965 and 1.035.
 
 #+name: midpoint_displacement_octasierp
 #+begin_src cpp :minipage
-octasierp<float> midpoint_displacement_octasierp(
-    std::size_t degree, unsigned int seed, float range, std::size_t last_init_degree
-) {
-    if(last_init_degree > degree) // Avoid overflows in the initialisation phase.
-        last_init_degree = degree;
+struct midpoint_displacement_octasierp_args {
+    mandatory<std::size_t> degree; mandatory<std::size_t> init_degree;
+    unsigned int seed=162342; float average=1; float range=.07;
+};
+octasierp<float> midpoint_displacement_octasierp(const midpoint_displacement_octasierp_args& args) {
+    auto init_degree = *args.init_degree;
+    if(init_degree > *args.degree) // Avoid overflows in the initialisation phase.
+        init_degree = *args.degree;
 
-    octasierp<float> result(degree, 0);
+    octasierp<float> result(*args.degree, 0);
     <<midpoint_displacement_octasierp/impl>>
     return result;
 }
 #+end_src
-#+depends:midpoint_displacement_octasierp :noweb octasierp ForeachSpontaneous ForeachSubdivision adapt_repr/size_t apply_foreach degree_shifter :cpp random
+#+depends:midpoint_displacement_octasierp :noweb mandatory octasierp ForeachSpontaneous ForeachSubdivision adapt_repr/size_t apply_foreach degree_shifter :cpp random
 
 To keep some coherence in the generated heights, the further the algorithm progresses, the smaller the random element must be.
 Another way to formulate this is the closer the points are, the smaller their average height difference must be, otherwise the heights might as well be fully randomised.
 The approach adopted here is analogous to dividing the range by two:
 #+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
-auto make_distribution = [range](std::size_t degree) {
-    auto delta = range / (2 << degree);
+auto make_distribution = [&args](std::size_t shift) {
+    auto delta = args.range / (2 << shift);
     return std::uniform_real_distribution<float>(-delta, delta);
 };
 #+end_src
 
 As mentionned before, during the initialisation phase, the points heights are kept independant:
 #+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
-std::mt19937_64 engine(seed);
+std::mt19937_64 engine(args.seed);
 auto distrib = make_distribution(0);
-for(std::size_t current = 0; current <= last_init_degree; ++current) {
-    apply<ForeachSpontaneous>(current, degree_shifter(degree - current, [&](auto coords) {
-        result[coords] = 1 + distrib(engine);
+for(std::size_t current = 0; current <= init_degree; ++current) {
+    apply<ForeachSpontaneous>(current, degree_shifter(*args.degree - current, [&](auto coords) {
+        result[coords] = args.average + distrib(engine);
     }));
 }
 #+end_src
 
 The proper midpoint displacement occurs here, using =ForeachSubdivision=, with the random height displacement getting smaller each new degree.
 #+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
-for(std::size_t parent = last_init_degree; parent < degree; ++parent) {
-    distrib = make_distribution(parent - last_init_degree + 1);
-    apply<ForeachSubdivision>(parent, degree_shifter(degree - parent - 1, [&](auto midpoint, auto a, auto b) {
+for(std::size_t parent = init_degree; parent < *args.degree; ++parent) {
+    distrib = make_distribution(parent - init_degree + 1);
+    apply<ForeachSubdivision>(parent, degree_shifter(*args.degree - parent - 1, [&](auto midpoint, auto a, auto b) {
         result[midpoint] = (result[a] + result[b]) / 2 + distrib(engine);
     }));
 }
@@ -4313,7 +4317,7 @@ int main() {
        -1, -1, -1  // Color.
     });
 
-    auto height = midpoint_displacement_octasierp(degree, 162342, .3, 0);
+    auto height = midpoint_displacement_octasierp({.degree=degree, .init_degree=0, .range=.3});
     spherical_repartition(
         octa.bound(),
         [&height](auto index) {return height.storage[index];},
@@ -4400,7 +4404,7 @@ int main() {
        -1, -1, -1  // Color.
     });
 
-    auto height = midpoint_displacement_octasierp(degree, 162342, .07, 3);
+    auto height = midpoint_displacement_octasierp({.degree=degree, .init_degree=3});
 
     height_coloration(
         octa.bound(), gfg_color_scheme,
