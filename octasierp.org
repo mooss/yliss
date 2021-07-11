@@ -1893,7 +1893,8 @@ Indeed, the =x= and =y= coordinates can be used for other purposes than accessin
 *** Iteration logic for quarter 0
 
 =coordinates_logic= will contain the iteration logic for quarter 0.
-#+begin_src cpp :noweb-ref octasierp/foreach_coordinates :minipage
+#+name: foreach_coordinates_details
+#+begin_src cpp :minipage
 namespace foreach_coordinates_details {
 template<class CoordinatesConsumer>
 struct coordinates_logic {
@@ -1907,6 +1908,7 @@ struct coordinates_logic {
 };
 } // namespace foreach_coordinates_details
 #+end_src
+#+depends:foreach_coordinates_details :noweb qoords foreach_quarter
 
 The implementation of =apply= is done in two steps, illustrated below:
 # Execution disabled because manually modified.
@@ -1970,7 +1972,7 @@ void foreach_coordinates(std::size_t degree, CoordinatesConsumer consumer) {
     consumer(qoords<0>(extremum, extremum)); // South pole.
 }
 #+end_src
-#+depends:octasierp/foreach_coordinates :noweb qoords foreach_quarter
+#+depends:octasierp/foreach_coordinates :noweb foreach_coordinates_details qoords foreach_quarter
 
 *** Usage
 
@@ -3104,9 +3106,9 @@ Legend:
  - =S= :: The south pole is excluded for the same reason.
 
 
-=coordinates_logic/apply= from =foreach_coordinates= is reused to implement the bulk of the iteration logic, the only logic added are the mirrored points (=/=):
+=coordinates_logic/apply= from =foreach_coordinates= will be reused to implement the bulk of the iteration logic, the only logic specific to the =forevery= version is that of the the mirrored/redundant points (=/=):
 #+begin_src cpp :noweb-ref octasierp/forevery_coordinates :minipage
-namespace forevery_coordinates_details {
+namespace redundant_coordinates_details {
 template<class CoordinatesConsumer>
 struct coordinates_logic {
     CoordinatesConsumer coordinates_consumer; // Should perhaps be a reference (still).
@@ -3114,35 +3116,41 @@ struct coordinates_logic {
 
     template<typename Coords>
     void apply() {
-        <<coordinates_logic/apply>>
-
-        // Third step.
-        point = rotate_from<0, Coords>(extremum, -1);
+        auto point = rotate_from<0, Coords>(extremum, -1);
         do {
             coordinates_consumer(point);
         } while(++point.right.x < extremum); // This is mirrored logic.
     }
 };
-} // namespace forevery_coordinates_details
+template<class T> using canonical_logic = foreach_coordinates_details::coordinates_logic<T>;
+template<class T> using redundant_logic = coordinates_logic<T>;
+} // namespace redundant_coordinates_details
 #+end_src
 
-The implementation =forevery_coordinates= itself is copy pasted from =foreach_coordinates=, except for the name and the additional south poles:
+Implementation of the proper function:
 #+begin_src cpp :noweb-ref octasierp/forevery_coordinates :minipage
 template<typename CoordinatesConsumer>
 void forevery_coordinates(std::size_t degree, CoordinatesConsumer consumer) {
-    using forevery_coordinates_details::coordinates_logic;
+    using namespace redundant_coordinates_details;
     const int extremum = 1 << degree;
+
+    // The canonical points are handled first.
     consumer(qoords<0>(0, 0)); // North pole.
-    foreach_quarter(coordinates_logic{consumer, extremum});
+    foreach_quarter(canonical_logic{consumer, extremum});
     consumer(qoords<0>(extremum, extremum)); // Canonical south pole.
+
+    // Then the redundant points.
+    foreach_quarter(redundant_logic{consumer, extremum});
     consumer(qoords<1>(extremum, extremum)); // Degree 1 mirrored south pole.
     consumer(qoords<2>(extremum, extremum)); // Degree 2 mirrored south pole.
     consumer(qoords<3>(extremum, extremum)); // Degree 3 mirrored south pole.
 }
 #+end_src
-#+depends:octasierp/forevery_coordinates :noweb qoords foreach_quarter
+#+depends:octasierp/forevery_coordinates :noweb foreach_coordinates_details qoords foreach_quarter
 
-The mirrored south poles are very confusing because, since =forevery_coordinates= produces canonical points only, it is the mirrored version that must be produced, i.e. the version of the quarter to the left.
+The mirrored south poles are very confusing because, since =forevery_coordinates= produces canonical coordinates only, it is the mirrored version that must be produced, i.e. the version of the quarter to the left.
+
+Redundant points are consumed after canonical points because the handling of the firsts can depend on that of the seconds.
 
 *** Usage
 
