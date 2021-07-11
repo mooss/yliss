@@ -716,7 +716,12 @@ From 3., we have the values of odd points.
 By combining 2. and 3., we can deduce the values of the other even points, because 2. is equivalent to $i \bmod 2 = 0 \implies bindeg_{i,d} = bindeg_{\frac{i}{2},d-1}$, thus we can divise even values until they are odd to obtain their binary degree.
 
 
-* Implementation
+* Octasierp primitives
+
+In this section are implemented utilities to manipulate octasierps in a fundamental way.
+Those utilities will most crucially help to store points, iterate on an octasierp in various manners and query information about an octasierp.
+
+** Pointless octasierp
 
 A =pointless_octasierp= is an octasierp that does not store points and is therefore only useful for theoretical manipulation.
 I coudn't resist.
@@ -747,6 +752,7 @@ Note:
  - =extreme_index= in an =int= because the coordinate system uses negative indexes.
 
 Since everyting is const, the only way to change the degree is to create a new =pointless_octasierp= instance, therefore the various cached variables bound to the degree are guaranteed to be kept in sync.
+
 
 ** Point cardinality
 
@@ -1229,9 +1235,7 @@ std::size_t index_of(const Coords& coords) const {
 }
 #+end_src
 
-
-
-** Indexing example
+*** Usage
 
 The code below prints a squarenet shadow whose individual points are the actual point itself, each point having been initialised to its own character.
 Therefore, beyond being a usage example, this is also a pretty good illustration of the storage order.
@@ -2631,7 +2635,7 @@ Some observations:
 
 ** Iteration on segments
 
-This section is heavily based on the iteration on triangles, with a few adjustements to filter out unorthodox segments.
+This section is heavily based on the iteration on triangles, with a few adjustements to filter out redundant segments.
 
 #+begin_src cpp :noweb-ref octasierp/foreach_segment :minipage
 namespace foreach_segment_details {
@@ -3692,166 +3696,226 @@ bindeg(8, 3) = 0
 The binary degree function will be fundamental to some octasierp operarations and can probably be optimised using =<strings.h>='s =ffs= (find first set).
 
 
-* The third dimension
+* Octasierp policies
 
-** Squarenet visualisation
+Where the previous section defined a set of primitives to manipulate octasierps, this section takes over by using those low-level primitives to craft higher-level policies that will define the shape and rendering of an octasierp.
+There are three distinct types of octasierp policies:
+ - Elevation policy :: Associates an elevation to each point of the octasierp.
+ - Coloration policy :: Associates a color to each point of the octasierp.
+ - Repartition policy :: Transforms elevations into 3d positions.
 
-The visualisation presented here is only three dimensional in the technical sense, since it is still a squarenet, but this time rendered with OpenGL.
+** Helpers
 
-*** Vertices and indexes
+*** =grow_octasierp=
 
-The function implemented in this section (=squarenet_gl=) builds a bridge between an octasierp and OpenGL, transforming its points into vertices and indexes that can be transmitted to the GPU for rendering.
+=grow_octasierp= combines an elevation policy, a coloration policy and a repartition policy to generate vertices and indexes that can then be sent to the GPU.
 
-The implementation is divided in two parts, the first part generating the vertices (=seg_vertices=) and the second generating the indexes (=seg_indexes=).
-
-But first, below is a high level overview of this function with its result type, =side= holding the dimension of one side of the squarenet (it will useful afterwards and is also needed in the implementation).
-The =source= argument holds the data for each point of the octasierp, it is expected to be both of the correct size for the given degree and to respect =octasierp='s storage order.
-#+name: squarenet_gl
+#+name: grow_octasierp
 #+begin_src cpp :minipage
-struct squarenet_gl_results {
-    std::vector<GLfloat> vertices;
-    std::vector<GLuint> indexes;
-    std::size_t side;
+struct octasierp_vertindex {
+    std::vector<float> vertices;
+    std::vector<unsigned int> indexes;
 };
 
-template<std::size_t SegmentSize>
-auto squarenet_gl(const segvector<GLfloat, SegmentSize>& source, std::size_t degree) {
-    <<squarenet_gl/scope>>
-    return squarenet_gl_results{
-        std::move(seg_vertices.storage),
-        std::move(seg_indexes.storage),
-        squarenet_side
+template<class Elevation, class Coloration, class Repartition>
+octasierp_vertindex grow_octasierp(
+    std::size_t degree, Elevation elevation,
+    Coloration coloration, Repartition repartition
+) {
+    pointless_octasierp octa(degree);
+    auto get_height = elevation(octa);
+    octasierp_vertindex result;
+    result.vertices.resize(repartition.size(octa) * 6, -999999.f);
+
+    auto get_color = [&result](auto index) {
+        return std::span<float, 3>(&result.vertices[6 * index + 3], 3);
     };
+    auto get_position = [&result](auto index) {
+        return &result.vertices[6 * index];
+    };
+
+    coloration.fill_colors(octa, get_height, get_color);
+    repartition.fill_positions(octa, get_height, get_position);
+    result.indexes = std::move(repartition.compute_indexes(octa));
+    return result;
 }
 #+end_src
-#+depends:squarenet_gl :noweb hash/pair segvector pointless_octasierp adapt_repr/size_t apply_foreach ForeveryCoordinates ForeachTriangle :cpp utility vector unordered_map limits algorithm
+#+depends:grow_octasierp :noweb pointless_octasierp :cpp vector span utility
 
-The difficulty in generating vertices comes from the need to handle non canonical (aka unorthodox) coordinates.
-The indexes of those coordinates are kept around in =unorthodox_indexes=, because they will be needed in the next step (indexes generation).
-The vertices are kept in a segmented vector whose segments can hold two more floats than the source, those two floats being the coordinates, who are stored first.
+This implementation defines de-facto the interfaces of the elevation, coloration and repartition policies.
 
-Since =source= and =seg_vertices= have neither the same shape or size, the source cannot be reused and must instead be copied.
 
-#+begin_src cpp :noweb-ref squarenet_gl/scope :minipage
-const pointless_octasierp octa(degree);
-std::size_t next_mirrored = octa.point_cardinality();
-std::size_t squarenet_side = (1 << (degree + 1)) + 1;
-std::size_t squarenet_points = squarenet_side * squarenet_side;
-
-std::unordered_map<std::pair<int, int>, std::size_t> unorthodox_indexes;
-segvector<GLfloat, SegmentSize + 2> seg_vertices;
-seg_vertices.resize(squarenet_points, 0);
-
-apply<ForeveryCoordinates>(degree, [&](auto coords) {
-    std::size_t index = octa.index_of(coords);
-    auto source_data = source[index];
-    if(coords.is_mirrored_canonical(degree)) {
-        coords.unmirror();
-        index = next_mirrored;
-        unorthodox_indexes[{coords.x, coords.y}] = next_mirrored++;
-    }
-    auto vertex_data = seg_vertices[index];
-    vertex_data[0] = coords.x; vertex_data[1] = coords.y;
-    std::copy(source_data.begin(), source_data.end(), vertex_data.begin() + 2);
-});
-#+end_src
-
-Since OpenGL indexes correspond to triangles, =foreach_triangle= is used to generate them.
-As mentioned above, the map =unorthodox_indexes= helps us recall the index corresponding to a given unorthodox point.
-
-#+begin_src cpp :noweb-ref squarenet_gl/scope :minipage
-segvector<GLuint, 3> seg_indexes;
-seg_indexes.reserve(octa.triangle_cardinality());
-
-apply<ForeachTriangle>(degree, [&](auto a, auto b, auto c) {
-    for(auto coords: {a, b, c}) {
-        std::size_t index;
-        if(coords.is_mirrored_canonical(degree)) {
-            coords.unmirror();
-            index = unorthodox_indexes[{coords.x, coords.y}];
-        } else {
-            index = octa.index_of(coords);
-        }
-        seg_indexes.storage.push_back(index);
-    }
-});
-#+end_src
-
-*** Rendering
+** Colored octanet
 :PROPERTIES:
 :header-args:cpp: :noweb no-export
 :END:
 
-The squarenet will be rendered with a color gradient that will provide a nice visualisation of both the storage order and the mirrored points.
+*** Constant elevation
 
-This implies a vertex shader with a =vec2= of positions and a =vec3= of colors:
-#+name: squarenet_vs
-#+begin_src glsl :minipage
-#version 330 core
-layout (location = 0) in vec2 position;
-layout (location = 1) in vec3 color_in;
-out vec3 color_fs;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main() {
-    gl_Position = projection * view * model * vec4(position, 0.0f, 1.0f);
-    color_fs = color_in;
-}
+An elevation policy takes the shape of a consumer of =pointless_octasierp= returning a consumer of =std::size_t= (indexes).
+With a constant elevation, those parameters can be safely ignored:
+#+name: constant_elevation
+#+begin_src cpp :minipage
+template<typename T=float>
+struct constant_elevation {
+    const T elevation;
+    auto operator()(const auto& ignored) const {
+        return [&](auto ignored2) {return elevation;};
+    }
+};
 #+end_src
 
-And a fragment shader simply reusing the color sent by the vertex shader:
-#+name: squarenet_fs
-#+begin_src glsl :minipage
-#version 330 core
-out vec4 color_out;
-in vec3 color_fs;
+*** RM5CY coloration
 
-void main() {
-    color_out = vec4(color_fs, 1.);
-}
+This coloration policy consists of using a red to magenta to cyan (5 times) to yellow gradient to color the vertices in their order of storage.
+This slightly convoluted color scheme was chosen because a simpler one looks like a swastika when rendered with a squarenet repartition.
+
+#+name: rm5cy_coloration
+#+begin_src cpp :minipage
+struct rm5cy_coloration {
+    template<class LambdaHeight, class LambdaDest>
+    void fill_colors(const pointless_octasierp& octa, LambdaHeight ignore, LambdaDest dest) {
+        rgb_interpolation<segarray, 8> gradient{
+            1, 0, 0, // Red.
+            1, 0, 1, // Magenta.
+            0, 1, 1, // Cyan.
+            0, 1, 1, // Cyan.
+            0, 1, 1, // Cyan.
+            0, 1, 1, // Cyan.
+            0, 1, 1, // Cyan.
+            1, 1, 0, // Yellow.
+        };
+        auto end = octa.point_cardinality();
+        for(std::size_t i = 0; i < end; ++i)
+            gradient.fill(dest(i), i, end);
+    }
+};
+#+end_src
+#+depends:rm5cy_coloration :noweb pointless_octasierp rgb_interpolation segarray
+
+*** Squarenet repartition
+
+This repartition policy computes the positions for a 3d squarenet, with the height being used as the z component.
+
+#+name: squarenet_repartition
+#+begin_src cpp :minipage
+class squarenet_repartition {
+  public:
+    static std::size_t side(std::size_t degree) {
+        return (1 << (degree + 1)) + 1;
+    }
+
+    std::size_t size(const pointless_octasierp& octa) const {
+        std::size_t squarenet_side = side(octa.degree);
+        return squarenet_side * squarenet_side;
+    }
+
+    template<class LambdaHeight, class LambdaDest> void fill_positions(
+        const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
+    ) {
+        <<squarenet_repartition/fill_positions>>
+    }
+
+    std::vector<unsigned int> compute_indexes(const pointless_octasierp& octa) const {
+        <<squarenet_repartition/compute_indexes>>
+    }
+
+  private:
+    std::unordered_map<std::pair<int, int>, std::size_t> redundant_indexes_;
+};
+#+end_src
+#+depends:squarenet_repartition :noweb hash/pair pointless_octasierp adapt_repr/size_t apply_foreach ForeveryCoordinates ForeachTriangle :cpp utility vector unordered_map algorithm
+
+The difficulty in filling positions comes from the need to handle non canonical (aka redundant) coordinates.
+The indexes of those coordinates are kept around in =redundant_indexes_=, because they will be needed in the next step (indexes generation).
+
+#+name: squarenet_repartition/fill_positions
+#+begin_src cpp :minipage
+auto next_mirrored = octa.point_cardinality();
+float side_ = side(octa.degree);
+apply<ForeveryCoordinates>(octa.degree, [&](auto coords) {
+    std::size_t index = octa.index_of(coords);
+    if(coords.is_mirrored_canonical(octa.degree)) { // Redundant point.
+        auto canonical = get_dest(index);
+        auto dest = get_dest(next_mirrored);
+        coords.unmirror();
+        redundant_indexes_[{coords.x, coords.y}] = next_mirrored++;
+
+        // x and y can be used as is.
+        dest[0] = coords.x / side_; dest[1] = coords.y / side_;
+        // Height and color data must be copied over from the canonical point.
+        std::copy(canonical + 2, canonical + 6, dest + 2);
+    } else { // Canonical point.
+        auto dest = get_dest(index);
+        dest[0] = coords.x / side_; dest[1] = coords.y / side_;
+        dest[2] = get_height(index);
+    }
+});
 #+end_src
 
-First each canonical point is colored with a color gradient, then vertices and indexes are prepared via =squarenet_gl= and finally through a bit of OpenGL tweaking the squarenet is rendered with lines and slowly rotated each frame.
+Since OpenGL indexes correspond to triangles, =ForeachTriangle= is used to generate them.
+As mentionned before, the map =redundant_indexes_= associates a given redundant point to its index.
 
+#+name: squarenet_repartition/compute_indexes
+#+begin_src cpp :minipage
+std::vector<unsigned int> result;
+result.reserve(octa.triangle_cardinality() * 3);
+
+apply<ForeachTriangle>(octa.degree, [&](auto a, auto b, auto c) {
+    for(auto coords: {a, b, c}) {
+        std::size_t index;
+        if(coords.is_mirrored_canonical(octa.degree)) {
+            coords.unmirror();
+            index = redundant_indexes_.at({coords.x, coords.y});
+        } else {
+            index = octa.index_of(coords);
+        }
+        result.push_back(index);
+    }
+});
+
+return result;
+#+end_src
+
+To avoid crashes, =computes_index= depends on =fill_positions= being called before, because is needs =redundant_indexes_= to be properly constructed.
+This was in fact the main inspiration for =grow_octasierp= since using it guarantees that those methods are called in the correct order.
+
+*** Rendering
+
+No custom shaders are needed for rendering, =graphics.org= already defines a vertex shader that applies a model, view and projection matrix to its position, as well as a fragment shader that uses a color passed as an attribute.
+The following include block can be used to include blocks from =graphics.org=:
+#+name: graphics
+#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export :minipage
+./litlib/include.pl "graphics.org" "$args"
+#+end_src
+
+Constructing a mesh is now simply a matter of calling =grow_octasierp= with the desired policies:
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb pointless_octasierp segvector rgb_interpolation segarray squarenet_gl orbital_camera lazy_window shader_unit to_span/glm sync_window_size gl_screen_first refresh_view :defs graphics.org window.org")>>
+<<include(":noweb grow_octasierp constant_elevation rm5cy_coloration squarenet_repartition orbital_camera lazy_window shader_unit to_span/glm sync_window_size gl_screen_first refresh_view :defs graphics.org window.org")>>
 
 int main(){
     std::size_t degree = 3;
-    pointless_octasierp octa(degree);
-    segvector<GLfloat, 3> vertices_colors;
-    rgb_interpolation<segarray, 8> gradient{
-        1, 0, 0, // Red.
-        1, 0, 1, // Magenta.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        1, 1, 0, // Yellow.
-    };
-
-    vertices_colors.resize(octa.point_cardinality(), 0);
-    gradient.fill_all(vertices_colors);
-    auto gl_data = squarenet_gl(vertices_colors, degree);
+    auto octamesh = grow_octasierp(
+        degree,
+        constant_elevation{0},
+        rm5cy_coloration{},
+        squarenet_repartition{}
+    );
 
     orbital_camera director({0, 0, 0}, 2, 90, 0);
     lazy_window lazy("Octasierp colorful squarenet");
 
     shader_unit squarenet(
         {.vertex =
-         <<include(":noweb squarenet_vs :c-string")>>,
+         <<graphics(":noweb model_view_projection_vs :c-string")>>,
          .fragment =
-         <<include(":noweb squarenet_fs :c-string")>>},
-        transform().scale(1.2 / gl_data.side), // Model.
-        to_span(director.view()),              // View.
-        {.aspect=lazy.aspect()},               // Projection
-        {.content=gl_data.vertices,            // Mesh.
-         .layout={2, 3},
-         .indexes=gl_data.indexes}
+         <<graphics(":noweb color_as_attribute_fs :c-string")>>},
+        transform().scale(1.2),      // Model.
+        to_span(director.view()),    // View.
+        {.aspect=lazy.aspect()},     // Projection
+        {.content=octamesh.vertices, // Mesh.
+         .layout={3, 3},
+         .indexes=octamesh.indexes}
     );
     auto sync_anchor = sync_window_size(squarenet, lazy);
 
@@ -3888,27 +3952,6 @@ It doesn't have this unfortunate look but still illustrates the point ordering a
 
 The goal of this section is to display mostly the same data as the previous section, but this time in full 3d.
 It is much simpler to implement because there is no need to take mirrored points into account.
-
-*** Shaders
-
-The fragment shader can be reused, it still only needs to display the color forwarded by the vertex shader.
-Since the position is now three-dimensional, the vertex shader must be updated to take a =vec3= this time:
-#+name: octasierp_vs
-#+begin_src glsl :minipage
-#version 330 core
-layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 color_in;
-out vec3 color_fs;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main() {
-    gl_Position = projection * view * model * vec4(position, 1.0f);
-    color_fs = color_in;
-}
-#+end_src
 
 *** Vertices
 
@@ -4056,8 +4099,8 @@ int main() {
     octaviz_fill_colors(octa);
 
     octasierp_wireframe(
-        <<include(":noweb octasierp_vs :c-string")>>,
-        <<include(":noweb squarenet_fs :c-string")>>,
+        <<graphics(":noweb model_view_projection_vs :c-string")>>,
+        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
         "images/screencaps/3d_octasierp.png",
         octa, prerender_thick_lines
     );
@@ -4230,8 +4273,8 @@ int main() {
     octaviz_fill_colors(octa);
 
     octasierp_wireframe(
-        <<include(":noweb octasierp_vs :c-string")>>,
-        <<include(":noweb squarenet_fs :c-string")>>,
+        <<graphics(":noweb model_view_projection_vs :c-string")>>,
+        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
         "images/screencaps/spherical_octasierp.png",
         octa, prerender_thick_lines
     );
@@ -4334,8 +4377,8 @@ int main() {
     octaviz_fill_colors(octa);
 
     octasierp_wireframe(
-        <<include(":noweb octasierp_vs :c-string")>>,
-        <<include(":noweb squarenet_fs :c-string")>>,
+        <<graphics(":noweb model_view_projection_vs :c-string")>>,
+        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
         "images/screencaps/spherical_midpoint_octasierp.png",
         octa, prerender_thick_lines
     );
@@ -4427,8 +4470,8 @@ int main() {
     );
 
     octasierp_wireframe(
-        <<include(":noweb octasierp_vs :c-string")>>,
-        <<include(":noweb squarenet_fs :c-string")>>,
+        <<graphics(":noweb model_view_projection_vs :c-string")>>,
+        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
         "images/screencaps/spherical_midpoint_gfgcolors_octasierp.png",
         octa, nothing
     );
