@@ -3806,7 +3806,7 @@ void thick_lines() {
 
 This one can be used as a render that will simply draw the model and make it spin slowly (it is a lambda and not a function to avoid type deduction errors when passed as a parameter due to =auto=):
 #+name: drawspin
-#+begin_src cpp
+#+begin_src cpp :minipage
 auto drawspin = [](auto& unit) {
     unit.draw();
     unit.with_model([](auto& model){
@@ -3844,7 +3844,7 @@ This slightly convoluted color scheme was chosen because a simpler one looks lik
 #+begin_src cpp :minipage
 struct rm5cy_coloration {
     template<class LambdaHeight, class LambdaDest>
-    void fill_colors(const pointless_octasierp& octa, LambdaHeight ignore, LambdaDest dest) {
+    void fill_colors(const pointless_octasierp& octa, LambdaHeight ignore, LambdaDest get_dest) {
         rgb_interpolation<segarray, 8> gradient{
             1, 0, 0, // Red.
             1, 0, 1, // Magenta.
@@ -3857,7 +3857,7 @@ struct rm5cy_coloration {
         };
         auto end = octa.point_cardinality();
         for(std::size_t i = 0; i < end; ++i)
-            gradient.fill(dest(i), i, end);
+            gradient.fill(get_dest(i), i, end);
     }
 };
 #+end_src
@@ -4001,164 +4001,125 @@ It doesn't have this unfortunate look but still illustrates the point ordering a
  - The orthodox points of the right border being a mirrored version of the yellow points from the end of quarter 3.
 
 
-** Octasierp visualisation
-:PROPERTIES:
-:header-args:cpp: :noweb no-export
-:END:
+** Colored octasierp
 
-The goal of this section is to display mostly the same data as the previous section, but this time in full 3d.
-It is much simpler to implement because there is no need to take mirrored points into account.
+The policies implemented in this section will allow us to render an octasierp in three dimensions, as if the final rendering from the previous section was folded in 3d.
 
-*** Vertices
+*** RM5CY_BNWS coloration
 
-The only novel elements when compared with the previous section are first the definition of the six initial points' positions, and then the interpolation of the subsequent positions with =ForeverySubdivision= and =fill_midpoint=.
+This coloration is the same as the RM5CY, except for the north and south poles, which are respectively colored in black and white, to make the north/south axis stand out.
 
-#+name: octaviz_init_positions
-#+begin_src cpp
-auto octaviz_init_positions(std::size_t degree) {
-    octasierp octa(degree, std::array<float, 6>{
-        0,  0,  0, // Position.
-       -1, -1, -1  // Color.
-    });
-    // Colors are filled with garbage for now because they will be defined later.
-    octa.storage[0] = {/* North pole */  0,  0,  1, /* Garbage */ -1, -1, -1};
-    octa.storage[1] = {/* South pole */  0,  0, -1, /* Garbage */ -1, -1, -1};
-    octa.storage[2] = {/* Corner 0   */  1,  0,  0, /* Garbage */ -1, -1, -1};
-    octa.storage[3] = {/* Corner 1   */  0,  1,  0, /* Garbage */ -1, -1, -1};
-    octa.storage[4] = {/* Corner 2   */ -1,  0,  0, /* Garbage */ -1, -1, -1};
-    octa.storage[5] = {/* Corner 3   */  0, -1,  0, /* Garbage */ -1, -1, -1};
-
-    apply<ForeverySubdivision>(octa, [](auto& midpoint, const auto& a, const auto& b) {
-        // Cannot compile without putting it in a temporary variable.
-        auto position = to_span<3>(midpoint);
-        fill_midpoint(position, a, b);
-    });
-    return octa;
-}
+#+name: rm5cy_bnws_coloration
+#+begin_src cpp :minipage
+struct rm5cy_bnws_coloration {
+    template<class LambdaHeight, class LambdaDest>
+    void fill_colors(const pointless_octasierp& octa, LambdaHeight ignore, LambdaDest get_dest) {
+        rm5cy_coloration{}.fill_colors(octa, ignore, get_dest);
+        auto pole = get_dest(0); pole[0] = 0; pole[1] = 0; pole[2] = 0;
+        pole      = get_dest(1); pole[0] = 1; pole[1] = 1; pole[2] = 1;
+    }
+};
 #+end_src
-#+depends:octaviz_init_positions :noweb octasierp apply_foreach/octasierp ForeverySubdivision to_span fill_midpoint :cpp array
+#+depends:rm5cy_bnws_coloration :noweb rm5cy_coloration
 
-The coloration logic is only slightly changed by coloring the north pole in black and the south pole in white to make them stand out a bit more.
+*** Generic index computation
 
-#+name: octaviz_fill_colors
-#+begin_src cpp
-void octaviz_fill_colors(octasierp<std::array<float, 6>>& octa) {
-    octa.storage[0][3] = 0; octa.storage[0][4] = 0; octa.storage[0][5] = 0;
-    octa.storage[1][3] = 1; octa.storage[1][4] = 1; octa.storage[1][5] = 1;
-
-    // Filling the other colors with the ones from the squarenet visualisation.
-    rgb_interpolation<segarray, 8> gradient{
-        1, 0, 0, // Red.
-        1, 0, 1, // Magenta.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        0, 1, 1, // Cyan.
-        1, 1, 0, // Yellow.
-    };
-
-    for(std::size_t i = 2; i < octa.storage.size(); ++i)
-        gradient.fill(to_span<3, 3>(octa.storage[i]), i, octa.storage.size());
-}
-#+end_src
-#+depends:octaviz_fill_colors :noweb octasierp rgb_interpolation segarray to_span :cpp array
-
-*** Indexes
-
-The indexes used by OpenGL to draw meshes correspond to the indexes of an octasierp's triangles, making their computation rather straightforward with the tools already at our disposal.
+For fully 3d repartition policies, indexes computation will not change as it will simply consist of using the indexes of triangles.
+The function below can be used to perform this exact computation.
 
 #+name: compute_octasierp_indexes
-#+begin_src cpp
+#+begin_src cpp :minipage
 auto compute_octasierp_indexes(const pointless_octasierp& octa) {
     std::vector<unsigned int> result;
     result.reserve(octa.triangle_cardinality() * 3);
-    apply<ForeachTriangle>(index_of{octa.degree}, [&result](auto a, auto b, auto c) {
-        result.push_back(a); result.push_back(b); result.push_back(c);
+    apply<ForeachTriangle>(octa.degree, [&](auto a, auto b, auto c) {
+        result.push_back(octa.index_of(a));
+        result.push_back(octa.index_of(b));
+        result.push_back(octa.index_of(c));
     });
     return result;
 }
 #+end_src
-#+depends:compute_octasierp_indexes :noweb pointless_octasierp adapt_repr/index_of ForeachTriangle apply_foreach :cpp vector
+#+depends:compute_octasierp_indexes :noweb pointless_octasierp adapt_repr/size_t ForeachTriangle apply_foreach :cpp vector
 
-*** Note about the =apply_foreach= bug
+*** Octahedral repartition
 
-=apply_foreach= is not listed in the dependencies of =octaviz_fill_colors=, only in those of =compute_octasierp_indexes= because it has to be included *after* =adapt_repr/index_of=.
-A long term solution would be to adapt the foreach code to bypass this need or add a dependency reordering feature in =include.pl=.
+#+name: octahedral_repartition
+#+begin_src cpp :minipage
+struct octahedral_repartition {
+    std::size_t size(const pointless_octasierp& octa) const {
+        return octa.point_cardinality();
+    }
+
+    template<class LambdaHeight, class LambdaDest> void fill_positions(
+        const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
+    ) {
+        <<octahedral_repartition/fill_positions>>
+    }
+
+    std::vector<unsigned int> compute_indexes(const pointless_octasierp& octa) const {
+        return compute_octasierp_indexes(octa);
+    }
+};
+#+end_src
+#+depends:octahedral_repartition :noweb compute_octasierp_indexes apply_foreach/octasierp adapt_repr/size_t ForeverySubdivision fill_midpoint/span :cpp array span
+
+Computing positions for octahedral repartition is separated in two phases.
+In the first phase, the desired height is ignored and the mesh is given a perfectly octahedral shape:
+#+begin_src cpp :noweb-ref octahedral_repartition/fill_positions :minipage
+auto dest = get_dest(0); dest[0] = 0;  dest[1] = 0;  dest[2] = 1;  // North pole.
+dest      = get_dest(1); dest[0] = 0;  dest[1] = 0;  dest[2] = -1; // South pole.
+dest      = get_dest(2); dest[0] = 1;  dest[1] = 0;  dest[2] = 0;  // Corner 0.
+dest      = get_dest(3); dest[0] = 0;  dest[1] = 1;  dest[2] = 0;  // Corner 1.
+dest      = get_dest(4); dest[0] = -1; dest[1] = 0;  dest[2] = 0;  // Corner 2.
+dest      = get_dest(5); dest[0] = 0;  dest[1] = -1; dest[2] = 0;  // Corner 3.
+
+auto spanindex = [&](const auto& coords) {
+    return std::span<float, 3>(get_dest(octa.index_of(coords)), 3);
+};
+apply<ForeverySubdivision>(octa.degree, [&spanindex](auto& midpoint, const auto& a, const auto& b) {
+    auto smid = spanindex(midpoint);
+    auto sa = spanindex(a); auto sb = spanindex(b);
+    fill_midpoint(smid, sa, sb);
+});
+#+end_src
+
+In the second phase, the actual heights are applied to the octahedral shape.
+The naïve implementation below will probably need some adjustment to properly work with non-constant height.
+#+begin_src cpp :noweb-ref octahedral_repartition/fill_positions :minipage
+auto end = size(octa);
+for(std::size_t i = 0; i < end; ++i) {
+    dest = get_dest(i);
+    auto height = get_height(i);
+    // auto normalised = glm::normalize(*reinterpret_cast<glm::vec<3, float, glm::packed_highp>*>(dest));
+    // dest[0] *= normalised.x;
+    dest[0] *= height; dest[1] *= height; dest[2] *= height;
+}
+#+end_src
 
 *** Rendering
 
-First some boilerplate that can be reused for later renderings:
-#+name: octasierp_wireframe
-#+begin_src cpp
-template<class Point, class LambdaPreRender, class LambdaRender>
-void octasierp_wireframe(
-    const char* vs_str, const char* fs_str, const std::string& capture_dest,
-    octasierp<Point>& octa, LambdaPreRender prerender, LambdaRender render
-) {
-    auto indexes = compute_octasierp_indexes(octa.bound());
-
-    orbital_camera director(
-        {0, 0, 0}, 2, // Pointed at the origin, at a distance of 2.
-        6, 6,         // With a bit of an angle to be able to see most points.
-        {0, 0, 1}     // The up vector is the z axis, placing the north pole up and the south pole down.
-    );
-    lazy_window lazy("Octasierp wireframe");
-    shader_unit<std::span<float>> octasierp_unit(
-        {.vertex=vs_str, .fragment=fs_str},
-        transform().scale(.6), // Make the octasierp fit into the screen.
-        to_span(director.view()),
-        {.aspect=lazy.aspect()},
-        {.content=std::span(octa.storage[0].data(), 6 * octa.storage.size()),
-         .layout={3, 3},
-         .indexes=indexes}
-    );
-    auto sync_anchor = sync_window_size(octasierp_unit, lazy);
-
-    // Render with thick lines.
-    prerender();
-    gl_screen_first(lazy, capture_dest, [&]{
-        render(octasierp_unit);
-    });
-}
-
-template<class Point, class LambdaPreRender> void octasierp_wireframe(
-    const char* vs_str, const char* fs_str, const std::string& capture_dest,
-    octasierp<Point>& octa, LambdaPreRender prerender
-) {
-    octasierp_wireframe(vs_str, fs_str, capture_dest, octa, prerender, [](auto& unit) {
-        unit.draw();
-        unit.with_model([](auto& model){
-            model.rotate_rad(.01, {0, 0, 1});
-        });
-    });
-}
-#+end_src
-#+depends:octasierp_wireframe :noweb octasierp compute_octasierp_indexes orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp array span
-
-The lambda below can be used as a prerender.
-#+name: prerender_thick_lines
-#+begin_src cpp :minipage
-void prerender_thick_lines() {
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    glLineWidth(8);
-}
-#+end_src
-
-
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c :minipage
-<<include(":noweb octasierp_wireframe octaviz_init_positions octaviz_fill_colors prerender_thick_lines :defs graphics.org window.org")>>
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb grow_octasierp constant_elevation rm5cy_bnws_coloration octahedral_repartition render_octasierp thick_lines drawspin :defs graphics.org window.org")>>
 
 int main() {
     std::size_t degree = 3;
-    auto octa = octaviz_init_positions(degree);
-    octaviz_fill_colors(octa);
+    auto mesh = grow_octasierp(
+        degree,
+        constant_elevation{1},
+        rm5cy_bnws_coloration{},
+        octahedral_repartition{}
+    );
 
-    octasierp_wireframe(
-        <<graphics(":noweb model_view_projection_vs :c-string")>>,
-        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
-        "images/screencaps/3d_octasierp.png",
-        octa, prerender_thick_lines
+    render_octasierp(
+        {.vertex =
+         <<graphics(":noweb model_view_projection_vs :c-string")>>,
+         .fragment =
+         <<graphics(":noweb color_as_attribute_fs :c-string")>>},
+        {.vertices=mesh.vertices, .indexes=mesh.indexes,
+         .camlong=6, .camlat=6,
+         .screenshot="images/screencaps/3d_octasierp.png", .title="Colored octasierp"},
+        thick_lines, drawspin
     );
     return 0;
 }
