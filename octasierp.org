@@ -3754,8 +3754,8 @@ This function's goal is to centralise octasierp rendering boilerplate while stil
 #+begin_src cpp
 namespace render_octasierp_impl {
 struct other_args {
-    mandatory<std::vector<float>&> vertices;
-    mandatory<std::vector<unsigned int>&> indexes;
+    mandatory<const std::vector<float>&> vertices;
+    mandatory<const std::vector<unsigned int>&> indexes;
     float scale=.6; float camlong=0; float camlat=0;
     glm::vec3 up={0, 0, 1};
     const char* screenshot=nullptr;
@@ -3924,7 +3924,7 @@ apply<ForeveryCoordinates>(octa.degree, [&](auto coords) {
 #+end_src
 
 Since OpenGL indexes correspond to triangles, =ForeachTriangle= is used to generate them.
-As mentionned before, the map =redundant_indexes_= associates a given redundant point to its index.
+As mentioned before, the map =redundant_indexes_= associates a given redundant point to its index.
 
 #+name: squarenet_repartition/compute_indexes
 #+begin_src cpp :minipage
@@ -4325,10 +4325,7 @@ As can be seen in the picture above, this way of transforming coordinates is fla
 I kinda like the effect though.
 
 
-** Elevation
-:PROPERTIES:
-:header-args:cpp: :noweb no-export
-:END:
+** Accidented landscape with midpoint displacement
 
 *** Midpoint displacement
 
@@ -4338,28 +4335,32 @@ This processus can generate an accidented landscape, reminding of mountaineous t
 
 When adapted to an octasierp, the midpoint displacement algorithm gives better results with an additional initialisation phase, during which all height computations are independant, i.e. no midpoints are used.
 
-This initialisation phase is represented by the parameter =init_degree=, the last degree whose height is independant of its surroundings, this parameter should be smaller or equal to the actual =degree= of the octasierp.
+This initialisation phase is represented by the parameter =init_degree=, the last degree whose height is independant of its surroundings, this parameter should be smaller or equal to the actual degree of the octasierp.
 The =seed= parameter is used to initialise the random number generator, =average= is the initial height and =range= corresponds to the greatest variation of height possible.
 With the default values, this means that the height will vary between 0.965 and 1.035.
 
 #+name: midpoint_displacement_octasierp
 #+begin_src cpp :minipage
-struct midpoint_displacement_octasierp_args {
-    mandatory<std::size_t> degree; mandatory<std::size_t> init_degree;
-    unsigned int seed=162342; float average=1; float range=.07;
+namespace midpoint_octasierp_impl {
+struct kwargs {
+    mandatory<std::size_t> init_degree;
+    unsigned int seed=162342;
+    float average=1; float range=.07;
 };
-octasierp<float> midpoint_displacement_octasierp(const midpoint_displacement_octasierp_args& args) {
+auto midpoint_displacement_octasierp(const pointless_octasierp& octa, const kwargs& args) {
     auto init_degree = *args.init_degree;
-    if(init_degree > *args.degree) // Avoid overflows in the initialisation phase.
-        init_degree = *args.degree;
+    if(init_degree > octa.degree) // Avoid overflows in the initialisation phase.
+        init_degree = octa.degree;
 
-    octasierp<float> result(*args.degree, 0);
+    std::vector<float> result(octa.point_cardinality(), -999999);
     <<midpoint_displacement_octasierp/impl>>
     return result;
 }
+}
+using midpoint_octasierp_impl::midpoint_displacement_octasierp;
 #+end_src
-#+depends:midpoint_displacement_octasierp :noweb mandatory octasierp ForeachSpontaneous ForeachSubdivision adapt_repr/size_t apply_foreach degree_shifter :cpp random
-
+#+depends:midpoint_displacement_octasierp :noweb mandatory pointless_octasierp ForeachSpontaneous ForeachSubdivision adapt_repr/size_t apply_foreach degree_shifter :cpp random
+\\
 To keep some coherence in the generated heights, the further the algorithm progresses, the smaller the random element must be.
 Another way to formulate this is the closer the points are, the smaller their average height difference must be, otherwise the heights might as well be fully randomised.
 The approach adopted here is analogous to dividing the range by two:
@@ -4369,52 +4370,83 @@ auto make_distribution = [&args](std::size_t shift) {
     return std::uniform_real_distribution<float>(-delta, delta);
 };
 #+end_src
-
-As mentionned before, during the initialisation phase, the points heights are kept independant:
+\\
+As mentioned before, during the initialisation phase, the points heights are kept independant:
 #+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
 std::mt19937_64 engine(args.seed);
 auto distrib = make_distribution(0);
 for(std::size_t current = 0; current <= init_degree; ++current) {
-    apply<ForeachSpontaneous>(current, degree_shifter(*args.degree - current, [&](auto coords) {
-        result[coords] = args.average + distrib(engine);
-    }));
+    apply<ForeachSpontaneous>(
+        current,
+        degree_shifter(octa.degree - current, [&](auto coords) {
+            result[octa.index_of(coords)] = args.average + distrib(engine);
+        })
+    );
 }
 #+end_src
-
+\\
 The proper midpoint displacement occurs here, using =ForeachSubdivision=, with the random height displacement getting smaller each new degree.
 #+begin_src cpp :noweb-ref midpoint_displacement_octasierp/impl :minipage
-for(std::size_t parent = init_degree; parent < *args.degree; ++parent) {
+auto middisp_algorithm = [&](auto midpoint, auto a, auto b) {
+    result[octa.index_of(midpoint)] =
+        (result[octa.index_of(a)] + result[octa.index_of(b)]) / 2 + distrib(engine);
+};
+for(std::size_t parent = init_degree; parent < octa.degree; ++parent) {
     distrib = make_distribution(parent - init_degree + 1);
-    apply<ForeachSubdivision>(parent, degree_shifter(*args.degree - parent - 1, [&](auto midpoint, auto a, auto b) {
-        result[midpoint] = (result[a] + result[b]) / 2 + distrib(engine);
-    }));
+    apply<ForeachSubdivision>(
+        parent,
+        degree_shifter(octa.degree - parent - 1, middisp_algorithm)
+    );
 }
 #+end_src
 
-Illustration:
+*** Midpoint elevation (policy)
+
+Here is an implementation of the elevation policy relying on the midpoint displacement function shown above.
+
+#+name: midpoint_elevation
+#+begin_src cpp
+struct midpoint_elevation {
+    const midpoint_octasierp_impl::kwargs args;
+
+    struct result_type {
+        const std::vector<float> storage;
+        float operator()(const auto& index) const {
+            return storage[index];
+        }
+    };
+
+    auto operator()(const pointless_octasierp& octa) const {
+        return result_type{midpoint_displacement_octasierp(octa, args)};
+    }
+};
+#+end_src
+#+depends:midpoint_elevation :noweb pointless_octasierp midpoint_displacement_octasierp :cpp vector
+
+*** Rendering
+
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb spherical_repartition octaviz_fill_colors octasierp_wireframe midpoint_displacement_octasierp prerender_thick_lines :defs graphics.org window.org")>>
+<<include(":noweb grow_octasierp midpoint_elevation rm5cy_bnws_coloration spherical_repartition render_octasierp thick_lines drawspin :defs graphics.org window.org")>>
 
 int main() {
     std::size_t degree = 3;
-    octasierp octa(degree, std::array<float, 6>{
-        0,  0,  0, // Position.
-       -1, -1, -1  // Color.
-    });
-
-    auto height = midpoint_displacement_octasierp({.degree=degree, .init_degree=0, .range=.3});
-    spherical_repartition(
-        octa.bound(),
-        [&height](auto index) {return height.storage[index];},
-        [&octa](auto index) {return &octa.storage[index][0];}
+    auto mesh = grow_octasierp(
+        degree,
+        midpoint_elevation{{.init_degree=0, .range=.3}},
+        rm5cy_bnws_coloration{},
+        spherical_repartition{}
     );
-    octaviz_fill_colors(octa);
 
-    octasierp_wireframe(
-        <<graphics(":noweb model_view_projection_vs :c-string")>>,
-        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
-        "images/screencaps/spherical_midpoint_octasierp.png",
-        octa, prerender_thick_lines
+    render_octasierp(
+        {.vertex =
+         <<graphics(":noweb model_view_projection_vs :c-string")>>,
+         .fragment =
+         <<graphics(":noweb color_as_attribute_fs :c-string")>>},
+        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+         .camlong=6, .camlat=6,
+         .screenshot="images/screencaps/spherical_midpoint_octasierp.png",
+         .title="Midpoint-displaced pseudo-spherical octasierp"},
+         thick_lines, drawspin
     );
     return 0;
 }
