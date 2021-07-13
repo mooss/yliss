@@ -4042,27 +4042,34 @@ auto compute_octasierp_indexes(const pointless_octasierp& octa) {
 #+end_src
 #+depends:compute_octasierp_indexes :noweb pointless_octasierp adapt_repr/size_t ForeachTriangle apply_foreach :cpp vector
 
-*** Octahedral repartition
-
-#+name: octahedral_repartition
-#+begin_src cpp :minipage
-struct octahedral_repartition {
+A concise repartition policy can be made by inheriting from the following class:
+#+name: octasierp_triangle_indexer
+#+begin_src cpp
+struct octasierp_triangle_indexer {
     std::size_t size(const pointless_octasierp& octa) const {
         return octa.point_cardinality();
     }
 
+    auto compute_indexes(const pointless_octasierp& octa) const {
+        return compute_octasierp_indexes(octa);
+    }
+};
+#+end_src
+#+depends:octasierp_triangle_indexer :noweb pointless_octasierp compute_octasierp_indexes
+
+*** Octahedral repartition
+
+#+name: octahedral_repartition
+#+begin_src cpp :minipage
+struct octahedral_repartition: public octasierp_triangle_indexer {
     template<class LambdaHeight, class LambdaDest> void fill_positions(
         const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
     ) {
         <<octahedral_repartition/fill_positions>>
     }
-
-    std::vector<unsigned int> compute_indexes(const pointless_octasierp& octa) const {
-        return compute_octasierp_indexes(octa);
-    }
 };
 #+end_src
-#+depends:octahedral_repartition :noweb compute_octasierp_indexes apply_foreach/octasierp adapt_repr/size_t ForeverySubdivision fill_midpoint/span :cpp array span
+#+depends:octahedral_repartition :noweb octasierp_triangle_indexer apply_foreach/octasierp adapt_repr/size_t ForeverySubdivision fill_midpoint/span :cpp array span
 
 Computing positions for octahedral repartition is separated in two phases.
 In the first phase, the desired height is ignored and the mesh is given a perfectly octahedral shape:
@@ -4118,7 +4125,8 @@ int main() {
          <<graphics(":noweb color_as_attribute_fs :c-string")>>},
         {.vertices=mesh.vertices, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
-         .screenshot="images/screencaps/3d_octasierp.png", .title="Colored octasierp"},
+         .screenshot="images/screencaps/3d_octasierp.png",
+         .title="Colored octasierp"},
         thick_lines, drawspin
     );
     return 0;
@@ -4131,17 +4139,23 @@ int main() {
 :end:
 
 
-** Repartition strategy
-
-A repartition strategy transforms elevations into positions.
-There are two main types of repartition strategy:
- 1. The octahedral one that can be obtained by successive interpolations of the midpoints.
- 2. The spherical one, akin to inflating the octahedral repartition to form a ball.
-
-*** Spherical repartition
+** Pseudo-sphere
 
 The properties of the squarenet coordinates system can be abused to first transform squarenet coordinates into spherical coordinates and then into cartesian coordinates.
-This is handled by =spherical_converter=, whose outline can be seen below.
+By doing so, an octasierp can be inflated into a pseudo-sphere.
+
+*** Spherical converter
+
+The following outline of =spherical_converter= handles the easy parts of the spherical conversion, that is to say:
+ 1. Computing the index of interesting slices of the octasierp.
+    A slice is a plan that is both orthogonal to the north-south axis and passes through points defined at the current degree.
+    Slices are numbered from the northermost to the southermost, starting at 0.
+    This makes the =mid_slice= correspond to the equator and the =max_slice= to the south pole.
+ 2. Transforming spherical coordinates to cartesian coordinates (not that I understand what is actually going on, it is easy in the sense of being the application of a magical formula).
+    See https://en.wikipedia.org/wiki/Spherical_coordinate_system.
+ 3. Setting a few useful constants.
+
+The more tricky part will be to convert from octasierp coordinates to spherical coordinates.
 
 #+name: spherical_converter
 #+begin_src cpp
@@ -4179,7 +4193,7 @@ class spherical_converter {
     static constexpr float pi = std::numbers::pi_v<float>;
     static constexpr float half_pi = pi / 2;
     <<spherical_converter/private>>
-}; // spherical_converter
+}; // class spherical_converter
 #+end_src
 #+depends:spherical_converter :noweb pointless_octasierp qoords :cpp numbers cmath
 
@@ -4243,57 +4257,60 @@ spherical_coordinates convert(qoords<Quarter>& coords) const {
 Redirection operator:
 #+name: <<spherical_coordinates
 #+begin_src cpp :minipage
-std::ostream& operator<<(std::ostream& os, const spherical_converter::spherical_coordinates& c) {
+std::ostream& operator<<(
+    std::ostream& os, const spherical_converter::spherical_coordinates& c
+) {
     return os << "(polar=" << c.polar << ", azimuth=" << c.azimuth << ")";
 }
 #+end_src
 #+depends:<<spherical_coordinates :noweb spherical_converter :cpp iostream
 
-With its brutal use of lambdas and =reinterpret_cast=, =spherical_repartition= can fill cartesian coordinates for a whole octasierp.
-The addresses returned by =get_dest= must point to three continuous floats.
+*** Spherical repartition
+
+With its brutal use of lambdas and =reinterpret_cast=, =spherical_repartition= can fill pseudo-spherical coordinates for a whole octasierp.
+The addresses returned by =get_dest= must point to three continuous floats whose ordering corresponds to x, y and z coordinates.
 
 #+name: spherical_repartition
 #+begin_src cpp :minipage
-template<class LambdaHeight, class LambdaDest>
-void spherical_repartition(
-    const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
-) {
-    using sphc = spherical_converter::cartesian_coordinates;
-    spherical_converter to_spherical(octa);
-    apply<ForeachCoordinates>(octa.degree, [&](auto coords) {
-        auto index = octa.index_of(coords);
-        *reinterpret_cast<sphc*>(get_dest(index)) = to_spherical.convert(coords).to_cartesian(get_height(index));
-    });
-}
+struct spherical_repartition: public octasierp_triangle_indexer {
+    template<class LambdaHeight, class LambdaDest> void fill_positions(
+        const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
+    ) {
+        using sphc = spherical_converter::cartesian_coordinates;
+        spherical_converter to_spherical(octa);
+        apply<ForeachCoordinates>(octa.degree, [&](auto coords) {
+            auto index = octa.index_of(coords);
+            *reinterpret_cast<sphc*>(get_dest(index)) = to_spherical.convert(coords).to_cartesian(get_height(index));
+        });
+    }
+};
 #+end_src
-#+depends:spherical_repartition :noweb pointless_octasierp spherical_converter adapt_repr/size_t ForeachCoordinates
+#+depends:spherical_repartition :noweb octasierp_triangle_indexer pointless_octasierp spherical_converter adapt_repr/size_t ForeachCoordinates
 
-*** Spherical repartition rendering
-:PROPERTIES:
-:header-args:cpp: :noweb no-export
-:END:
+*** Rendering
 
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb spherical_repartition octaviz_fill_colors octasierp_wireframe prerender_thick_lines :defs graphics.org window.org")>>
+<<include(":noweb grow_octasierp constant_elevation rm5cy_bnws_coloration spherical_repartition render_octasierp thick_lines drawspin :defs graphics.org window.org")>>
 
 int main() {
     std::size_t degree = 3;
-    octasierp octa(degree, std::array<float, 6>{
-        0,  0,  0, // Position.
-       -1, -1, -1  // Color.
-    });
-    spherical_repartition(
-        octa.bound(),
-        [](auto ignore) {return 1;},
-        [&octa](auto index) {return &octa.storage[index][0];}
+    auto mesh = grow_octasierp(
+        degree,
+        constant_elevation{1},
+        rm5cy_bnws_coloration{},
+        spherical_repartition{}
     );
-    octaviz_fill_colors(octa);
 
-    octasierp_wireframe(
-        <<graphics(":noweb model_view_projection_vs :c-string")>>,
-        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
-        "images/screencaps/spherical_octasierp.png",
-        octa, prerender_thick_lines
+    render_octasierp(
+        {.vertex =
+         <<graphics(":noweb model_view_projection_vs :c-string")>>,
+         .fragment =
+         <<graphics(":noweb color_as_attribute_fs :c-string")>>},
+        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+         .camlong=6, .camlat=6,
+         .screenshot="images/screencaps/spherical_octasierp.png",
+         .title="Pseudo-spherical octasierp"},
+         thick_lines, drawspin
     );
     return 0;
 }
