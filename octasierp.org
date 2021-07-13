@@ -4407,7 +4407,7 @@ Here is an implementation of the elevation policy relying on the midpoint displa
 #+name: midpoint_elevation
 #+begin_src cpp
 struct midpoint_elevation {
-    const midpoint_octasierp_impl::kwargs args;
+    const midpoint_octasierp_impl::kwargs& args;
 
     struct result_type {
         const std::vector<float> storage;
@@ -4458,19 +4458,17 @@ int main() {
 :end:
 
 
-** Coloration
-:PROPERTIES:
-:header-args:cpp: :noweb no-export
-:END:
+** Height coloration
 
-*** Height
+*** Scale translation
 
 The hard work of height coloration is done by =rgb_scaled_interpolation=, aka the color scheme.
 The only thing that the function below does is to find the min and max height to adapt the color scheme to those values.
-#+name: height_coloration
+
+#+name: height_coloration_octasierp
 #+begin_src cpp :minipage
 template<typename ScalarT, typename InterpT, class LambdaHeight, class LambdaDest>
-void height_coloration(
+void height_coloration_octasierp(
     const pointless_octasierp& octa, rgb_scaled_interpolation<ScalarT, InterpT> color_scheme,
     LambdaHeight get_height, LambdaDest get_dest
 ) {
@@ -4487,7 +4485,9 @@ void height_coloration(
         color_scheme.fill(get_dest(i), get_height(i));
 }
 #+end_src
-#+depends:height_coloration :noweb pointless_octasierp rgb_scaled_interpolation transform_scaled_interpolation
+#+depends:height_coloration_octasierp :noweb pointless_octasierp rgb_scaled_interpolation transform_scaled_interpolation
+
+*** GFG Color scheme
 
 The color scheme below was adapted from godefarig, my previous procedural planet generator.
 #+name: gfg_color_scheme
@@ -4510,36 +4510,46 @@ rgb_scaled_interpolation<float> gfg_color_scheme{{
 #+end_src
 #+depends:gfg_color_scheme :noweb rgb_scaled_interpolation
 
-Height coloration at degree 3 is not very impressive, so the code below renders at degree 8:
+*** Policy
+
+#+name: height_coloration
+#+begin_src cpp
+struct height_coloration {
+    const rgb_scaled_interpolation<float>& color_scheme;
+
+    template<class LambdaHeight, class LambdaDest>
+    void fill_colors(const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest) {
+        height_coloration_octasierp(octa, color_scheme, get_height, get_dest);
+    }
+};
+#+end_src
+#+depends:height_coloration :noweb rgb_scaled_interpolation height_coloration_octasierp
+
+*** Rendering
+
+This first rendering uses the same parameter as the previous ones, but with height coloration.
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb print octasierp spherical_repartition height_coloration gfg_color_scheme octasierp_wireframe midpoint_displacement_octasierp midpoint_displacement_octasierp nothing :defs graphics.org window.org")>>
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition render_octasierp thick_lines drawspin :defs graphics.org window.org")>>
 
 int main() {
-    std::size_t degree = 8;
-    octasierp octa(degree, std::array<float, 6>{
-        0,  0,  0, // Position.
-       -1, -1, -1  // Color.
-    });
-
-    auto height = midpoint_displacement_octasierp({.degree=degree, .init_degree=3});
-
-    height_coloration(
-        octa.bound(), gfg_color_scheme,
-        [&height](auto index) {return height.storage[index];},
-        [&octa](auto index) {return std::span<float, 3>(&octa.storage[index][3], 3);}
+    std::size_t degree = 3;
+    auto mesh = grow_octasierp(
+        degree,
+        midpoint_elevation{{.init_degree=0, .range=.3}},
+        height_coloration{gfg_color_scheme},
+        spherical_repartition{}
     );
 
-    spherical_repartition(
-        octa.bound(),
-        [&height](auto index) {return height.storage[index];},
-        [&octa](auto index) {return &octa.storage[index][0];}
-    );
-
-    octasierp_wireframe(
-        <<graphics(":noweb model_view_projection_vs :c-string")>>,
-        <<graphics(":noweb color_as_attribute_fs :c-string")>>,
-        "images/screencaps/spherical_midpoint_gfgcolors_octasierp.png",
-        octa, nothing
+    render_octasierp(
+        {.vertex =
+         <<graphics(":noweb model_view_projection_vs :c-string")>>,
+         .fragment =
+         <<graphics(":noweb color_as_attribute_fs :c-string")>>},
+        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+         .camlong=6, .camlat=6,
+         .screenshot="images/screencaps/gfgocta_deg3_wireframe.png",
+         .title="Midpoint-displaced height-colored pseudo-spherical octasierp"},
+         thick_lines, drawspin
     );
     return 0;
 }
@@ -4547,7 +4557,41 @@ int main() {
 
 #+RESULTS:
 :results:
-[[file:images/screencaps/spherical_midpoint_gfgcolors_octasierp.png]]
+[[file:images/screencaps/gfgocta_deg3_wireframe.png]]
+:end:
+
+
+Since height coloration at degree 3 is not very impressive, the code below renders at degree 8 and with better midpoint displacement parameters:
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition render_octasierp nothing drawspin :defs graphics.org window.org")>>
+
+int main() {
+    std::size_t degree = 8;
+    auto mesh = grow_octasierp(
+        degree,
+        midpoint_elevation{{.init_degree=3}},
+        height_coloration{gfg_color_scheme},
+        spherical_repartition{}
+    );
+
+    render_octasierp(
+        {.vertex =
+         <<graphics(":noweb model_view_projection_vs :c-string")>>,
+         .fragment =
+         <<graphics(":noweb color_as_attribute_fs :c-string")>>},
+        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+         .camlong=6, .camlat=6,
+         .screenshot="images/screencaps/gfgocta_deg8_triangles.png",
+         .title="Midpoint-displaced height-colored pseudo-spherical octasierp"},
+         nothing, drawspin
+    );
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/gfgocta_deg8_triangles.png]]
 :end:
 
 
