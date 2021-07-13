@@ -153,14 +153,14 @@ I must offer this clarification because, unfortunately there are other degrees, 
 A squarified net can be divided into four quarters, each being a rotated image of the others around the central point.
 This means rules devised for one quarter can easily be adapted to the others.
 
-Those quarters are identified by a number ranging from 0 to 3, with quarter 0 being the top-right one and the others being numerated counter-clockwise.
+Those quarters are identified by a number ranging from 0 to 3, with quarter 0 being the top-right one and the others being numbered counter-clockwise.
 The counter-clockwise rotation has been chosen to correspond to the sense of trigonometric rotation.
 
 *** Poles and corners
 
 To pay hommage to both the planet metaphor and the peirce quincuncial projection, the central point is the north pole, while the four extremes are one and the same, the south pole.
 
-The four midpoints of the sides are actually just random points on the equator but since they also are initial vertices of the octasierp, let's give them a name ; the four corners of the world, with the right one being corner 0 and the others numerated once again counter-clockwise.
+The four midpoints of the sides are actually just random points on the equator but since they also are initial vertices of the octasierp, let's give them a name ; the four corners of the world, with the right one being corner 0 and the others numbered once again counter-clockwise.
 I know that the four corners are a bit confusing because from the 2d perspective of the squarified net, the corners of the square are actually the south pole but it will make more sense in 3d and I really like the term, so it stays.
 
 
