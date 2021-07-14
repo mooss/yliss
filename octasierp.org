@@ -1576,7 +1576,6 @@ int main() {
     print_quarter_layout<1>();
     print_quarter_layout<2>();
     print_quarter_layout<3>();
-    return 0;
 }
 #+end_src
 
@@ -1699,7 +1698,6 @@ int main() {
     demonstrate_rotation<1>();
     demonstrate_rotation<2>();
     demonstrate_rotation<3>();
-    return 0;
 }
 #+end_src
 
@@ -3676,7 +3674,6 @@ int main() {
     for(unsigned int i = 0; i <= rightmost; ++i) {
         print{{.sep=""}}("bindeg(", i, ", ", degree, ") = ", naive_bindeg(i, degree));
     }
-    return 0;
 }
 #+end_src
 
@@ -3698,7 +3695,7 @@ The binary degree function will be fundamental to some octasierp operarations an
 
 * Octasierp policies
 :PROPERTIES:
-:header-args:cpp: :noweb no-export
+:header-args:cpp: :noweb no-export :eval never :main no
 :END:
 
 Where the previous section defined a set of primitives to manipulate octasierps, this section takes over by using those low-level primitives to craft higher-level policies that will define the shape and rendering of an octasierp.
@@ -3709,43 +3706,124 @@ There are three distinct types of octasierp policies:
 
 ** Helpers
 
-*** =grow_octasierp=
+*** Octasierp growth parameters and planet properties
+
+Growth parameters are stored in a single object that is then passed to the relevant methods of the policies.
+Those parameters are internal to the growth function, i.e. the function that is responsible for constructing the octasierp by applying the policies.
+They are isolated inside their own namespace:
+
+#+name: octasierp_growth_parameters
+#+begin_src cpp :minipage
+namespace grow_octasierp_impl {
+<<octasierp_growth_parameters/impl>>
+}
+#+end_src
+
+Planet properties are the part of growth parameters that can be defined at the call site of the growth function.
+Its actual content will be filled later, as needed.
+#+begin_src cpp :noweb-ref octasierp_growth_parameters/impl :minipage
+struct planet_properties {
+    <<planet_properties/public>>
+};
+#+end_src
+
+This is the result of the octasierp growth function:
+#+begin_src cpp :noweb-ref octasierp_growth_parameters/impl :minipage
+struct grown_octasierp {
+    std::vector<float> vertices;
+    std::vector<unsigned int> indexes;
+};
+#+end_src
+
+The growth parameters implementation is split into the base and the proper implementation.
+Here is the base:
+#+begin_src cpp :noweb-ref octasierp_growth_parameters/impl :minipage
+class growth_parameters_base: public pointless_octasierp {
+  public:
+    const planet_properties& properties;
+
+    growth_parameters_base(
+        std::size_t degree,
+        const planet_properties& _properties
+    ): pointless_octasierp(degree), properties(_properties)
+    {}
+};
+#+end_src
+
+Below is the proper implementation.
+This split was necessary because the proper implementation must store the height getter and it turns out that this height getter is produced by the elevation policy that needs the growth parameters in order to produce it in the first place.
+
+To resolve this circular dependency, the height getter is produced with the base implementation, and the base parameters are simply copied over to the proper implementation.
+
+#+begin_src cpp :noweb-ref octasierp_growth_parameters/impl
+template<class HeightGetter>
+struct growth_parameters: public growth_parameters_base {
+    HeightGetter height;
+    grown_octasierp data__;
+
+    growth_parameters(
+        const growth_parameters_base& base,
+        HeightGetter&& _height
+    ): growth_parameters_base(base), height(std::move(_height))
+    {}
+
+    auto position_ptr(auto index) {
+        return &data__.vertices[6 * index];
+    }
+
+    auto color_ptr(auto index) {
+        return &data__.vertices[6 * index + 3];
+    }
+
+    auto position_span(auto index) {
+        return std::span<float, 3>(position_ptr(index), 3);
+    }
+
+    auto color_span(auto index) {
+        return std::span<float, 3>(color_ptr(index), 3);
+    }
+};
+#+end_src
+#+depends:octasierp_growth_parameters :noweb pointless_octasierp :cpp vector span utility
+
+Since not everything is visible in the block above, here is a short list of what =growth_parameters= makes available to the octasierp policies:
+ - A pointer and a span to a given position or color storage (=.position_ptr()=, =.position_span()=, =.color_ptr()= and =.color_span()=).
+ - The height of a given position (=.height=).
+ - All the interface of =pointless_octasierp= (via inheritance).
+ - Whatever is inside =planet_properties= (via =.properties=).
+
+The only exception to this is, as stated above, the elevation policy that only gets access to what is in the base implementation (that is to say the last two points).
+
+*** Octasierp growth function
 
 =grow_octasierp= combines an elevation policy, a coloration policy and a repartition policy to generate vertices and indexes that can then be sent to the GPU.
 
 #+name: grow_octasierp
 #+begin_src cpp :minipage
-struct octasierp_vertindex {
-    std::vector<float> vertices;
-    std::vector<unsigned int> indexes;
-};
-
+namespace grow_octasierp_impl {
 template<class Elevation, class Coloration, class Repartition>
-octasierp_vertindex grow_octasierp(
+auto grow_octasierp(
     std::size_t degree, Elevation elevation,
-    Coloration coloration, Repartition repartition
+    Coloration coloration, Repartition repartition,
+    const planet_properties& properties=planet_properties{}
 ) {
-    pointless_octasierp octa(degree);
-    auto get_height = elevation(octa);
-    octasierp_vertindex result;
-    result.vertices.resize(repartition.size(octa) * 6, -999999.f);
+    growth_parameters_base base(degree, properties);
+    growth_parameters growth_params(base, elevation(base));
 
-    auto get_color = [&result](auto index) {
-        return std::span<float, 3>(&result.vertices[6 * index + 3], 3);
-    };
-    auto get_position = [&result](auto index) {
-        return &result.vertices[6 * index];
-    };
+    growth_params.data__.vertices.resize(repartition.size(growth_params) * 6, -999999.f);
+    coloration.fill_colors(growth_params);
+    repartition.fill_positions(growth_params);
 
-    coloration.fill_colors(octa, get_height, get_color);
-    repartition.fill_positions(octa, get_height, get_position);
-    result.indexes = std::move(repartition.compute_indexes(octa));
+    grown_octasierp result = std::move(growth_params.data__);
+    result.indexes = std::move(repartition.compute_indexes(growth_params));
     return result;
 }
+} // namespace grow_octasierp_impl
+using grow_octasierp_impl::grow_octasierp;
 #+end_src
-#+depends:grow_octasierp :noweb pointless_octasierp :cpp vector span utility
+#+depends:grow_octasierp :noweb octasierp_growth_parameters :cpp utility
 
-This implementation defines de-facto the interfaces of the elevation, coloration and repartition policies.
+This implementation de-facto defines the interfaces of the elevation, coloration and repartition policies.
 
 *** =render_octasierp=
 
@@ -3826,12 +3904,13 @@ This section will define one policy of each type with the goal of rendering a sq
 
 *** Constant elevation
 
-An elevation policy takes the shape of a consumer of =pointless_octasierp= returning a consumer of =std::size_t= (indexes).
+An elevation policy takes the shape of a consumer of =growth_parameters= returning a consumer of =std::size_t= (indexes).
 With a constant elevation, those parameters can be safely ignored:
 #+name: constant_elevation
 #+begin_src cpp :minipage
 template<typename T=float>
 struct constant_elevation {
+    constexpr bool is_uniform() const {return true;}
     const T elevation;
     auto operator()(const auto& ignored) const {
         return [&](auto ignored2) {return elevation;};
@@ -3847,8 +3926,8 @@ This slightly convoluted color scheme was chosen because a simpler one looks lik
 #+name: rm5cy_coloration
 #+begin_src cpp :minipage
 struct rm5cy_coloration {
-    template<class LambdaHeight, class LambdaDest>
-    void fill_colors(const pointless_octasierp& octa, LambdaHeight ignore, LambdaDest get_dest) {
+    template<class GrowthParams>
+    void fill_colors(GrowthParams& gp) {
         rgb_interpolation<segarray, 8> gradient{
             1, 0, 0, // Red.
             1, 0, 1, // Magenta.
@@ -3859,13 +3938,13 @@ struct rm5cy_coloration {
             0, 1, 1, // Cyan.
             1, 1, 0, // Yellow.
         };
-        auto end = octa.point_cardinality();
+        auto end = gp.point_cardinality();
         for(std::size_t i = 0; i < end; ++i)
-            gradient.fill(get_dest(i), i, end);
+            gradient.fill(gp.color_span(i), i, end);
     }
 };
 #+end_src
-#+depends:rm5cy_coloration :noweb pointless_octasierp rgb_interpolation segarray
+#+depends:rm5cy_coloration :noweb rgb_interpolation segarray
 
 *** Squarenet repartition
 
@@ -3879,18 +3958,18 @@ class squarenet_repartition {
         return (1 << (degree + 1)) + 1;
     }
 
-    std::size_t size(const pointless_octasierp& octa) const {
-        std::size_t squarenet_side = side(octa.degree);
+    template<class GrowthParams>
+    std::size_t size(const GrowthParams& gp) const {
+        std::size_t squarenet_side = side(gp.degree);
         return squarenet_side * squarenet_side;
     }
 
-    template<class LambdaHeight, class LambdaDest> void fill_positions(
-        const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
-    ) {
+    template<class GrowthParams> void fill_positions(GrowthParams& gp) {
         <<squarenet_repartition/fill_positions>>
     }
 
-    std::vector<unsigned int> compute_indexes(const pointless_octasierp& octa) const {
+    template<class GrowthParams>
+    std::vector<unsigned int> compute_indexes(const GrowthParams& gp) const {
         <<squarenet_repartition/compute_indexes>>
     }
 
@@ -3905,13 +3984,13 @@ The indexes of those coordinates are kept around in =redundant_indexes_=, becaus
 
 #+name: squarenet_repartition/fill_positions
 #+begin_src cpp :minipage
-auto next_mirrored = octa.point_cardinality();
-float side_ = side(octa.degree);
-apply<ForeveryCoordinates>(octa.degree, [&](auto coords) {
-    std::size_t index = octa.index_of(coords);
-    if(coords.is_mirrored_canonical(octa.degree)) { // Redundant point.
-        auto canonical = get_dest(index);
-        auto dest = get_dest(next_mirrored);
+auto next_mirrored = gp.point_cardinality();
+float side_ = side(gp.degree);
+apply<ForeveryCoordinates>(gp.degree, [&](auto coords) {
+    std::size_t index = gp.index_of(coords);
+    if(coords.is_mirrored_canonical(gp.degree)) { // Redundant point.
+        auto canonical = gp.position_ptr(index);
+        auto dest = gp.position_ptr(next_mirrored);
         coords.unmirror();
         redundant_indexes_[{coords.x, coords.y}] = next_mirrored++;
 
@@ -3920,9 +3999,9 @@ apply<ForeveryCoordinates>(octa.degree, [&](auto coords) {
         // Height and color data must be copied over from the canonical point.
         std::copy(canonical + 2, canonical + 6, dest + 2);
     } else { // Canonical point.
-        auto dest = get_dest(index);
+        auto dest = gp.position_ptr(index);
         dest[0] = coords.x / side_; dest[1] = coords.y / side_;
-        dest[2] = get_height(index);
+        dest[2] = gp.height(index);
     }
 });
 #+end_src
@@ -3933,16 +4012,16 @@ As mentioned before, the map =redundant_indexes_= associates a given redundant p
 #+name: squarenet_repartition/compute_indexes
 #+begin_src cpp :minipage
 std::vector<unsigned int> result;
-result.reserve(octa.triangle_cardinality() * 3);
+result.reserve(gp.triangle_cardinality() * 3);
 
-apply<ForeachTriangle>(octa.degree, [&](auto a, auto b, auto c) {
+apply<ForeachTriangle>(gp.degree, [&](auto a, auto b, auto c) {
     for(auto coords: {a, b, c}) {
         std::size_t index;
-        if(coords.is_mirrored_canonical(octa.degree)) {
+        if(coords.is_mirrored_canonical(gp.degree)) {
             coords.unmirror();
             index = redundant_indexes_.at({coords.x, coords.y});
         } else {
-            index = octa.index_of(coords);
+            index = gp.index_of(coords);
         }
         result.push_back(index);
     }
@@ -3987,7 +4066,6 @@ int main(){
         .title="Colored octanet"},
         thick_lines, drawspin{.axis={0, 1, 0}}
     );
-    return 0;
 }
 #+end_src
 
@@ -4016,11 +4094,11 @@ This coloration is the same as the RM5CY, except for the north and south poles, 
 #+name: rm5cy_bnws_coloration
 #+begin_src cpp :minipage
 struct rm5cy_bnws_coloration {
-    template<class LambdaHeight, class LambdaDest>
-    void fill_colors(const pointless_octasierp& octa, LambdaHeight ignore, LambdaDest get_dest) {
-        rm5cy_coloration{}.fill_colors(octa, ignore, get_dest);
-        auto pole = get_dest(0); pole[0] = 0; pole[1] = 0; pole[2] = 0;
-        pole      = get_dest(1); pole[0] = 1; pole[1] = 1; pole[2] = 1;
+    template<class GrowthParams>
+    void fill_colors(GrowthParams& gp) {
+        rm5cy_coloration{}.fill_colors(gp);
+        auto pole = gp.color_span(0); pole[0] = 0; pole[1] = 0; pole[2] = 0;
+        pole      = gp.color_span(1); pole[0] = 1; pole[1] = 1; pole[2] = 1;
     }
 };
 #+end_src
@@ -4050,45 +4128,45 @@ A concise repartition policy can be made by inheriting from the following class:
 #+name: octasierp_triangle_indexer
 #+begin_src cpp
 struct octasierp_triangle_indexer {
-    std::size_t size(const pointless_octasierp& octa) const {
-        return octa.point_cardinality();
+    template<class GrowthParams>
+    std::size_t size(const GrowthParams& gp) const {
+        return gp.point_cardinality();
     }
 
-    auto compute_indexes(const pointless_octasierp& octa) const {
-        return compute_octasierp_indexes(octa);
+    template<class GrowthParams>
+    auto compute_indexes(const GrowthParams& gp) const {
+        return compute_octasierp_indexes(gp);
     }
 };
 #+end_src
-#+depends:octasierp_triangle_indexer :noweb pointless_octasierp compute_octasierp_indexes
+#+depends:octasierp_triangle_indexer :noweb compute_octasierp_indexes
 
 *** Octahedral repartition
 
 #+name: octahedral_repartition
 #+begin_src cpp :minipage
 struct octahedral_repartition: public octasierp_triangle_indexer {
-    template<class LambdaHeight, class LambdaDest> void fill_positions(
-        const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
-    ) {
+    template<class GrowthParam> void fill_positions(GrowthParam& gp) {
         <<octahedral_repartition/fill_positions>>
     }
 };
 #+end_src
-#+depends:octahedral_repartition :noweb octasierp_triangle_indexer apply_foreach/octasierp adapt_repr/size_t ForeverySubdivision fill_midpoint/span :cpp array span
+#+depends:octahedral_repartition :noweb octasierp_triangle_indexer apply_foreach adapt_repr/size_t ForeverySubdivision fill_midpoint/span :cpp array span
 
 Computing positions for octahedral repartition is separated in two phases.
 In the first phase, the desired height is ignored and the mesh is given a perfectly octahedral shape:
 #+begin_src cpp :noweb-ref octahedral_repartition/fill_positions :minipage
-auto dest = get_dest(0); dest[0] = 0;  dest[1] = 0;  dest[2] = 1;  // North pole.
-dest      = get_dest(1); dest[0] = 0;  dest[1] = 0;  dest[2] = -1; // South pole.
-dest      = get_dest(2); dest[0] = 1;  dest[1] = 0;  dest[2] = 0;  // Corner 0.
-dest      = get_dest(3); dest[0] = 0;  dest[1] = 1;  dest[2] = 0;  // Corner 1.
-dest      = get_dest(4); dest[0] = -1; dest[1] = 0;  dest[2] = 0;  // Corner 2.
-dest      = get_dest(5); dest[0] = 0;  dest[1] = -1; dest[2] = 0;  // Corner 3.
+auto dest = gp.position_ptr(0); dest[0] =  0; dest[1] =  0; dest[2] =  1; // North pole.
+dest      = gp.position_ptr(1); dest[0] =  0; dest[1] =  0; dest[2] = -1; // South pole.
+dest      = gp.position_ptr(2); dest[0] =  1; dest[1] =  0; dest[2] =  0; // Corner 0.
+dest      = gp.position_ptr(3); dest[0] =  0; dest[1] =  1; dest[2] =  0; // Corner 1.
+dest      = gp.position_ptr(4); dest[0] = -1; dest[1] =  0; dest[2] =  0; // Corner 2.
+dest      = gp.position_ptr(5); dest[0] =  0; dest[1] = -1; dest[2] =  0; // Corner 3.
 
 auto spanindex = [&](const auto& coords) {
-    return std::span<float, 3>(get_dest(octa.index_of(coords)), 3);
+    return gp.position_span(gp.index_of(coords));
 };
-apply<ForeverySubdivision>(octa.degree, [&spanindex](auto& midpoint, const auto& a, const auto& b) {
+apply<ForeverySubdivision>(gp.degree, [&spanindex](auto& midpoint, const auto& a, const auto& b) {
     auto smid = spanindex(midpoint);
     auto sa = spanindex(a); auto sb = spanindex(b);
     fill_midpoint(smid, sa, sb);
@@ -4098,10 +4176,10 @@ apply<ForeverySubdivision>(octa.degree, [&spanindex](auto& midpoint, const auto&
 In the second phase, the actual heights are applied to the octahedral shape.
 The naïve implementation below will probably need some adjustment to properly work with non-constant height.
 #+begin_src cpp :noweb-ref octahedral_repartition/fill_positions :minipage
-auto end = size(octa);
+auto end = size(gp);
 for(std::size_t i = 0; i < end; ++i) {
-    dest = get_dest(i);
-    auto height = get_height(i);
+    dest = gp.position_ptr(i);
+    auto height = gp.height(i);
     // auto normalised = glm::normalize(*reinterpret_cast<glm::vec<3, float, glm::packed_highp>*>(dest));
     // dest[0] *= normalised.x;
     dest[0] *= height; dest[1] *= height; dest[2] *= height;
@@ -4133,7 +4211,6 @@ int main() {
          .title="Colored octasierp"},
         thick_lines, drawspin{}
     );
-    return 0;
 }
 #+end_src
 
@@ -4277,19 +4354,17 @@ The addresses returned by =get_dest= must point to three continuous floats whose
 #+name: spherical_repartition
 #+begin_src cpp :minipage
 struct spherical_repartition: public octasierp_triangle_indexer {
-    template<class LambdaHeight, class LambdaDest> void fill_positions(
-        const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest
-    ) {
+    template<class GrowthParams> void fill_positions(GrowthParams& gp) {
         using sphc = spherical_converter::cartesian_coordinates;
-        spherical_converter to_spherical(octa);
-        apply<ForeachCoordinates>(octa.degree, [&](auto coords) {
-            auto index = octa.index_of(coords);
-            *reinterpret_cast<sphc*>(get_dest(index)) = to_spherical.convert(coords).to_cartesian(get_height(index));
+        spherical_converter to_spherical(gp);
+        apply<ForeachCoordinates>(gp.degree, [&](auto coords) {
+            auto index = gp.index_of(coords);
+            *reinterpret_cast<sphc*>(gp.position_ptr(index)) = to_spherical.convert(coords).to_cartesian(gp.height(index));
         });
     }
 };
 #+end_src
-#+depends:spherical_repartition :noweb octasierp_triangle_indexer pointless_octasierp spherical_converter adapt_repr/size_t ForeachCoordinates
+#+depends:spherical_repartition :noweb octasierp_triangle_indexer spherical_converter adapt_repr/size_t ForeachCoordinates
 
 *** Rendering
 
@@ -4310,13 +4385,12 @@ int main() {
          <<graphics(":noweb model_view_projection_vs :c-string")>>,
          .fragment =
          <<graphics(":noweb color_as_attribute_fs :c-string")>>},
-        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+        {.vertices=mesh.vertices, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/spherical_octasierp.png",
          .title="Pseudo-spherical octasierp"},
          thick_lines, drawspin{}
     );
-    return 0;
 }
 #+end_src
 
@@ -4331,11 +4405,11 @@ I kinda like the effect though.
 
 ** Accidented landscape with midpoint displacement
 
-*** Midpoint displacement
-
 The general principle of midpoint displacement consist of computing heights by starting from a few origin points.
-Then the heights of a midpoint, a new point between some of those origin points, can be calculated by averaging the heights of its origins and adding a random (but controlled) amount.
+Then the heights of a midpoint (a new point between some of those origin points) can be calculated by averaging the heights of its origins and adding a random (but controlled) amount.
 This processus can generate an accidented landscape, reminding of mountaineous terrain.
+
+*** Midpoint displacement adapted to octasierps
 
 When adapted to an octasierp, the midpoint displacement algorithm gives better results with an additional initialisation phase, during which all height computations are independant, i.e. no midpoints are used.
 
@@ -4411,6 +4485,7 @@ Here is an implementation of the elevation policy relying on the midpoint displa
 #+name: midpoint_elevation
 #+begin_src cpp
 struct midpoint_elevation {
+    constexpr bool is_uniform() const {return false;}
     const midpoint_octasierp_impl::kwargs& args;
 
     struct result_type {
@@ -4420,12 +4495,13 @@ struct midpoint_elevation {
         }
     };
 
-    auto operator()(const pointless_octasierp& octa) const {
-        return result_type{midpoint_displacement_octasierp(octa, args)};
+    template<class GrowthParams>
+    auto operator()(const GrowthParams& gp) const {
+        return result_type{midpoint_displacement_octasierp(gp, args)};
     }
 };
 #+end_src
-#+depends:midpoint_elevation :noweb pointless_octasierp midpoint_displacement_octasierp :cpp vector
+#+depends:midpoint_elevation :noweb midpoint_displacement_octasierp :cpp vector
 
 *** Rendering
 
@@ -4446,13 +4522,12 @@ int main() {
          <<graphics(":noweb model_view_projection_vs :c-string")>>,
          .fragment =
          <<graphics(":noweb color_as_attribute_fs :c-string")>>},
-        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+        {.vertices=mesh.vertices, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/spherical_midpoint_octasierp.png",
          .title="Midpoint-displaced pseudo-spherical octasierp"},
          thick_lines, drawspin{}
     );
-    return 0;
 }
 #+end_src
 
@@ -4466,68 +4541,99 @@ int main() {
 
 *** Scale translation
 
+Because adjusting the sea level is a feature of this project, a planetary color scheme must be separated in two, a color scheme for the terrain above the sea and another for the terrain below:
+#+name: planetary_color_scheme
+#+begin_src cpp
+struct planetary_color_scheme {
+    rgb_scaled_interpolation<float> below_sea;
+    rgb_scaled_interpolation<float> above_sea;
+};
+#+end_src
+#+depends:planetary_color_scheme :noweb rgb_scaled_interpolation
+
 The hard work of height coloration is done by =rgb_scaled_interpolation=, aka the color scheme.
-The only thing that the function below does is to find the min and max height to adapt the color scheme to those values.
+The function below only does a small adaptation of each color scheme and checks the actual height to see whether one or the other shoud be applied to a given index.
 
 #+name: height_coloration_octasierp
 #+begin_src cpp :minipage
-template<typename ScalarT, typename InterpT, class LambdaHeight, class LambdaDest>
+template<class GrowthParams>
 void height_coloration_octasierp(
-    const pointless_octasierp& octa, rgb_scaled_interpolation<ScalarT, InterpT> color_scheme,
-    LambdaHeight get_height, LambdaDest get_dest
+    GrowthParams& gp, const planetary_color_scheme& color_scheme,
+    float min, float max
 ) {
-    auto min = get_height(0); auto max = min;
-    auto end_index = octa.point_cardinality();
-    for(std::size_t i = 1; i < end_index; ++i) {
-        auto height = get_height(i);
-        if(height < min) min = height;
-        if(height > max) max = height;
-    }
+    float actual_sea_level = min + (max - min) * gp.properties.sea_level;
+    auto below = color_scheme.below_sea;
+    auto above = color_scheme.above_sea;
+    transform_scaled_interpolation(below, min, actual_sea_level);
+    transform_scaled_interpolation(above, actual_sea_level, max);
+    auto end_index = gp.point_cardinality();
 
-    transform_scaled_interpolation(color_scheme, min, max);
-    for(std::size_t i = 0; i < end_index; ++i)
-        color_scheme.fill(get_dest(i), get_height(i));
+    for(std::size_t i = 0; i < end_index; ++i) {
+        auto height = gp.height(i);
+        if(height <= actual_sea_level)
+            below.fill(gp.color_span(i), height);
+        else
+            above.fill(gp.color_span(i), height);
+    }
 }
 #+end_src
-#+depends:height_coloration_octasierp :noweb pointless_octasierp rgb_scaled_interpolation transform_scaled_interpolation
+#+depends:height_coloration_octasierp :noweb pointless_octasierp planetary_color_scheme transform_scaled_interpolation
+
+Note that the function above depends on the =sea_level= property that must be added to =planet_properties=:
+
+#+begin_src cpp :noweb-ref planet_properties/public :minipage
+float sea_level = .5;
+#+end_src
 
 *** GFG Color scheme
 
 The color scheme below was adapted from godefarig, my previous procedural planet generator.
 #+name: gfg_color_scheme
 #+begin_src cpp :minipage
-rgb_scaled_interpolation<float> gfg_color_scheme{{
-    {0, {0, 0, 0}},
-    {15, {0, 0, .07}},      // abyss
-    {73, {0, .05, .3}},     // deep waters
-    {90, {0, .6, 9}},       // surface waters
-    {98, {.05, .28, .05}},  // light green
-    {102, {.05, .28, .05}}, // light green
-    {106, {.1, .23, .1}},
-    {110, {.06, .2, .05}},  // dark green
-    {118, {.02, .1, 0}},    // darker green
-    {124, {.28, .12, .08}}, // mountain (light dirt)
-    {128, {.2, .1, .05}},   // mountain (dirt)
-    {140, {.2, .2, .2}},    // mountain (rock)
-    {180, {1, 1, 1}}        // snow
-}};
+planetary_color_scheme gfg_color_scheme{
+    .below_sea = {{
+        {0, {0, 0, 0}},     // black
+        {15, {0, 0, .07}},  // abyss
+        {73, {0, .05, .3}}, // deep waters
+        {90, {0, .6, 9}}    // surface waters
+    }}, .above_sea = {{
+        {0, {0, .6, 9}},       // continuation of surface waters
+        {8, {.05, .28, .05}},  // light green
+        {12, {.05, .28, .05}}, // light green
+        {16, {.1, .23, .1}},   // dark green
+        {20, {.06, .2, .05}},  // darker green
+        {28, {.02, .1, 0}},    // darkest green
+        {34, {.28, .12, .08}}, // mountain (light dirt)
+        {38, {.2, .1, .05}},   // mountain (dirt)
+        {50, {.2, .2, .2}},    // mountain (rock)
+        {90, {1, 1, 1}}        // snow
+    }}
+};
 #+end_src
-#+depends:gfg_color_scheme :noweb rgb_scaled_interpolation
+#+depends:gfg_color_scheme :noweb planetary_color_scheme
 
 *** Policy
 
 #+name: height_coloration
 #+begin_src cpp
 struct height_coloration {
-    const rgb_scaled_interpolation<float>& color_scheme;
+    const planetary_color_scheme& color_scheme;
 
-    template<class LambdaHeight, class LambdaDest>
-    void fill_colors(const pointless_octasierp& octa, LambdaHeight get_height, LambdaDest get_dest) {
-        height_coloration_octasierp(octa, color_scheme, get_height, get_dest);
+    template<class GrowthParams>
+    void fill_colors(GrowthParams& gp) {
+        float min = gp.height(0); float max = min;
+        auto end_index = gp.point_cardinality();
+        for(std::size_t i = 1; i < end_index; ++i) {
+            float height = gp.height(i);
+            if(height < min) min = height;
+            if(height > max) max = height;
+        }
+
+        height_coloration_octasierp(gp, color_scheme, min, max);
     }
 };
 #+end_src
-#+depends:height_coloration :noweb rgb_scaled_interpolation height_coloration_octasierp
+#+depends:height_coloration :noweb planetary_color_scheme height_coloration_octasierp :cpp array
 
 *** Rendering
 
@@ -4549,13 +4655,12 @@ int main() {
          <<graphics(":noweb model_view_projection_vs :c-string")>>,
          .fragment =
          <<graphics(":noweb color_as_attribute_fs :c-string")>>},
-        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+        {.vertices=mesh.vertices, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_deg3_wireframe.png",
          .title="Midpoint-displaced height-colored pseudo-spherical octasierp"},
          thick_lines, drawspin{}
     );
-    return 0;
 }
 #+end_src
 
@@ -4565,7 +4670,7 @@ int main() {
 :end:
 
 
-Since height coloration at degree 3 is not very impressive, the code below renders at degree 8 and with better midpoint displacement parameters:
+Since height coloration at degree 3 is not very impressive, the code below renders at degree 8, with triangles instead of wireframe and with better midpoint displacement parameters:
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
 <<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition render_octasierp nothing drawspin :defs graphics.org window.org")>>
 
@@ -4575,7 +4680,8 @@ int main() {
         degree,
         midpoint_elevation{{.init_degree=3}},
         height_coloration{gfg_color_scheme},
-        spherical_repartition{}
+        spherical_repartition{},
+        {.sea_level=.6}
     );
 
     render_octasierp(
@@ -4583,13 +4689,12 @@ int main() {
          <<graphics(":noweb model_view_projection_vs :c-string")>>,
          .fragment =
          <<graphics(":noweb color_as_attribute_fs :c-string")>>},
-        {.vertices = mesh.vertices, .indexes=mesh.indexes,
+        {.vertices=mesh.vertices, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_deg8_triangles.png",
          .title="Midpoint-displaced height-colored pseudo-spherical octasierp"},
-         nothing, drawspin{.angle=.005, .axis={0, 1, 1}}
+        nothing, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
-    return 0;
 }
 #+end_src
 
