@@ -3804,14 +3804,18 @@ void thick_lines() {
 }
 #+end_src
 
-This one can be used as a render that will simply draw the model and make it spin slowly (it is a lambda and not a function to avoid type deduction errors when passed as a parameter due to =auto=):
+This functor can be used to draw the model and make it spin every iteration at the specified angle along the specified axis:
 #+name: drawspin
 #+begin_src cpp :minipage
-auto drawspin = [](auto& unit) {
-    unit.draw();
-    unit.with_model([](auto& model){
-        model.rotate_rad(.01, {0, 0, 1});
-    });
+struct drawspin {
+    float angle = .01;
+    glm::vec3 axis = {0, 0, 1};
+    void operator()(auto& unit) {
+        unit.draw();
+        unit.with_model([this](auto& model) {
+            model.rotate_rad(angle, axis);
+        });
+    }
 };
 #+end_src
 
@@ -3981,7 +3985,7 @@ int main(){
         .scale=1.2, .camlong=90, .camlat=0, .up={0, 1, 0},
         .screenshot="images/screencaps/gradient_squarenet.png",
         .title="Colored octanet"},
-        thick_lines, drawspin
+        thick_lines, drawspin{.axis={0, 1, 0}}
     );
     return 0;
 }
@@ -4127,7 +4131,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/3d_octasierp.png",
          .title="Colored octasierp"},
-        thick_lines, drawspin
+        thick_lines, drawspin{}
     );
     return 0;
 }
@@ -4310,7 +4314,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/spherical_octasierp.png",
          .title="Pseudo-spherical octasierp"},
-         thick_lines, drawspin
+         thick_lines, drawspin{}
     );
     return 0;
 }
@@ -4446,7 +4450,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/spherical_midpoint_octasierp.png",
          .title="Midpoint-displaced pseudo-spherical octasierp"},
-         thick_lines, drawspin
+         thick_lines, drawspin{}
     );
     return 0;
 }
@@ -4549,7 +4553,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_deg3_wireframe.png",
          .title="Midpoint-displaced height-colored pseudo-spherical octasierp"},
-         thick_lines, drawspin
+         thick_lines, drawspin{}
     );
     return 0;
 }
@@ -4583,7 +4587,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_deg8_triangles.png",
          .title="Midpoint-displaced height-colored pseudo-spherical octasierp"},
-         nothing, drawspin
+         nothing, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
     return 0;
 }
