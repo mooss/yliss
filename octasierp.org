@@ -753,8 +753,7 @@ Note:
 
 Since everyting is const, the only way to change the degree is to create a new =pointless_octasierp= instance, therefore the various cached variables bound to the degree are guaranteed to be kept in sync.
 
-
-** Point cardinality
+*** Point cardinality
 
 The size of an octasierp, previously described as $\vert octasierp_d \vert = 2^{2d+2} + 2$, can be translated in C++ to the following, using the fact that $2^n$ can be expressed as =1 << n=:
 #+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
@@ -786,67 +785,7 @@ This octasierp of degree 3 would have had 258 points had it not been pointless.
 This octasierp of degree 4 would have had 1026 points had it not been pointless.
 #+end_src
 
-
-** Storage
-
-The code block below forms the outline of the actual octasierp implementation, the one using a =std::vector= to store the points.
-
-#+name: octasierp
-#+begin_src cpp :minipage
-template<typename Point>
-class octasierp {
-  private:
-    pointless_octasierp bound_;
-
-  public:
-    using value_type = Point;
-    std::vector<Point> storage;
-
-    octasierp()=delete;
-    octasierp(std::size_t degree, Point const& initial_value):
-        bound_(degree), storage(bound_.point_cardinality(), initial_value)
-    {}
-
-    auto begin() {return storage.begin();}
-    auto end() {return storage.end();}
-    auto begin() const {return storage.begin();}
-    auto end() const {return storage.end();}
-    auto size() const {return storage.size();}
-
-    const pointless_octasierp& bound() const {return bound_;}
-    auto degree() const {return bound_.degree;}
-
-    <<octasierp/public>>
-};
-#+end_src
-#+depends:octasierp :noweb pointless_octasierp :cpp vector cmath
-
-Points iteration is built into the above via the =begin= and =end= shortcuts, which makes range-based iteration possible as shown below:
-#+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb octasierp type_str print")>>
-int main() {
-    octasierp octa(1, -1);
-    print{"Built an octasierp of degree", octa.degree(),
-          "containing", octa.size(), type_str<decltype(octa)::value_type>()};
-    for(auto point: octa)
-        print{{.end="|"}}(point);
-}
-#+end_src
-
-#+RESULTS:
-#+begin_src text :minipage
-Built an octasierp of degree 1 containing 18 int
--1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
-#+end_src
-
-
-** Note on the pointless and point-filled octahedra variants
-
-The idea behind separating =octasierp= from =pointless_octasierp= is to be able to query the various properties of an octasierp without having to actually allocate points.
-Therefore, everything not directly linked with the actual storage will go in the =pointless_octasierp=.
-
-
-** Coordinates validation
+*** Coordinates validation
 
 The representation of a squarified octasierp net of degree 2 below can help creating a coordinates validation method:
 #+begin_src python :eval no-export :exports results
@@ -930,17 +869,6 @@ int main() {
 
 
 ** Indexing
-
-Those indexing methods are delegating all the work to =bound_='s =index_of= method.
-#+begin_src cpp :noweb-ref octasierp/public :minipage
-const Point& point(int x, int y) const {
-    return storage[bound_.index_of(x, y)];
-}
-
-Point& point(int x, int y) {
-    return storage[bound_.index_of(x, y)];
-}
-#+end_src
 
 =index_of= is a hairy beast because it is all about cutting a not-so-trivial figure into its more easily manageable components.
 The illustration below shows those manageable components:
@@ -1209,7 +1137,80 @@ return 5;
 return quarter_rectangle_width * i -j + 5 + 3 * quarter_rectangle_cardinality;
 #+end_src
 
-*** Coordinates overloads
+*** Indexing directly with coordinates
+
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
+template<typename Coords>
+std::size_t index_of(const Coords& coords) const {
+    return index_of(coords.x, coords.y);
+}
+#+end_src
+
+
+** Storage
+
+The code block below forms the outline of the actual octasierp implementation, the one using a =std::vector= to store the points.
+
+#+name: octasierp
+#+begin_src cpp :minipage
+template<typename Point>
+class octasierp {
+  private:
+    pointless_octasierp bound_;
+
+  public:
+    using value_type = Point;
+    std::vector<Point> storage;
+
+    octasierp()=delete;
+    octasierp(std::size_t degree, Point const& initial_value):
+        bound_(degree), storage(bound_.point_cardinality(), initial_value)
+    {}
+
+    auto begin() {return storage.begin();}
+    auto end() {return storage.end();}
+    auto begin() const {return storage.begin();}
+    auto end() const {return storage.end();}
+    auto size() const {return storage.size();}
+
+    const pointless_octasierp& bound() const {return bound_;}
+    auto degree() const {return bound_.degree;}
+
+    <<octasierp/public>>
+};
+#+end_src
+#+depends:octasierp :noweb pointless_octasierp :cpp vector cmath
+
+Points iteration is built into the above via the =begin= and =end= shortcuts, which makes range-based iteration possible as shown below:
+#+begin_src cpp :eval no-export :exports both :minipage
+<<include(":noweb octasierp type_str print")>>
+int main() {
+    octasierp octa(1, -1);
+    print{"Built an octasierp of degree", octa.degree(),
+          "containing", octa.size(), type_str<decltype(octa)::value_type>()};
+    for(auto point: octa)
+        print{{.end="|"}}(point);
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+Built an octasierp of degree 1 containing 18 int
+-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|-1|
+#+end_src
+
+*** Indexing
+
+Those indexing methods are delegating all the work to =bound_='s =index_of= method.
+#+begin_src cpp :noweb-ref octasierp/public :minipage
+const Point& point(int x, int y) const {
+    return storage[bound_.index_of(x, y)];
+}
+
+Point& point(int x, int y) {
+    return storage[bound_.index_of(x, y)];
+}
+#+end_src
 
 For convenience, here is a square brackets operator that will work on anything with =x= and =y= fields:
 #+begin_src cpp :noweb-ref octasierp/public :minipage
@@ -1223,15 +1224,7 @@ Point& operator[](const Coords& coords) {
 }
 #+end_src
 
-Same thing, but for =index_of=:
-#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
-template<typename Coords>
-std::size_t index_of(const Coords& coords) const {
-    return index_of(coords.x, coords.y);
-}
-#+end_src
-
-*** Usage
+*** Indexing usage
 
 The code below prints a squarenet shadow whose individual points are the actual point itself, each point having been initialised to its own character.
 Therefore, beyond being a usage example, this is also a pretty good illustration of the storage order.
@@ -1265,6 +1258,11 @@ int main() {
 . . O N M 5 . . . . .
 . . . . . . . . . . .
 #+end_src
+
+*** Note on the pointless and point-filled octahedra variants
+
+The idea behind separating =octasierp= from =pointless_octasierp= is to be able to query the various properties of an octasierp without having to actually allocate points.
+Therefore, everything not directly linked with the actual storage will go in the =pointless_octasierp=.
 
 
 ** Quarter rotation
