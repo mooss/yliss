@@ -887,19 +887,15 @@ bool valid_coordinates(int i, int j) const {
 The following function can be used to print a shadow of a squarified net by asking every step of the way whether the current coordinate is valid:
 #+name: squarenet_shadow
 #+begin_src cpp :minipage
-namespace squarenet_shadow_details {
-struct coords {int x; int y;};
-}
 template<typename WhichChar>
 void squarenet_shadow(
     const pointless_octasierp& octa,
     const WhichChar& which_char
 ) {
-    using namespace squarenet_shadow_details;
     int extremum = (1 << octa.degree) + 1;
     for(int j = extremum; j >= -extremum; --j) {
         for(int i = -extremum; i <= extremum; ++i) {
-            out(octa.valid_coordinates(i, j) ? which_char(coords{i, j}): '.');
+            out(octa.valid_coordinates(i, j) ? which_char(xy_coords{i, j}): '.');
             if(i != extremum)
                 out(" ");
         }
@@ -907,7 +903,7 @@ void squarenet_shadow(
     }
 }
 #+end_src
-#+depends:squarenet_shadow :noweb pointless_octasierp out
+#+depends:squarenet_shadow :noweb pointless_octasierp out xy_coords
 
 #+begin_src cpp :eval no-export :exports both :minipage
 <<include(":noweb pointless_octasierp squarenet_shadow")>>
