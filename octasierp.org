@@ -748,6 +748,8 @@ struct pointless_octasierp {
     <<pointless_octasierp/public>>
 };
 #+end_src
+#+depends:pointless_octasierp :noweb xy_coords :cpp array cmath
+
 Note:
  - =extreme_index= in an =int= because the coordinate system uses negative indexes.
 
@@ -1145,6 +1147,507 @@ std::size_t index_of(const Coords& coords) const {
     return index_of(coords.x, coords.y);
 }
 #+end_src
+
+
+** Neighbours
+
+The goal of this section is to write a method of =pointless_octasierp= that returns the neighbours of a given set of squarenet coordinates.
+
+This method is rather complex because it handles a lot of different cases, which are illustrated below (the reality is worse that what the illustration suggests):
+#+begin_src python :eval no :exports results :minipage
+<<Textual squarified net>>
+<<quarter_rep>>
+print(SquareNet(2, list(range(3)), show_axis=True, point_rep=quarter_rep))
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+   ^
++4 |  +-------I-°-°-#-I
++3 |  # ' ' ' ! . . ' |
++2 |  ° . . . ! . . ' |
++1 |  ° . . . ! . . ' |
+ 0 |  I-~-~-~-I-~-~-~-I
+-1 |  | ' . . ! . . . °
+-2 |  | ' . . ! . . . °
+-3 |  | ' . . ! ' ' ' #
+-4 |  +-#-°-°-I-------+
+   +-------------------->
+      4 3 2 1 0 1 2 3 4
+      - - - -   + + + +
+#+end_src
+\\
+Legend:
+ - =~, != :: Natural borders between the quarters, following the x or y axis.
+ - =.= :: Trivial points inside quarter 0, 1, 2 and 3.
+ - ='= :: Long nightmare border.
+ - =°= :: Short nightmare border.
+ - =I= :: Initial points (poles and corners).
+ - =#= :: Pseudo-corners, the hairiest case of them all.
+
+One reason why the reality is more complex than the illustration is that every case different for each quarter.
+There are:
+ - 4 natural borders.
+ - 4 rectangles of trivial points.
+ - 4 long nightmare borders.
+ - 4 short nightmare borders.
+ - 2 poles.
+ - 4 corners.
+ - 4 Pseudo-corders.
+
+So 26 different cases to handle.
+This method is looong.
+
+But first below is the result type.
+Note that upon construction, every neighbour is initialised as a copy of the original point.
+To give them their proper value, they will then be nudged in the right direction.
+
+The initial points (the poles and corners) only have 4 neighbours but it would not make sense to put them in a separate type or to use dynamic storage for this type.
+Instead, when asking for the neighbours of one of the initial points, the last two neighbours will be left intact.
+This property can even be used to differentiate them.
+
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
+struct octasierp_neighbours {
+    template<class Coords>
+    octasierp_neighbours(Coords c):
+        array{{{c.x, c.y}, {c.x, c.y}, {c.x, c.y}, {c.x, c.y}, {c.x, c.y}, {c.x, c.y}}}
+    {}
+
+    union {
+        struct {
+            xy_coords<int> n0;
+            xy_coords<int> n1;
+            xy_coords<int> n2;
+            xy_coords<int> n3;
+            xy_coords<int> n4;
+            xy_coords<int> n5;
+        };
+        std::array<xy_coords<int>, 6> array;
+    };
+
+    bool is_initial_point() const {
+        return n4 == n5;
+    }
+};
+#+end_src
+
+Redirection operator:
+#+name: <<octasierp_neighbours
+#+begin_src cpp :minipage
+std::ostream& operator<<(
+    std::ostream& os, const pointless_octasierp::octasierp_neighbours& el
+) {
+    os << "<"
+       << "(" << el.n0.x << ", " << el.n0.y << "), "
+       << "(" << el.n1.x << ", " << el.n1.y << "), "
+       << "(" << el.n2.x << ", " << el.n2.y << "), "
+       << "(" << el.n3.x << ", " << el.n3.y << ")";
+    if(!el.is_initial_point()) {
+        os << ", (" << el.n4.x << ", " << el.n4.y << "), "
+           <<   "(" << el.n5.x << ", " << el.n5.y << ")";
+    }
+    return os << ">";
+}
+#+end_src
+#+depends:<<octasierp_neighbours :noweb pointless_octasierp :cpp iostream
+
+*** Cutting the squarenet
+
+Not all the cases are represented here, the outline below roughly cuts the squarenet into quarters, corners and natural borders.
+Most cases will be handled inside their respective quarters, in the next section.
+
+#+begin_src cpp :noweb-ref pointless_octasierp/public
+template<class Coords>
+octasierp_neighbours neighbours(Coords c) {
+    octasierp_neighbours result(c);
+    if(c.x > 0) { // Right.
+        if(c.y > 0) { // Up right (inside q0).
+            <<fill_octa_neighbours/inside_quarter0>>
+        } else if(c.y < 0) { // Down right (inside q3).
+            <<fill_octa_neighbours/inside_quarter3>>
+        } else { // Positive x axis.
+            if(c.x == extreme_index) { // Corner 0.
+                <<fill_octa_neighbours/corner0>>
+            } else { // Any other point on the natural border towards corner 0.
+                <<fill_octa_neighbours/right_natural_border>>
+            }
+        }
+    } else if(c.x < 0) { // Left.
+        if(c.y > 0) { // Up left (inside q1).
+            <<fill_octa_neighbours/inside_quarter1>>
+        } else if(c.y < 0) { // Down left (inside q2).
+            <<fill_octa_neighbours/inside_quarter2>>
+        } else { // Negative x axis.
+            if(c.x == -extreme_index) { // Corner 2.
+                <<fill_octa_neighbours/corner2>>
+            } else { // Any other point on the natural border towards corner 2.
+                <<fill_octa_neighbours/left_natural_border>>
+            }
+        }
+    } else { // y axis.
+        if(c.y > 0) { // Positive y axis.
+            if(c.y == extreme_index) { // Corner 1.
+                <<fill_octa_neighbours/corner1>>
+            } else { // Any other point on the natural border towards corner 1.
+                <<fill_octa_neighbours/top_natural_border>>
+            }
+        } else if(c.y < 0) { // Negative y axis.
+            if(c.y == - extreme_index) { // Corner 3.
+                <<fill_octa_neighbours/corner3>>
+            } else { // Any other point on the natural border towards corner 3.
+                <<fill_octa_neighbours/bottom_natural_border>>
+            }
+        } else { // Origin (north pole).
+            <<fill_octa_neighbours/north_pole>>
+        }
+    }
+    return result;
+}
+#+end_src
+
+Convenience overload:
+#+begin_src cpp :noweb-ref pointless_octasierp/public :minipage
+octasierp_neighbours neighbours(int x, int y) {
+    return neighbours(xy_coords{x, y});
+}
+#+end_src
+
+*** Inside of quarters
+
+This section is the most intense because this is where all the nightmare coordinates are handled.
+
+This is also where some easy cases can be found, i.e. the points inside the trivial rectangles.
+Those points can be separated in two categories, the ones whose upwards diagonal neighbours are in the left direction, and the those whose diagonals are in the right direction.
+
+Those simple cases double as an introduction to the storage order of the neighbours.
+Using the referential of the squarenet coordinates, the first neighbour is always the one to the right and the other neighbours are ordered counterclockwise.
+
+The left diagonals correspond to quarters 0 and 2:
+#+name: fill_octa_neighbours/upleft_diagonal
+#+begin_src cpp :minipage
+++result.n0.x;                // Right.
+++result.n1.y;                // Up.
+--result.n2.x; ++result.n2.y; // Up left.
+--result.n3.x;                // Left.
+--result.n4.y;                // Down.
+++result.n5.x; --result.n5.y; // Down right.
+#+end_src
+
+The right diagonals are found on quarters 1 and 3:
+#+name: fill_octa_neighbours/upright_diagonal
+#+begin_src cpp :minipage
+++result.n0.x;                // Right.
+++result.n1.x; ++result.n1.y; // Up right.
+++result.n2.y;                // Up.
+--result.n3.x;                // Left.
+--result.n4.x; --result.n4.y; // Down left.
+--result.n5.y;                // Down.
+#+end_src
+
+Quarter 0 needs more code that the other quarters because it also has the south pole:
+#+name: fill_octa_neighbours/inside_quarter0
+#+begin_src cpp :minipage
+if(c.y == extreme_index) { // Top part of quarter 0's nightmare border.
+    if(c.x >= extreme_index - 1) { // Pseudo-corner 0 or south pole.
+        if(c.x == extreme_index) { // South pole.
+            <<fill_octa_neighbours/south_pole>>
+        } else { // Pseudo-corner 0.
+            ++result.n0.x;                               // Right      (on q0). South pole.
+            result.n1.x = -extreme_index; --result.n1.y; // Top right  (on q1). Pseudo-corner 1.
+            result.n2.x = -c.x; --result.n2.y;           // Top        (on q1).
+            --result.n3.x;                               // Left       (on q0).
+            --result.n4.y;                               // Down       (on q0).
+            ++result.n5.x; result.n5.y = -c.x;           // Down right (on q3). Pseudo-corner 3.
+        }
+    } else { // Any other point of the top of quarter 0's nightmare border.
+        ++result.n0.x;                        // Right      (on q0).
+        result.n1.x = -c.x -1; --result.n1.y; // Top right  (on q1).
+        result.n2.x = -c.x; --result.n2.y;    // Top        (on q1).
+        --result.n3.x;                        // Left       (on q0/q1).
+        --result.n4.y;                        // Down       (on q0).
+        ++result.n5.x; --result.n5.y;         // Down right (on q0).
+    }
+} else if(c.x == extreme_index - 1) { // Right part of quarter 0's nightmare border.
+    ++result.n0.x; result.n0.y = -c.y;     // Right      (on q3).
+    ++result.n1.y;                         // Up         (on q0).
+    --result.n2.x; ++result.n2.y;          // Up left    (on q0).
+    --result.n3.x;                         // Left       (on q0).
+    --result.n4.y;                         // Down       (on q0/q3).
+    ++result.n5.x; result.n5.y = -c.y + 1; // Down right (on q3/q0).
+} else { // Trivial part of quarter 0.
+    <<fill_octa_neighbours/upleft_diagonal>>
+}
+#+end_src
+
+Quarter 1:
+#+name: fill_octa_neighbours/inside_quarter1
+#+begin_src cpp :minipage
+if(c.x == -extreme_index) { // Left part of quarter 1's nightmare border.
+    if(c.y == extreme_index - 1) { // Pseudo-corner 1.
+        ++result.n0.x;                                   // Right    (on q1).
+        result.n1.x = extreme_index - 1; ++result.n1.y;  // Up right (on q0). Pseudo-corner 0.
+        result.n2.x = result.n2.y = extreme_index;       // Up       (on q0). South pole.
+        ++result.n3.x; result.n3.y = -extreme_index;     // Up left  (on q2). Pseudo-corner 2.
+        ++result.n4.x; result.n4.y = -extreme_index + 1; // Left     (on q2).
+        --result.n5.y;                                   // Down     (on q1).
+    } else { // Any other point of the left part of quarter 1's nightmare border.
+        ++result.n0.x;                         // Right    (on q1).
+        ++result.n1.x; ++result.n1.y;          // Up right (on q1).
+        ++result.n2.y;                         // Up       (on q1).
+        ++result.n3.x; result.n3.y = -c.y - 1; // Up left  (on q2).
+        ++result.n4.x; result.n4.y = -c.y;     // Left     (on q2).
+        --result.n5.y;                         // Down     (on q1/q2).
+    }
+} else if(c.y == extreme_index - 1) { // Top part of quarter 1's nightmare border.
+    ++result.n0.x;                         // Right     (on q1/q0).
+    result.n1.x = -c.x - 1; ++result.n1.y; // Up right  (on q0/q1).
+    result.n2.x = -c.x; ++result.n2.y;     // Up        (on q0).
+    --result.n3.x;                         // Left      (on q1).
+    --result.n4.x; --result.n4.y;          // Down left (on q1).
+    --result.n5.y;                         // Down      (on q1).
+} else { // Trivial part of quarter 1.
+    <<fill_octa_neighbours/upright_diagonal>>
+}
+#+end_src
+
+Quarter 2:
+#+name: fill_octa_neighbours/inside_quarter2
+#+begin_src cpp :minipage
+if(c.y == -extreme_index) { // Bottom part of quarter 2's nightmare border.
+    if(c.x == -extreme_index + 1) { // Pseudo-corner 2.
+        ++result.n0.x;                                  // Right     (on q2).
+        ++result.n1.y;                                  // Up        (on q2).
+        --result.n2.x; result.n2.y = extreme_index - 1; // Up left   (on q1). Pseudo-corner 1.
+        result.n3.x = result.n3.y = extreme_index;      // Left      (on q0). South pole.
+        result.n4.x = extreme_index; ++result.n4.y;     // Down left (on q3). Pseudo-corner 3.
+        result.n5.x = extreme_index - 1; ++result.n5.y; // Down      (on q3).
+    } else { // Any other point of the bottom part of quarter 2's nightmare border.
+        ++result.n0.x;                         // Right     (on q2/q3).
+        ++result.n1.y;                         // Up        (on q2).
+        --result.n2.x; ++result.n2.y;          // Up left   (on q2).
+        --result.n3.x;                         // Left      (on q2).
+        result.n4.x = -c.x + 1; ++result.n4.y; // Down left (on q3).
+        result.n5.x = -c.x; ++result.n5.y;     // Down      (on q3).
+    }
+} else if(c.x == -extreme_index + 1) { // Left part of quarter 2's nightmare border.
+    ++result.n0.x;                         // Right      (on q2).
+    ++result.n1.y;                         // Up         (on q2/q1).
+    --result.n2.x; result.n2.y = -c.y - 1; // Up left    (on q1/q2).
+    --result.n3.x; result.n3.y = - c.y;    // Left       (on q1).
+    --result.n4.y;                         // Down       (on q2).
+    ++result.n5.x; --result.n5.y;         // Down right (on q2).
+} else { // Trivial part of quarter 2.
+    <<fill_octa_neighbours/upleft_diagonal>>
+}
+#+end_src
+
+
+Quarter 3:
+#+name: fill_octa_neighbours/inside_quarter3
+#+begin_src cpp :minipage
+if(c.x == extreme_index) { // Right part of quarter 3's nightmare border.
+    if(c.y == -extreme_index + 1) { // Pseudo-corner 3.
+        --result.n0.x; result.n0.y = extreme_index - 1;  // Right      (on q0).
+        ++result.n1.y;                                   // Up         (on q3).
+        --result.n2.x;                                   // Left       (on q3).
+        result.n3.x = -extreme_index + 1; --result.n3.y; // Down left  (on q2). Pseudo-corner 2.
+        result.n4.x = result.n4.y = extreme_index;       // Down       (on q0). South pole.
+        --result.n5.x; result.n5.y = extreme_index;      // Down right (on q0). Pseudo-corner 0.
+    } else { // Any other point on the right part of quarter 3's nightmare border.
+        --result.n0.x; result.n0.y = -c.y;     // Right      (on q0).
+        ++result.n1.y;                         // Up         (on q3/q0).
+        --result.n2.x;                         // Left       (on q3).
+        --result.n3.x; --result.n3.y;          // Down left  (on q3).
+        --result.n4.y;                         // Down       (on q3).
+        --result.n5.x; result.n5.y = -c.y + 1; // Down right (on q0).
+    }
+} else if(c.y == -extreme_index + 1) { // Bottom part of quarter 3's nightmare border.
+    ++result.n0.x;                         // Right     (on q3).
+    ++result.n1.x; ++result.n1.y;          // Up right  (on q3).
+    ++result.n2.y;                         // Up        (on q3).
+    --result.n3.x;                         // Left      (on q3/q2).
+    result.n4.x = -c.x + 1; --result.n4.y; // Down left (on q2/q3).
+    result.n5.x = -c.x; --result.n5.y;     // Down      (on q2).
+} else { // Trivial part of quarter 3.
+    <<fill_octa_neighbours/upright_diagonal>>
+}
+#+end_src
+
+*** Natural borders
+
+Towards corner 0:
+#+name: fill_octa_neighbours/right_natural_border
+#+begin_src cpp :minipage
+++result.n0.x;                // Right     (on q0).
+++result.n1.y;                // Up        (on q0).
+--result.n2.x; ++result.n2.y; // Up left   (on q0/q1).
+--result.n3.x;                // Left      (on q0).
+--result.n4.x; --result.n4.y; // Down left (on q3).
+--result.n5.y;                // Down      (on q3).
+#+end_src
+
+Towards corner 1:
+#+name: fill_octa_neighbours/top_natural_border
+#+begin_src cpp :minipage
+++result.n0.x;                // Right      (on q0).
+++result.n1.y;                // Up         (on q1).
+--result.n2.x;                // Left       (on q1).
+--result.n3.x; --result.n3.y; // Down left  (on q1/q2).
+--result.n4.y;                // Down       (on q1/q0).
+++result.n5.x; --result.n5.y; // Down right (on q0).
+#+end_src
+
+Towards corner 2:
+#+name: fill_octa_neighbours/left_natural_border
+#+begin_src cpp :minipage
+++result.n0.x;                // Right      (on q2/q0).
+++result.n1.x; ++result.n1.y; // Up right   (on q1).
+++result.n2.y;                // Up         (on q1).
+--result.n3.x;                // Left       (on q2).
+--result.n4.y;                // Down       (on q2).
+++result.n5.x; --result.n5.y; // Down right (on q2/q3).
+#+end_src
+
+Towards corner 3:
+#+name: fill_octa_neighbours/bottom_natural_border
+#+begin_src cpp :minipage
+++result.n0.x;                // Right    (on q3).
+++result.n1.x; ++result.n1.y; // Up right (on q3/q0).
+++result.n2.y;                // Up       (on q3/q0).
+--result.n3.x; ++result.n3.y; // Up left  (on q2).
+--result.n4.x;                // Left     (on q2).
+--result.n5.y;                // Down     (on q3).
+#+end_src
+
+*** Corners
+
+The corners require a special case for degree 0 because in this configuration they are neighbours with the south pole, but except for corner 1, the generic implementation gives redundant coordinates instead of the canonical ones.
+
+Corner 0:
+#+name: fill_octa_neighbours/corner0
+#+begin_src cpp :minipage
+--result.n0.x; ++result.n0.y; // Up left   (on q0).
+--result.n1.x;                // Left      (on q0).
+--result.n2.x; --result.n2.y; // Down left (on q3).
+if(degree == 0)
+    result.n3.y = 1;          // Special case.
+else
+    --result.n3.y;            // Down      (on q3).
+#+end_src
+
+Corner 1:
+#+name: fill_octa_neighbours/corner1
+#+begin_src cpp :minipage
+++result.n0.x;                // Right      (on q0).
+--result.n1.x; --result.n1.y; // Down left  (on q1).
+--result.n2.y;                // Down       (on q1).
+++result.n3.x; --result.n3.y; // Down right (on q0).
+#+end_src
+
+Corner 2:
+#+name: fill_octa_neighbours/corner2
+#+begin_src cpp :minipage
+++result.n0.x;                     // Right      (on q2).
+++result.n1.x; ++result.n1.y;      // Up right   (on q1).
+if(degree == 0)
+    result.n2.x = result.n2.y = 1; //Special case.
+else
+    ++result.n2.y;                 // Up         (on q1).
+++result.n3.x; --result.n3.y;      // Down right (on q2).
+#+end_src
+
+Corner 3:
+#+name: fill_octa_neighbours/corner3
+#+begin_src cpp :minipage
+++result.n0.x; ++result.n0.y;      // Up right (on q3).
+++result.n1.y;                     // Up       (on q3).
+--result.n2.x; ++result.n2.y;      // Up left  (on q2).
+if(degree == 0)
+    result.n3.x = result.n3.y = 1; // Special case.
+else
+    --result.n3.x;                 // Left     (on q2).
+#+end_src
+
+*** Poles
+
+The poles are refreshingly simple.
+Even though the south pole does its own thing.
+
+North pole:
+#+name: fill_octa_neighbours/north_pole
+#+begin_src cpp :minipage
+++result.n0.x; // Right (on q0).
+++result.n1.y; // Up    (on q1).
+--result.n2.x; // Left  (on q2).
+--result.n3.y; // Down  (on q3).
+#+end_src
+
+South pole:
+#+name: fill_octa_neighbours/south_pole
+#+begin_src cpp :minipage
+result.n0.x = -extreme_index + 1; result.n0.y = -extreme_index; // "Right" (on q2).
+result.n1.x = extreme_index; result.n1.y = -extreme_index + 1;  // "Up"    (on q3).
+--result.n2.x;                                                  // "Left"  (on q0).
+result.n3.x = - extreme_index; result.n3.y = extreme_index - 1; // "Down"  (on q1).
+#+end_src
+
+*** Usage
+
+To show that at least neighbour cardinality is consistant with the expectations, the code below counts the number of times a point appears as the neighbour of another, and prints the corresponding squarenet shadow.
+
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall
+<<include(":noweb print pointless_octasierp squarenet_shadow <<octasierp_neighbours :cpp vector")>>
+
+int main() {
+    pointless_octasierp octa(2);
+    std::vector<char> neighbour_cardinality(octa.point_cardinality(), '0');
+    for(int x = -octa.extreme_index; x <= octa.extreme_index; ++x) {
+        for(int y = -octa.extreme_index; y <= octa.extreme_index; ++y) {
+            if(octa.valid_coordinates(x, y)) {
+                auto neighbours = octa.neighbours(x, y);
+                ++neighbour_cardinality[octa.index_of(neighbours.n0)];
+                ++neighbour_cardinality[octa.index_of(neighbours.n1)];
+                ++neighbour_cardinality[octa.index_of(neighbours.n2)];
+                ++neighbour_cardinality[octa.index_of(neighbours.n3)];
+                if(!neighbours.is_initial_point()) {
+                    ++neighbour_cardinality[octa.index_of(neighbours.n4)];
+                    ++neighbour_cardinality[octa.index_of(neighbours.n5)];
+                }
+            }
+        }
+    }
+
+    squarenet_shadow(
+        octa,
+        [&](auto coords) {return neighbour_cardinality[octa.index_of(coords)];}
+    );
+
+    // Demonstration of the ostream operator.
+    print{};
+    print{"Neighbours of the north pole:", octa.neighbours(0, 0)};
+    print{"Neighbours of (1, 0):        ", octa.neighbours(1, 0)};
+}
+#+end_src
+
+#+RESULTS:
+#+begin_src text :minipage
+. . . . . . . . . . .
+. . . . . 4 6 6 6 4 .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 6 6 6 6 6 6 6 6 . .
+. 4 6 6 6 4 6 6 6 4 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 6 6 6 6 6 .
+. . 6 6 6 4 . . . . .
+. . . . . . . . . . .
+
+Neighbours of the north pole: <(1, 0), (0, 1), (-1, 0), (0, -1)>
+Neighbours of (1, 0):         <(2, 0), (1, 1), (0, 1), (0, 0), (0, -1), (1, -1)>
+#+end_src
+
+This is precisely the cardinality expected (4 neighbours for the initial points, 6 neighbours for every other point).
 
 
 ** Storage
