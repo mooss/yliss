@@ -5231,7 +5231,7 @@ int main() {
 ** Phong shading
 
 Phong shading is a way to approximate lighting via 3 components, ambient, diffuse and specular.
-An mandatory prerequisite of phong shading is vertices normals, they must therefore be computed and send to a new shader program implementing phong shading.
+An mandatory prerequisite of Phong shading is vertices normals, they must therefore be computed and send to a new shader program implementing Phong shading.
 
 *** Computation of normals
 
@@ -5301,7 +5301,7 @@ for(std::size_t i = 0; i < adjacent.size(); ++i) {
 
 *** Shaders
 
-This implementation of phong shading was adapted from the basic lightning page of =learnopengl.com= (https://learnopengl.com/Lighting/Basic-Lighting).
+This implementation of Phong shading was adapted from the basic lightning page of =learnopengl.com= (https://learnopengl.com/Lighting/Basic-Lighting).
 
 Vertex shader:
 #+name: phong_vs
@@ -5394,7 +5394,7 @@ int main() {
         {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_phong.png",
-         .title="Midpoint-displaced height-colored pseudo-spherical phong-shaded octasierp"},
+         .title="Midpoint-displaced height-colored pseudo-spherical Phong-shaded octasierp"},
         send_camera_position, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
 }
