@@ -1234,6 +1234,8 @@ class camera {
         return glm::lookAt(position_, position_ + front_, up_);
     }
 
+    const glm::vec3& position() const {return position_;}
+
   protected:
     glm::vec3 position_, front_, up_;
 };
@@ -1442,6 +1444,11 @@ class shader_unit {
 
     void refresh_view(std::span<const GLfloat> view_data) const {
         viper.view.send(view_data);
+    }
+
+    template<class UniformT, typename... Args>
+    void send(const GLchar* name, Args... args) const {
+        UniformT(name, shader_).send(args...);
     }
 
   private:
