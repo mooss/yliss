@@ -4251,7 +4251,7 @@ std::size_t vertex_size = 6;
 #+end_src
 
 Below is the actual implementation.
-The methods ending with =ptr= and =span= serve to access the subvertices, with position and color being hardcoded as the first two subvertices.
+The methods ending with =ptr= and =span= serve to access the sub-vertices, with position and color being hardcoded as the first two sub-vertices.
 #+begin_src cpp :noweb-ref octaform/impl
 template<class HeightGetter>
 struct octaform: public octaform_base {
@@ -4300,8 +4300,8 @@ struct octaform: public octaform_base {
 #+depends:octaform :noweb pointless_octasierp :cpp vector span utility
 
 Since not everything is visible in the block above, here is a short list of what =octaform= will make available to the octasierp policies:
- - A pointer and a span to a given subvertex (the =*_ptr= and =*_span= methods).
- - The height associated to a given point (=.height()=).
+ - A pointer and a span to a given sub-vertex (the =*_ptr= and =*_span= methods).
+ - The height associated with a given point (=.height()=).
  - All the interface of =pointless_octasierp= (via inheritance).
  - Whatever is inside =planet_properties= (via =.properties=).
 
