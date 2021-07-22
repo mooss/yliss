@@ -525,7 +525,7 @@ def vec_uniform(code):
         with cpp.struct(name):
             location_ctor(name)
             with cpp.par('void send' + arglist(cardinality, typename) + ' const'):
-                cpp('glUniform4f(location, ' + ', '.join(varnames(cardinality)) + ');')
+                cpp('glUniform' + code + '(location, ' + ', '.join(varnames(cardinality)) + ');')
 
 def mat_uniform(code):
     assert code[0] == 'm'
@@ -546,12 +546,27 @@ def uniform(code):
     print()
 
 print('*** Generated uniforms')
+uniform('3f')
 uniform('4f')
 uniform('m4f')
 #+end_src
 
 #+RESULTS:
 *** Generated uniforms
+#+name: uniform_3f
+#+begin_src cpp
+struct uniform_3f {
+    const GLint location;
+    uniform_3f(const GLchar* name, const shader_program& program):
+        location(glGetUniformLocation(program.id, name))
+    {}
+    void send(GLfloat x, GLfloat y, GLfloat z) const {
+        glUniform3f(location, x, y, z);
+    }
+};
+#+end_src
+#+depends:uniform_3f :noweb shader_program
+
 #+name: uniform_4f
 #+begin_src cpp
 struct uniform_4f {
