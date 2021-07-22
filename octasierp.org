@@ -4342,11 +4342,13 @@ This implementation de-facto defines the interfaces of the elevation, coloration
 *** Octasierp rendering function
 
 This function's goal is to centralise octasierp rendering boilerplate while still being generic and tweakable enough to be useful for most cases.
+The parameters =prerender= and =render= can be used to tweak the octasierp's state just before the first frame is rendered and at each frame.
 #+name: render_octasierp
 #+begin_src cpp
 namespace render_octasierp_impl {
 struct other_args {
     mandatory<const std::vector<float>&> vertices;
+    std::vector<unsigned int> layout = {3, 3};
     mandatory<const std::vector<unsigned int>&> indexes;
     float scale=.6; float camlong=0; float camlat=0;
     glm::vec3 up={0, 0, 1};
@@ -4354,29 +4356,37 @@ struct other_args {
     const char* title="Octasierp rendering";
 };
 
+struct render_state {
+    shader_unit<std::vector<float>> unit;
+    orbital_camera camera;
+};
+
 template<class LambdaPreRender, class LambdaRender>
 void render_octasierp(
     const shader_sources& sources, const other_args& args,
     LambdaPreRender prerender, LambdaRender render
 ) {
-    orbital_camera director(
+    lazy_window lazy(args.title);
+    orbital_camera tmp_cam(
         {0, 0, 0}, 2, // Pointed at the origin, at a distance of 2.
         args.camlong, args.camlat, args.up
     );
-    lazy_window lazy(args.title);
-    shader_unit<std::vector<float>> octasierp_unit(
-        sources,
-        transform().scale(args.scale),
-        to_span(director.view()),
-        {.aspect=lazy.aspect()},
-        {.content=*args.vertices,
-         .layout={3, 3},
-         .indexes=*args.indexes}
-    );
-    auto sync_anchor = sync_window_size(octasierp_unit, lazy);
+    render_state state{
+        shader_unit<std::vector<float>>(
+            sources,
+            transform().scale(args.scale),
+            to_span(tmp_cam.view()),
+            {.aspect=lazy.aspect()},
+            {.content=*args.vertices,
+             .layout=args.layout,
+             .indexes=*args.indexes}
+        ),
+        std::move(tmp_cam)
+    };
+    auto sync_anchor = sync_window_size(state.unit, lazy);
 
-    prerender();
-    auto wrapped_render = [&]{render(octasierp_unit);};
+    prerender(state);
+    auto wrapped_render = [&]{render(state);};
     if(args.screenshot == nullptr)
         lazy.game_loop(wrapped_render);
     else
@@ -4387,13 +4397,13 @@ using render_octasierp_impl::render_octasierp;
 #+end_src
 #+depends:render_octasierp :noweb orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp vector glm/glm.hpp
 
-The function below can be used as a prerender that will render meshes as thick lines:
+The lambda below can be used as a prerender that will render meshes as thick lines:
 #+name: thick_lines
 #+begin_src cpp :minipage
-void thick_lines() {
+auto thick_lines = [](auto& ignore) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glLineWidth(8);
-}
+};
 #+end_src
 
 This functor can be used to draw the model and make it spin every iteration at the specified angle along the specified axis:
@@ -4402,9 +4412,9 @@ This functor can be used to draw the model and make it spin every iteration at t
 struct drawspin {
     float angle = .01;
     glm::vec3 axis = {0, 0, 1};
-    void operator()(auto& unit) {
-        unit.draw();
-        unit.with_model([this](auto& model) {
+    void operator()(auto& state) {
+        state.unit.draw();
+        state.unit.with_model([this](auto& model) {
             model.rotate_rad(angle, axis);
         });
     }
