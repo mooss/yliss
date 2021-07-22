@@ -369,7 +369,7 @@ template<> struct glenum<GLfloat> { static const GLenum v = GL_FLOAT; };
 template<typename T>
 class vertices {
   public:
-    vertices(std::span<const T> content, std::span<const std::size_t> layout):
+    vertices(std::span<const T> content, std::span<const unsigned int> layout):
         stride_(sum(layout)), count_(content.size() / stride_)
     {
         if(layout.size() == 0)
@@ -417,7 +417,7 @@ Using this allows to create the vectors in place with a braced syntax.
 #+name: vec_vertices
 #+begin_src cpp
 template<typename T>
-vertices<T> vec_vertices(const std::vector<T>& content, const std::vector<std::size_t>& layout) {
+vertices<T> vec_vertices(const std::vector<T>& content, const std::vector<unsigned int>& layout) {
     return vertices<T>(content, layout);
 }
 #+end_src
@@ -427,7 +427,7 @@ This is the same thing but using a =std::span= for the data:
 #+name: spanvec_vertices
 #+begin_src cpp
 template<typename T>
-vertices<T> spanvec_vertices(std::span<const T> content, const std::vector<std::size_t>& layout) {
+vertices<T> spanvec_vertices(std::span<const T> content, const std::vector<unsigned int>& layout) {
     return vertices<T>(content, layout);
 }
 #+end_src
@@ -439,7 +439,7 @@ vertices<T> spanvec_vertices(std::span<const T> content, const std::vector<std::
 #+begin_src cpp
 class indexes {
   public:
-    indexes(const std::span<const GLuint> content):
+    indexes(std::span<const GLuint> content):
         count_(content.size())
     {
         // Hardcoded 3 because only triangles are supported.
@@ -1364,7 +1364,7 @@ template<class ContentT>
 struct mesh_data {
     // const std::vector<VertexT>& content;
     const ContentT& content;
-    const std::vector<std::size_t>& layout;
+    const std::vector<unsigned int>& layout;
     const std::vector<unsigned int>& indexes;
     auto instantiate() const {
         return vertindex<typename ContentT::value_type>{
