@@ -4225,6 +4225,10 @@ struct planet_properties {
 #+end_src
 
 The octaform implementation is split into the base and the proper implementation.
+This split was necessary because the proper implementation must store the height getter and it turns out that this height getter is produced by the elevation policy that needs the octaform in the first place in order to produce it.
+
+To resolve this circular dependency, the height getter is produced with the base implementation, and the base's data will simply be copied over to the proper implementation.
+
 Here is the base:
 #+begin_src cpp :noweb-ref octaform/impl :minipage
 class octaform_base: public pointless_octasierp {
@@ -4239,46 +4243,65 @@ class octaform_base: public pointless_octasierp {
 };
 #+end_src
 
-Below is the proper implementation.
-This split was necessary because the proper implementation must store the height getter and it turns out that this height getter is produced by the elevation policy that needs the octaform in the first place in order to produce it.
 
-To resolve this circular dependency, the height getter is produced with the base implementation, and the base's data is simply copied over to the proper implementation.
+The proper implementation requires a vertex size that is included in =planet_properties=.
+Being in this place will allow it to be tweaked at the call site to cram more information into a vertex.
+#+begin_src cpp :noweb-ref planet_properties/public
+std::size_t vertex_size = 6;
+#+end_src
 
+Below is the actual implementation.
+The methods ending with =ptr= and =span= serve to access the subvertices, with position and color being hardcoded as the first two subvertices.
 #+begin_src cpp :noweb-ref octaform/impl
 template<class HeightGetter>
 struct octaform: public octaform_base {
     octaform(
         const octaform_base& base,
         HeightGetter&& _height
-    ): octaform_base(base), height(std::move(_height))
+    ): octaform_base(base),
+       height(std::move(_height))
     {}
-
-    auto position_ptr(auto index) {
-        return &vertices[6 * index];
-    }
-
-    auto color_ptr(auto index) {
-        return &vertices[6 * index + 3];
-    }
-
-    auto position_span(auto index) {
-        return std::span<float, 3>(position_ptr(index), 3);
-    }
-
-    auto color_span(auto index) {
-        return std::span<float, 3>(color_ptr(index), 3);
-    }
 
     HeightGetter height;
     std::vector<float> vertices;
     std::vector<unsigned int> indexes;
+
+    /////////////////////////////////
+    // Static ptr and span getters //
+    /////////////////////////////////
+    template<std::size_t Offset>
+    auto offset_ptr(auto index) {
+        return &vertices[properties.vertex_size * index + Offset];
+    }
+
+    template<std::size_t SpanSize, std::size_t Offset>
+    auto offset_span(auto index) {
+        return std::span<float, SpanSize>(offset_ptr<Offset>(index), SpanSize);
+    }
+
+    auto position_ptr(auto index) {return offset_ptr<0>(index);}
+    auto color_ptr(auto index)    {return offset_ptr<3>(index);}
+    auto position_span(auto index) {return offset_span<3, 0>(index);}
+    auto color_span(auto index)    {return offset_span<3, 3>(index);}
+
+    //////////////////////////////////
+    // Dynamic ptr and span getters //
+    //////////////////////////////////
+    auto offset_ptr(auto index, auto offset) {
+        return offset_ptr<0>(index) + offset;
+    }
+
+    template<std::size_t SpanSize>
+    auto offset_span(auto index, auto offset) {
+        return std::span<float, SpanSize>(offset_ptr(index, offset), SpanSize);
+    }
 };
 #+end_src
 #+depends:octaform :noweb pointless_octasierp :cpp vector span utility
 
 Since not everything is visible in the block above, here is a short list of what =octaform= will make available to the octasierp policies:
- - A pointer and a span to a given position or color storage (=.position_ptr()=, =.position_span()=, =.color_ptr()= and =.color_span()=).
- - The height of a given position (=.height()=).
+ - A pointer and a span to a given subvertex (the =*_ptr= and =*_span= methods).
+ - The height associated to a given point (=.height()=).
  - All the interface of =pointless_octasierp= (via inheritance).
  - Whatever is inside =planet_properties= (via =.properties=).
 
@@ -4294,7 +4317,6 @@ I'm not a fan of using encapsulation when it would make both the implementation 
 #+name: grow_octasierp
 #+begin_src cpp :minipage
 namespace octaform_impl {
-
 template<class Elevation, class Coloration, class Repartition>
 auto grow_octasierp(
     std::size_t degree, Elevation elevation,
@@ -4304,7 +4326,7 @@ auto grow_octasierp(
     octaform_base base(degree, properties);
     octaform ofo(base, elevation(base));
 
-    ofo.vertices.resize(repartition.size(ofo) * 6, -999999.f);
+    ofo.vertices.resize(repartition.size(ofo) * properties.vertex_size, -999999.f);
     coloration.fill_colors(ofo);
     repartition.fill_positions(ofo);
     ofo.indexes = repartition.compute_indexes(ofo);
