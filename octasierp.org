@@ -3789,7 +3789,16 @@ Coordinates of degree 0 in an octasierp of degree 2:
 
 *** Foreach policies
 
-The policies implemented here will allow the foreach functions to be used as template parameters.
+The policies implemented in this section will allow the foreach functions to be used as template parameters of the following apply function:
+#+name: apply_foreach
+#+begin_src cpp :minipage
+template<class Foreach, class Consumer>
+void apply(std::size_t degree, Consumer consumer) {
+    Foreach::apply(degree, consumer);
+}
+#+end_src
+
+They can also be used on their own, the code above is purely syntactic sugar because I love the syntax =apply<ForeachCoordinates>=.
 
 #+name: ForeachCoordinates
 #+begin_src cpp :minipage
@@ -3848,13 +3857,13 @@ struct ForeveryCoordinates {
 
 Usage:
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb pointless_octasierp out ForeachCoordinates ForeachTriangle ForeachSegment ForeveryCoordinates")>>
+<<include(":noweb pointless_octasierp out apply_foreach ForeachCoordinates ForeachTriangle ForeachSegment ForeveryCoordinates")>>
 
 template<class Foreach>
 struct print_indexes {
     const pointless_octasierp& octa;
     print_indexes(std::size_t degree): octa(degree) {
-        Foreach::apply(degree, *this);
+        apply<Foreach>(degree, *this);
     }
 
     void printall_impl() const {out(';');}
@@ -3885,159 +3894,12 @@ int main() {
 #+RESULTS:
 #+begin_src text :minipage
 Coordinates:     0; 2; 3; 4; 5; 1;
-All coordinates: 0; 2; 3; 4; 5; 1; 1; 1; 1;
+All coordinates: 0; 2; 3; 4; 5; 1; 6; 1; 6; 6; 1; 1; 1;
 Triangles:       0, 2, 3; 2, 1, 3; 0, 3, 4; 3, 1, 4; 0, 4, 5; 4, 1, 5; 0, 5, 2; 5, 1, 2;
-Segments:        0, 2; 2, 3; 3, 1; 0, 3; 3, 4; 4, 1; 0, 4; 4, 5; 5, 1; 0, 5; 5, 2; 2, 1;
+Segments:        0, 2; 3, 2; 3, 1; 0, 3; 4, 3; 4, 1; 0, 4; 5, 4; 5, 1; 0, 5; 2, 5; 2, 1;
 #+end_src
 
 Those results make me think that I must have missed some clever trick to implement triangles and segments iteration in one go.
-
-*** Adapt to representation
-
-The adapters implemented here modify the behaviour of foreach policies by changing what is transmitted to the consumer depending on the first argument they receive.
-
-When the first argument is a =std::size_t=, the consumer is used as-is:
-#+name: adapt_repr/size_t
-#+begin_src cpp :minipage
-namespace adapt_repr {
-template<class Foreach, class Consumer>
-void apply(std::size_t degree, Consumer consumer) {
-    Foreach::apply(degree, consumer);
-}
-} // namespace adapt_repr
-#+end_src
-
-The degree can be wrapped in =index_of= to produce indexes instead of raw coordinates:
-#+name: adapt_repr/index_of
-#+begin_src cpp :minipage
-struct index_of {
-    std::size_t degree;
-};
-namespace adapt_repr {
-template<class Consumer>
-struct to_index_consumer {
-    pointless_octasierp octa;
-    Consumer consumer;
-
-    template<class... Coordinates>
-    void operator()(Coordinates... coordinates) {
-        consumer(octa.index_of(coordinates)...);
-    }
-};
-
-template<class Foreach, class Consumer>
-void apply(index_of wrapper, Consumer consumer) {
-    Foreach::apply(
-        wrapper.degree,
-        to_index_consumer(pointless_octasierp{wrapper.degree}, consumer)
-    );
-}
-} // namespace adapt_repr
-#+end_src
-#+depends:adapt_repr/index_of :noweb pointless_octasierp
-
-Finally, when the first argument is an octasierp, the underlying points of the octasierp are produced:
-#+name: adapt_repr/octasierp
-#+begin_src cpp :minipage
-namespace adapt_repr {
-template<class Point, class Consumer>
-struct to_points_consumer {
-    octasierp<Point>& octa;
-    Consumer consumer;
-
-    template<class... Coordinates>
-    void operator()(Coordinates... coordinates) {
-        consumer(octa[coordinates]...);
-    }
-};
-
-template<class Foreach, class Point, class Consumer>
-void apply(octasierp<Point>& octa, Consumer consumer) {
-    Foreach::apply(octa.degree(), to_points_consumer{octa, consumer});
-}
-} // namespace adapt_repr
-#+end_src
-#+depends:adapt_repr/octasierp :noweb octasierp
-\\
-The =apply_foreach/= code blocks below are pure syntactic sugar.
-I opted to not simply name the actual implementation =apply= because this name is way too generic.
-This way if there is a conflict with another =apply= function, it will still be possible to fall back on =adapt_repr::apply=.
-#+name: apply_foreach
-#+begin_src cpp :minipage
-template<class Foreach, class Repr, class Consumer>
-void apply(Repr repr, Consumer consumer) {
-    adapt_repr::apply<Foreach>(repr, consumer);
-}
-#+end_src
-# Commented out waiting for a fix of include.pl, see next TODO.
-# #+depends:apply_foreach/size_t :noweb adapt_repr/size_t apply_foreach
-# #+depends:apply_foreach/index_of :noweb adapt_repr/index_of apply_foreach
-\\
-Special care must be taken to pass an =octasierp= representation by reference, both to allow the actual points to be modified and to avoid a copy of this potentially huge object.
-#+name: apply_foreach/octasierp
-#+begin_src cpp :minipage
-template<class Foreach, class Point, class Consumer>
-void apply(octasierp<Point>& octa, Consumer consumer) {
-    adapt_repr::apply<Foreach>(octa, consumer);
-}
-#+end_src
-#+depends:apply_foreach/octasierp :noweb adapt_repr/octasierp
-# TODO: Force include.pl to respect the order of dependencies. i.e. adapt_repr/index_of should be included before apply_foreach because of the way apply_foreach/index_of is defined. I should not have to hardcode low-level dependencies below (the adapt_repr/) to enforce a correct order.
-#+depends:apply_foreach/* :noweb apply_foreach/octasierp adapt_repr/index_of adapt_repr/size_t apply_foreach
-\\
-Usage:
-#+begin_src cpp :eval no-export :exports both :minipage :wrap "src text"
-<<include(":noweb print cse_lambda octasierp apply_foreach/* ForeachCoordinates ForeachTriangle <<qoords")>>
-
-int main() {
-    octasierp octa(0, '-');
-    char next_repr = 'a';
-    apply<ForeachCoordinates>(octa, [&](auto& point) {
-        point = next_repr++;
-    });
-
-    auto print_lambda = cse_lambda<print<>>();
-    print{"Triangle coordinates:"};
-    apply<ForeachTriangle>(octa.degree(), print_lambda);
-    print{"\nTriangle indexes:"};
-    apply<ForeachTriangle>(index_of{octa.degree()}, print_lambda);
-    print{"\nTriangle points:"};
-    apply<ForeachTriangle>(octa, print_lambda);
-}
-#+end_src
-
-#+RESULTS:
-#+begin_src text
-Triangle coordinates:
-(+0, +0) (+1, +0) (+0, +1)
-(+1, +0) (+1, +1) (+0, +1)
-(+0, +0) (+0, +1) (-1, +0)
-(+0, +1) (+1, +1) (-1, +0)
-(+0, +0) (-1, +0) (+0, -1)
-(-1, +0) (+1, +1) (+0, -1)
-(+0, +0) (+0, -1) (+1, +0)
-(+0, -1) (+1, +1) (+1, +0)
-
-Triangle indexes:
-0 2 3
-2 1 3
-0 3 4
-3 1 4
-0 4 5
-4 1 5
-0 5 2
-5 1 2
-
-Triangle points:
-a b c
-b f c
-a c d
-c f d
-a d e
-d f e
-a e b
-e f b
-#+end_src
 
 *** Foreach subdivision
 
@@ -4073,7 +3935,7 @@ This is also why =midpoint= does not need to be mirrored back, it is necessarily
 
 Usage:
 #+begin_src cpp :eval no-export :exports both :minipage
-<<include(":noweb print ForeachSubdivision adapt_repr/size_t apply_foreach <<qoords")>>
+<<include(":noweb print ForeachSubdivision apply_foreach <<qoords")>>
 
 int main() {
     apply<ForeachSubdivision>(0, [](auto midpoint, auto a, auto b) {
@@ -4546,7 +4408,7 @@ class squarenet_repartition {
     std::unordered_map<std::pair<int, int>, std::size_t> redundant_indexes_;
 };
 #+end_src
-#+depends:squarenet_repartition :noweb hash/pair pointless_octasierp adapt_repr/size_t apply_foreach ForeveryCoordinates ForeachTriangle :cpp utility vector unordered_map algorithm
+#+depends:squarenet_repartition :noweb hash/pair pointless_octasierp apply_foreach ForeveryCoordinates ForeachTriangle :cpp utility vector unordered_map algorithm
 
 The difficulty in filling positions comes from the need to handle non canonical (aka redundant) coordinates.
 The indexes of those coordinates are kept around in =redundant_indexes_=, because they will be needed in the next step (indexes generation).
@@ -4691,7 +4553,7 @@ auto compute_octasierp_indexes(const pointless_octasierp& octa) {
     return result;
 }
 #+end_src
-#+depends:compute_octasierp_indexes :noweb pointless_octasierp adapt_repr/size_t ForeachTriangle apply_foreach :cpp vector
+#+depends:compute_octasierp_indexes :noweb pointless_octasierp ForeachTriangle apply_foreach :cpp vector
 
 A concise repartition policy can be made by inheriting from the following class:
 #+name: octasierp_triangle_indexer
@@ -4720,7 +4582,7 @@ struct octahedral_repartition: public octasierp_triangle_indexer {
     }
 };
 #+end_src
-#+depends:octahedral_repartition :noweb octasierp_triangle_indexer apply_foreach adapt_repr/size_t ForeverySubdivision fill_midpoint/span :cpp array span
+#+depends:octahedral_repartition :noweb octasierp_triangle_indexer apply_foreach ForeverySubdivision fill_midpoint/span :cpp array span
 
 Computing positions for octahedral repartition is separated in two phases.
 In the first phase, the desired height is ignored and the mesh is given a perfectly octahedral shape:
@@ -4933,7 +4795,7 @@ struct spherical_repartition: public octasierp_triangle_indexer {
     }
 };
 #+end_src
-#+depends:spherical_repartition :noweb octasierp_triangle_indexer spherical_converter adapt_repr/size_t ForeachCoordinates
+#+depends:spherical_repartition :noweb octasierp_triangle_indexer spherical_converter ForeachCoordinates
 
 *** Rendering
 
@@ -5006,7 +4868,7 @@ auto midpoint_displacement_octasierp(const pointless_octasierp& octa, const kwar
 }
 using midpoint_octasierp_impl::midpoint_displacement_octasierp;
 #+end_src
-#+depends:midpoint_displacement_octasierp :noweb mandatory pointless_octasierp ForeachSpontaneous ForeachSubdivision adapt_repr/size_t apply_foreach degree_shifter :cpp random
+#+depends:midpoint_displacement_octasierp :noweb mandatory pointless_octasierp ForeachSpontaneous ForeachSubdivision apply_foreach degree_shifter :cpp random
 \\
 To keep some coherence in the generated heights, the further the algorithm progresses, the smaller the random element must be.
 Another way to formulate this is the closer the points are, the smaller their average height difference must be, otherwise the heights might as well be fully randomised.
@@ -5285,7 +5147,7 @@ void fill_octasierp_normals(Octaform& ofo, std::size_t normal_offset) {
 } // namespace yls_normal_computation
 using yls_normal_computation::fill_octasierp_normals;
 #+end_src
-#+depends:fill_octasierp_normals :noweb adapt_repr/size_t :cpp array vector glm/glm.hpp
+#+depends:fill_octasierp_normals :cpp array vector glm/glm.hpp
 
 To compute the vertices normals, the first step will be to compute the triangles normals and, for each vertex to record which triangles it is a part of, in an instance of =neighbouring_normals=:
 #+begin_src cpp :noweb-ref yls_normal_computation/scope
