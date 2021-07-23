@@ -5494,7 +5494,7 @@ using surface_waters_impl::surface_waters;
 
 Applying =surface_waters= to the spherical repartition policy makes the rendering look a bit more like a planet:
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb print grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin :defs graphics.org window.org")>>
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin :defs graphics.org window.org")>>
 
 int main() {
     std::size_t degree = 8;
@@ -5533,7 +5533,7 @@ int main() {
 
 It also works for octahedral repartition:
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb print grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters octahedral_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin :defs graphics.org window.org")>>
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters octahedral_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin :defs graphics.org window.org")>>
 
 int main() {
     std::size_t degree = 8;
