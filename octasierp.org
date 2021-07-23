@@ -4257,19 +4257,21 @@ Below is the outline of the actual implementation.
 The =HeightGetter= is deliberately moved because it can amount to a wrapped vector of heights, which would be costly to copy.
 #+begin_src cpp :noweb-ref octaform/impl :minipage
 template<class HeightGetter>
-struct octaform: public octaform_base {
+class octaform: public octaform_base {
+    HeightGetter height_;
+  public:
     using height_type = typename HeightGetter::value_type;
+    height_type height(auto index) const {return height_(index);}
 
     octaform(
         const octaform_base& base,
-        HeightGetter&& _height
+        HeightGetter&& height
     ): octaform_base(base),
-       height(std::move(_height))
+       height_(std::move(height))
     {
         <<octaform/ctor>>
     }
 
-    HeightGetter height;
     std::vector<float> vertices;
     std::vector<unsigned int> indexes;
 
@@ -5437,6 +5439,135 @@ int main() {
 #+RESULTS:
 :results:
 [[file:images/screencaps/gfgocta_phong.png]]
+:end:
+
+
+** Surface waters
+
+The goal of this section is to make the octasierp look more like a planet by keeping the coloration intact but rendering the water at the surface level rather than at their actual depth, as if there were oceans and seas covering the planet.
+
+*** Repartition policy wrapper
+
+The trick used to implement surface waters is to change the behaviour of a given type by inheriting from it and highjacking the method encoding said behaviour.
+
+First, =surface_waters_octaform= highjacks the original =octaform= so that its height method never returns less than the sea level:
+#+begin_src cpp :noweb-ref surface_waters_impl/scope
+template<class Octaform>
+struct surface_waters_octaform: public Octaform {
+    using height_type = typename Octaform::height_type;
+    height_type height(auto index) const {
+        height_type result = Octaform::height(index);
+        if(result < Octaform::stats.sea_height)
+            return Octaform::stats.sea_height;
+        return result;
+    }
+};
+#+end_src
+
+Then, =surface_waters= highjacks the repartition policy so that its =fill_position= consumes the =octaform= wrapped by =surface_waters_octaform=:
+#+begin_src cpp :noweb-ref surface_waters_impl/scope
+template<class Repartition>
+struct surface_waters: public Repartition {
+    surface_waters(const Repartition& rep):
+        Repartition(rep)
+    {}
+
+    template<class Octaform> void fill_positions(Octaform& ofo) {
+        Repartition::fill_positions(*reinterpret_cast<surface_waters_octaform<Octaform>*>(&ofo));
+    }
+};
+#+end_src
+
+By implementing surface waters this way, only the repartition policy is affected, therefore having no influence on the coloration policy and the colors it produces, which would not be the case if the elevation policy was directly modified.
+
+Only =surface_waters= is made available to the global namespace:
+#+name: surface_waters
+#+begin_src cpp
+namespace surface_waters_impl {
+<<surface_waters_impl/scope>>
+} // namespace surface_waters_impl
+using surface_waters_impl::surface_waters;
+#+end_src
+#+depends:surface_waters :cpp utility
+
+*** Rendering
+
+Applying =surface_waters= to the spherical repartition policy makes the rendering look a bit more like a planet:
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb print grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin :defs graphics.org window.org")>>
+
+int main() {
+    std::size_t degree = 8;
+    auto mesh = grow_octasierp(
+        degree,
+        midpoint_elevation{{.init_degree=3}},
+        height_coloration{gfg_color_scheme},
+        surface_waters(spherical_repartition{}),
+        {.vertex_size=9, .sea_level=.6}
+    );
+
+    fill_octasierp_normals(mesh, 6);
+    auto send_camera_position = [](auto& state) {
+        auto position = state.camera.position();
+        state.unit.template send<uniform_3f>("camera_position", position.x, position.y, position.z);
+    };
+
+    render_octasierp(
+        {.vertex =
+         <<include(":noweb phong_vs :c-string")>>,
+         .fragment =
+         <<include(":noweb phong_fs :c-string")>>},
+        {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
+         .camlong=6, .camlat=6,
+         .screenshot="images/screencaps/gfgocta_phong_surface-waters_spherical.png",
+         .title="Midpoint-displaced height-colored pseudo-spherical surface-watered Phong-shaded octasierp"},
+        send_camera_position, drawspin{.angle=.005, .axis={0, 1, 1}}
+    );
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/gfgocta_phong_surface-waters_spherical.png]]
+:end:
+
+It also works for octahedral repartition:
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+<<include(":noweb print grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters octahedral_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin :defs graphics.org window.org")>>
+
+int main() {
+    std::size_t degree = 8;
+    auto mesh = grow_octasierp(
+        degree,
+        midpoint_elevation{{.init_degree=3, .range=.14}},
+        height_coloration{gfg_color_scheme},
+        surface_waters(octahedral_repartition{}),
+        {.vertex_size=9, .sea_level=.6}
+    );
+
+    fill_octasierp_normals(mesh, 6);
+    auto send_camera_position = [](auto& state) {
+        auto position = state.camera.position();
+        state.unit.template send<uniform_3f>("camera_position", position.x, position.y, position.z);
+    };
+
+    render_octasierp(
+        {.vertex =
+         <<include(":noweb phong_vs :c-string")>>,
+         .fragment =
+         <<include(":noweb phong_fs :c-string")>>},
+        {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
+         .camlong=6, .camlat=6,
+         .screenshot="images/screencaps/gfgocta_phong_surface-waters_octahedral.png",
+         .title="Midpoint-displaced height-colored octahedral surface-watered Phong-shaded octasierp"},
+        send_camera_position, drawspin{.angle=.005, .axis={0, 1, 1}}
+    );
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/gfgocta_phong_surface-waters_octahedral.png]]
 :end:
 
 
