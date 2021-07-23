@@ -531,11 +531,10 @@ def mat_uniform(code):
     assert code[0] == 'm'
     cardinality, typename = decode(code[1:])
     name = 'uniform_' + code
-    with Pyogen('src cpp', name=name, depends=':noweb shader_program :cpp cassert span'):
+    with Pyogen('src cpp', name=name, depends=':noweb shader_program :cpp span'):
         with cpp.struct(name):
             location_ctor(name)
-            with cpp.par('void send(std::span<const GLfloat> content) const'):
-                cpp('assert(content.size() == ' + str(cardinality * cardinality) + ');')
+            with cpp.par('void send(std::span<const GLfloat, ' + str(cardinality * cardinality) + '> content) const'):
                 cpp('glUniformMatrix' + code[1:] + 'v(location, 1, GL_FALSE, content.data());')
 
 def uniform(code):
@@ -588,13 +587,12 @@ struct uniform_m4f {
     uniform_m4f(const GLchar* name, const shader_program& program):
         location(glGetUniformLocation(program.id, name))
     {}
-    void send(std::span<const GLfloat> content) const {
-        assert(content.size() == 16);
+    void send(std::span<const GLfloat, 16> content) const {
         glUniformMatrix4fv(location, 1, GL_FALSE, content.data());
     }
 };
 #+end_src
-#+depends:uniform_m4f :noweb shader_program :cpp cassert span
+#+depends:uniform_m4f :noweb shader_program :cpp span
 
 *** Reminder
 
@@ -1115,7 +1113,7 @@ The perfect forwarding used for =model= will be useful to define transformations
 Because those methods return references to =transform= but transformations matrices should be moved in other cases.
 #+begin_src cpp :noweb-ref movipr/public
 movipr(
-    std::span<const GLfloat> model_data, std::span<const GLfloat> view_data,
+    std::span<const GLfloat, 16> model_data, std::span<const GLfloat, 16> view_data,
     const perspective_projection& proj, const shader_program& shader,
     const variables& names=variables{}
 ): model(names.model.c_str(), shader),
@@ -1408,8 +1406,6 @@ struct shader_sources {
 
 ** Shader unit
 
-# TODO: Fix to_span/glm to use static extents.
-
 A shader unit gathers everything needed to draw something, i.e. a shader, a VAO, OpenGL buffers and the model, view and projection matrices.
 
 Some assumptions are being made, namely that indexes are used to draw the model, that the shader requires model, view and projection uniforms and that one and only one model is needed per shader.
@@ -1423,7 +1419,7 @@ class shader_unit {
     using VertexT = VerticesT::value_type;
     shader_unit(
         const shader_sources& sources, const transform& model,
-        std::span<const GLfloat> view, const movipr::perspective_projection& projection,
+        std::span<const GLfloat, 16> view, const movipr::perspective_projection& projection,
         const mesh_data<VerticesT>& data, const movipr::variables& names=movipr::variables{}
     ): shader_(vertex_shader(*sources.vertex), fragment_shader(*sources.fragment)),
        vao_(), drawable_(data.instantiate()), model_(model),
@@ -1442,7 +1438,7 @@ class shader_unit {
         viper.model.send(model_);
     }
 
-    void refresh_view(std::span<const GLfloat> view_data) const {
+    void refresh_view(std::span<const GLfloat, 16> view_data) const {
         viper.view.send(view_data);
     }
 
@@ -1548,24 +1544,24 @@ In particular I wonder if an additional set of =to_span= functions is needed to 
 #+name: to_span/glm
 #+begin_src cpp
 template<glm::length_t Col, glm::length_t Row, typename T, glm::qualifier Q>
-const auto to_span(const glm::mat<Col, Row, T, Q>& container) {
-    return std::span(glm::value_ptr(container), Col * Row);
+auto to_span(const glm::mat<Col, Row, T, Q>& container) {
+    return std::span<const T, Col * Row>(glm::value_ptr(container), Col * Row);
 }
 
 template<glm::length_t Length, typename T, glm::qualifier Q>
-const auto to_span(const glm::vec<Length, T, Q>& container) {
-    return std::span(glm::value_ptr(container), Length);
+auto to_span(const glm::vec<Length, T, Q>& container) {
+    return std::span<const T, Length>(glm::value_ptr(container), Length);
 }
 
 // Same thing, without the const qualifiers.
 template<glm::length_t Col, glm::length_t Row, typename T, glm::qualifier Q>
 auto to_span(glm::mat<Col, Row, T, Q>& container) {
-    return std::span(glm::value_ptr(container), Col * Row);
+    return std::span<T, Col * Row>(glm::value_ptr(container), Col * Row);
 }
 
 template<glm::length_t Length, typename T, glm::qualifier Q>
 auto to_span(glm::vec<Length, T, Q>& container) {
-    return std::span(glm::value_ptr(container), Length);
+    return std::span<T, Length>(glm::value_ptr(container), Length);
 }
 #+end_src
 #+depends:to_span/glm :cpp span glm/gtc/type_ptr.hpp
