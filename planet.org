@@ -1209,12 +1209,13 @@ out vec3 normal_fs;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform mat3 normal_model;
 
 void main() {
     gl_Position = projection * view * model * vec4(position, 1.0f);
     position_fs = vec3(model * vec4(position, 1));
     color_fs = color;
-    normal_fs = mat3(transpose(inverse(model))) * normal;
+    normal_fs = normal_model * normal;
 }
 #+end_src
 
@@ -1284,12 +1285,27 @@ void main() {
 }
 #+end_src
 
+*** Prerender function
+
+Phong lighting needs both the camera position and the normal model matrix to be sent to the shaders.
+The normal model matrix will be automatically kept up to date with the model matrix by =shader_unit=.
+The camera position will not be kept up to date, but that is not a problem right now because the camera is static.
+
+#+name: prerender_phong
+#+begin_src cpp
+auto prerender_phong = [](auto& state) {
+    auto position = state.camera.position();
+    state.unit.template send<uniform_3f>("camera_position", position.x, position.y, position.z);
+    state.unit.send_normal_model();
+};
+#+end_src
+
 *** Rendering
 
 The specular component is much too strong and makes the planet looks like it is made of plastic but I love the shinyness of this effect (it's made more obvious by the rotation so it's not as shocking in the capture below).
 
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin")>>
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
 
 int main() {
     std::size_t degree = 8;
@@ -1302,10 +1318,6 @@ int main() {
     );
 
     fill_octasierp_normals(mesh, 6);
-    auto send_camera_position = [](auto& state) {
-        auto position = state.camera.position();
-        state.unit.template send<uniform_3f>("camera_position", position.x, position.y, position.z);
-    };
 
     render_octasierp(
         {.vertex =
@@ -1316,7 +1328,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_phong.png",
          .title="Midpoint-displaced height-colored pseudo-spherical Phong-shaded octasierp"},
-        send_camera_position, drawspin{.angle=.005, .axis={0, 1, 1}}
+        prerender_phong, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
 }
 #+end_src
@@ -1379,7 +1391,7 @@ using surface_waters_impl::surface_waters;
 
 Applying =surface_waters= to the spherical repartition policy makes the rendering look a bit more like a planet:
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin")>>
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
 
 int main() {
     std::size_t degree = 8;
@@ -1392,10 +1404,6 @@ int main() {
     );
 
     fill_octasierp_normals(mesh, 6);
-    auto send_camera_position = [](auto& state) {
-        auto position = state.camera.position();
-        state.unit.template send<uniform_3f>("camera_position", position.x, position.y, position.z);
-    };
 
     render_octasierp(
         {.vertex =
@@ -1406,7 +1414,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_phong_surface-waters_spherical.png",
          .title="Midpoint-displaced height-colored pseudo-spherical surface-watered Phong-shaded octasierp"},
-        send_camera_position, drawspin{.angle=.005, .axis={0, 1, 1}}
+        prerender_phong, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
 }
 #+end_src
@@ -1418,7 +1426,7 @@ int main() {
 
 It also works for octahedral repartition:
 #+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
-<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters octahedral_repartition fill_octasierp_normals uniform_3f render_octasierp drawspin")>>
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters octahedral_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
 
 int main() {
     std::size_t degree = 8;
@@ -1431,10 +1439,6 @@ int main() {
     );
 
     fill_octasierp_normals(mesh, 6);
-    auto send_camera_position = [](auto& state) {
-        auto position = state.camera.position();
-        state.unit.template send<uniform_3f>("camera_position", position.x, position.y, position.z);
-    };
 
     render_octasierp(
         {.vertex =
@@ -1445,7 +1449,7 @@ int main() {
          .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_phong_surface-waters_octahedral.png",
          .title="Midpoint-displaced height-colored octahedral surface-watered Phong-shaded octasierp"},
-        send_camera_position, drawspin{.angle=.005, .axis={0, 1, 1}}
+        prerender_phong, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
 }
 #+end_src

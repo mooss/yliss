@@ -547,6 +547,7 @@ def uniform(code):
 print('*** Generated uniforms')
 uniform('3f')
 uniform('4f')
+uniform('m3f')
 uniform('m4f')
 #+end_src
 
@@ -579,6 +580,20 @@ struct uniform_4f {
 };
 #+end_src
 #+depends:uniform_4f :noweb shader_program
+
+#+name: uniform_m3f
+#+begin_src cpp
+struct uniform_m3f {
+    const GLint location;
+    uniform_m3f(const GLchar* name, const shader_program& program):
+        location(glGetUniformLocation(program.id, name))
+    {}
+    void send(std::span<const GLfloat, 9> content) const {
+        glUniformMatrix3fv(location, 1, GL_FALSE, content.data());
+    }
+};
+#+end_src
+#+depends:uniform_m3f :noweb shader_program :cpp span
 
 #+name: uniform_m4f
 #+begin_src cpp
@@ -1442,9 +1457,11 @@ class shader_unit {
 
   public:
     movipr viper;
+  private:
+    <<shader_unit/private>>
 };
 #+end_src
-#+depends:shader_unit :noweb shader_sources transform movipr mesh_data shader_program VAO :cpp span
+#+depends:shader_unit :noweb shader_sources transform movipr mesh_data shader_program VAO uniform_m3f to_span/glm :cpp span glm/glm.hpp
 
 *** Uniform manipulation
 
@@ -1463,12 +1480,25 @@ void send(const GLchar* name, Args... args) const {
 }
 #+end_src
 
+Send a normal model matrix to the shader and keep it up to date with the model matrix:
+#+begin_src cpp :noweb-ref shader_unit/public
+void send_normal_model() {
+    send_normal_model_ = true;
+    send<uniform_m3f>("normal_model", to_span(glm::transpose(glm::inverse(glm::mat3(model_.matrix_)))));
+}
+#+end_src
+#+begin_src cpp :noweb-ref shader_unit/private
+bool send_normal_model_ = false;
+#+end_src
+
 Modify the model matrix and refresh its value in the shader:
 #+begin_src cpp :noweb-ref shader_unit/public
 template<class Lambda>
 void with_model(Lambda fun) {
     fun(model_);
     viper.model.send(model_);
+    if(send_normal_model_)
+        send_normal_model();
 }
 #+end_src
 
