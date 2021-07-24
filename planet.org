@@ -3,6 +3,7 @@
 
 #+property: header-args:bash :eval never
 #+property: header-args:cpp :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c :eval never :main no :noweb no-export
+#+property: header-args:glsl :noweb no-export
 #+options: ^:nil
 
 * Prelude
@@ -1124,6 +1125,8 @@ int main() {
 Phong shading is a way to approximate lighting via 3 components, ambient, diffuse and specular.
 An mandatory prerequisite of Phong shading is vertices normals, they must therefore be computed and send to a new shader program implementing Phong shading.
 
+The shaders implemented here were adapted from the basic lightning page of =learnopengl.com= (https://learnopengl.com/Lighting/Basic-Lighting).
+
 *** Computation of normals
 
 The normals will be directly written to the octaform via =fill_octasierp_normals=.
@@ -1190,11 +1193,8 @@ for(std::size_t i = 0; i < adjacent.size(); ++i) {
 }
 #+end_src
 
-*** Shaders
+*** Vertex shader
 
-This implementation of Phong shading was adapted from the basic lightning page of =learnopengl.com= (https://learnopengl.com/Lighting/Basic-Lighting).
-
-Vertex shader:
 #+name: phong_vs
 #+begin_src glsl
 #version 330 core
@@ -1218,7 +1218,50 @@ void main() {
 }
 #+end_src
 
-Fragment shader:
+*** Fragment shader
+
+Since this fragment shader uses a lot of global state and needs to share calculations via more global variables, a literate programming style is kinda unwieldy, but I will still try.
+
+The global variables in question are =normal= and =surface_to_light=:
+#+name: gl-normal
+#+begin_src glsl
+vec3 normal = normalize(normal_fs);
+#+end_src
+
+#+name: gl-surface_to_light
+#+begin_src glsl
+vec3 surface_to_light = normalize(light_position - position_fs);
+#+end_src
+
+The ambient, diffuse and specular components are defined as functions:
+#+name: gl-ambient
+#+begin_src glsl
+vec3 ambient() {
+    return ambient_strength * light_color;
+}
+#+end_src
+
+#+name: gl-diffuse
+#+begin_src glsl
+vec3 diffuse() {
+    float diffuse_brightness = max(dot(normal, surface_to_light), 0);
+    return diffuse_brightness * light_color;
+}
+#+end_src
+#+depends:gl-diffuse :noweb gl-normal gl-surface_to_light
+
+#+name: gl-specular
+#+begin_src glsl
+vec3 specular() {
+    vec3 surface_to_camera = normalize(camera_position - position_fs);
+    vec3 reflection_dir = reflect(-surface_to_light, normal);
+    float specular_coeff = pow(max(dot(surface_to_camera, reflection_dir), 0), specular_exponent);
+    return specular_strength * specular_coeff * light_color;
+}
+#+end_src
+#+depends:gl-specular :noweb gl-surface_to_light gl-normal
+
+To work properly, the final fragment shader must define all the necessary global variables:
 #+name: phong_fs
 #+begin_src glsl
 #version 330 core
@@ -1234,23 +1277,10 @@ uniform float ambient_strength = .085;
 uniform float specular_strength = .5;
 uniform float specular_exponent = 64;
 
+<<include(":noweb gl-ambient gl-diffuse gl-specular")>>
+
 void main() {
-    // Ambient.
-    vec3 ambient = ambient_strength * light_color;
-
-    // Diffuse.
-    vec3 normal = normalize(normal_fs);
-    vec3 surface_to_light = normalize(light_position - position_fs);
-    float diffuse_brightness = max(dot(normal, surface_to_light), 0);
-    vec3 diffuse = diffuse_brightness * light_color;
-
-    // Specular.
-    vec3 surface_to_camera = normalize(camera_position - position_fs);
-    vec3 reflection_dir = reflect(-surface_to_light, normal);
-    float specular_coeff = pow(max(dot(surface_to_camera, reflection_dir), 0), specular_exponent);
-    vec3 specular = specular_strength * specular_coeff * light_color;
-
-    color_out = vec4((ambient + diffuse + specular) * color_fs, 1.);
+    color_out = vec4((ambient() + diffuse() + specular()) * color_fs, 1);
 }
 #+end_src
 
