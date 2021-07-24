@@ -1432,20 +1432,7 @@ class shader_unit {
         drawable_.draw();
     }
 
-    template<class Lambda>
-    void with_model(Lambda fun) {
-        fun(model_);
-        viper.model.send(model_);
-    }
-
-    void refresh_view(std::span<const GLfloat, 16> view_data) const {
-        viper.view.send(view_data);
-    }
-
-    template<class UniformT, typename... Args>
-    void send(const GLchar* name, Args... args) const {
-        UniformT(name, shader_).send(args...);
-    }
+    <<shader_unit/public>>
 
   private:
     shader_program shader_;
@@ -1458,6 +1445,34 @@ class shader_unit {
 };
 #+end_src
 #+depends:shader_unit :noweb shader_sources transform movipr mesh_data shader_program VAO :cpp span
+
+*** Uniform manipulation
+
+Send new data to the view uniform:
+#+begin_src cpp :noweb-ref shader_unit/public
+void send_view(std::span<const GLfloat, 16> view_data) const {
+    viper.view.send(view_data);
+}
+#+end_src
+
+Send any kind of uniform to the shader:
+#+begin_src cpp :noweb-ref shader_unit/public
+template<class UniformT, typename... Args>
+void send(const GLchar* name, Args... args) const {
+    UniformT(name, shader_).send(args...);
+}
+#+end_src
+
+Modify the model matrix and refresh its value in the shader:
+#+begin_src cpp :noweb-ref shader_unit/public
+template<class Lambda>
+void with_model(Lambda fun) {
+    fun(model_);
+    viper.model.send(model_);
+}
+#+end_src
+
+*** External utilities
 
 The following utility function ties a =window='s aspect ratio with a =shader_unit='s projection matrix:
 #+name: sync_window_size
@@ -1477,7 +1492,7 @@ This one can be used to refresh a view directly from a camera:
 #+begin_src cpp
 template<class ShaderUnit>
 void refresh_view(const ShaderUnit& unit, const camera& cam) {
-    unit.refresh_view(to_span(cam.view()));
+    unit.send_view(to_span(cam.view()));
 }
 #+end_src
 #+depends:refresh_view :noweb shader_unit camera to_span/glm
