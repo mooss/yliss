@@ -321,6 +321,51 @@ Concerning the =stb_image_write= dependency, I had to make it a noweb dependency
 #include <stb/stb_image_write.h>
 #+end_src
 
+** Cropping
+
+Cropping a =render_buffer= is done by wildly copying the cropped lines into another buffer of reduced dimensions.
+It is a very naïve implementation, in particular because I'm not sure how I am supposed to handle the strides.
+Anyway, it seems to be working.
+
+#+name: crop_render_buffer
+#+begin_src cpp
+auto crop_render_buffer(
+    const render_buffer& buffer,
+    const GLsizei left, const GLsizei right,
+    const GLsizei top, const GLsizei bottom
+) {
+    GLsizei cropped_w = buffer.width - right - left;
+    GLsizei cropped_h = buffer.height - top - bottom;
+    render_buffer cropped_buffer(cropped_w, cropped_h, buffer.channels);
+
+    for(GLsizei x = 0; x < cropped_h; ++x) {
+        auto start_line = buffer.storage.begin() + buffer.stride * (x + bottom) + left * buffer.channels;
+        auto end_line = start_line + cropped_buffer.stride;
+        auto dest = cropped_buffer.storage.begin() + cropped_buffer.stride * x;
+        std::copy(start_line, end_line, dest);
+    }
+
+    return cropped_buffer;
+}
+#+end_src
+#+depends:crop_render_buffer :noweb render_buffer :cpp algorithm utility
+
+This is a shortcut to transform the given buffer into the biggest square buffer possible:
+#+name: square_crop_render_buffer
+#+begin_src cpp
+auto square_crop_render_buffer(const render_buffer& buffer) {
+    GLsizei left=0, right=0, top=0, bottom=0;
+    if(buffer.width > buffer.height) { // Remove from left and right.
+        GLsizei diff = buffer.width - buffer.height;
+        left = diff / 2; right = diff - left;
+    } else if(buffer.height > buffer.width) { // Remove from top and bottom.
+        GLsizei diff = buffer.height - buffer.width;
+        top = diff / 2; bottom = diff - top;
+    }
+    return crop_render_buffer(buffer, left, right, top, bottom);
+}
+#+end_src
+#+depends:square_crop_render_buffer :noweb crop_render_buffer
 
 ** Compression
 
