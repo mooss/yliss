@@ -250,131 +250,27 @@ int main(){
 I thought that being able to take screenshots of the OpenGL scene being rendered would be very difficult while keeping external dependencies small, but thankfully stb (https://github.com/nothings/stb) has a header ready for this.
 I'm amazed by this thing.
 
-** Render buffer
+** Image writing
 
-Some preprocessing is needed to first extract the pixels into a buffer but my work was cut out for me thanks to this post on the subject: https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/.
-I adapted it to the =window= class and organized it around the struct =render_buffer=.
+The blocks defined are both here to include =stb/stb_image_write.h=, they only differ in the way they handle png compression.
 
-It's a struct because I needed to pass around not only the buffer but also some metadata.
-The more advanced features such as saving to a file are free functions and not member functions because those features imply additional dependencies and I prefer to only pay for what I use.
-I cannot yet "inject" noweb blocks into other blocks and therefore any additional member function has to be hardcoded into the class along with its dependencies.
+*** Native compression
 
-#+name: render_buffer
-#+begin_src cpp :minipage
-struct render_buffer {
-    GLsizei channels = 3, stride = 0, width = 0, height = 0;
-    std::vector<unsigned char> storage = std::vector<unsigned char>(0);
-
-    render_buffer(const window& source) {grab(source);}
-    render_buffer(GLsizei w, GLsizei h, GLsizei c):
-        channels(c) {resize(w, h);}
-
-    void resize(GLsizei w, GLsizei h) {
-        width=w; height=h; stride = channels * width;
-        // Make stride a multiple of 4, for alignment purposes.
-        stride += (stride % 4) ? (4 - stride % 4): 0;
-        storage.resize(stride * height);
-    }
-
-    unsigned char* data() {return storage.data();}
-    const unsigned char* data() const {return storage.data();}
-
-    void grab(const window& source) {
-        resize(source.width(), source.height());
-        glPixelStorei(GL_PACK_ALIGNMENT, 4);
-        glReadBuffer(GL_FRONT);
-        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data());
-    }
-};
-#+end_src
-#+depends:render_buffer :noweb window :cpp vector
-
-I'm using =unsigned char= as the type underlying the buffer because that is what stb uses.
-
-Write a =render_buffer= to a file with stb:
-#+name: write_render_buffer
-#+begin_src cpp :minipage
-void write_render_buffer(const render_buffer& buffer, const std::string& destination) {
-    stbi_flip_vertically_on_write(true);
-    stbi_write_png(
-        destination.c_str(), buffer.width, buffer.height,
-        buffer.channels, buffer.data(), buffer.stride
-    );
-}
-#+end_src
-#+depends:write_render_buffer :noweb render_buffer stb_image_write<compressed> :cpp string
-
-Shortcut to directly write a screenshot from a =window=:
-#+name: save_screenshot
-#+begin_src cpp :minipage
-void save_screenshot(const window& source, const std::string& destination) {
-    render_buffer buffer(source);
-    write_render_buffer(buffer, destination);
-}
-#+end_src
-#+depends:save_screenshot :noweb window render_buffer write_render_buffer :cpp string
-
-Concerning the =stb_image_write= dependency, I had to make it a noweb dependency rather than a C++ dependency because this was the only way to =#define= the mandatory =STB_IMAGE_WRITE_IMPLEMENTATION= before the inclusion.
+I had to make the =stb_image_write= dependency a noweb dependency rather than a C++ dependency because this was the only way to =#define= the mandatory =STB_IMAGE_WRITE_IMPLEMENTATION= before the inclusion.
 #+name: stb_image_write
 #+begin_src cpp :minipage
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb/stb_image_write.h>
 #+end_src
 
-** Cropping
+*** Miniz compression
 
-Cropping a =render_buffer= is done by wildly copying the cropped lines into another buffer of reduced dimensions.
-It is a very naïve implementation, in particular because I'm not sure how I am supposed to handle the strides.
-Anyway, it seems to be working.
-
-#+name: crop_render_buffer
-#+begin_src cpp
-auto crop_render_buffer(
-    const render_buffer& buffer,
-    const GLsizei left, const GLsizei right,
-    const GLsizei top, const GLsizei bottom
-) {
-    GLsizei cropped_w = buffer.width - right - left;
-    GLsizei cropped_h = buffer.height - top - bottom;
-    render_buffer cropped_buffer(cropped_w, cropped_h, buffer.channels);
-
-    for(GLsizei x = 0; x < cropped_h; ++x) {
-        auto start_line = buffer.storage.begin() + buffer.stride * (x + bottom) + left * buffer.channels;
-        auto end_line = start_line + cropped_buffer.stride;
-        auto dest = cropped_buffer.storage.begin() + cropped_buffer.stride * x;
-        std::copy(start_line, end_line, dest);
-    }
-
-    return cropped_buffer;
-}
-#+end_src
-#+depends:crop_render_buffer :noweb render_buffer :cpp algorithm utility
-
-This is a shortcut to transform the given buffer into the biggest square buffer possible:
-#+name: square_crop_render_buffer
-#+begin_src cpp
-auto square_crop_render_buffer(const render_buffer& buffer) {
-    GLsizei left=0, right=0, top=0, bottom=0;
-    if(buffer.width > buffer.height) { // Remove from left and right.
-        GLsizei diff = buffer.width - buffer.height;
-        left = diff / 2; right = diff - left;
-    } else if(buffer.height > buffer.width) { // Remove from top and bottom.
-        GLsizei diff = buffer.height - buffer.width;
-        top = diff / 2; bottom = diff - top;
-    }
-    return crop_render_buffer(buffer, left, right, top, bottom);
-}
-#+end_src
-#+depends:square_crop_render_buffer :noweb crop_render_buffer
-
-** Compression
-
-Images can be compressed further by using an external compressing function via =STBIW_ZLIB_COMPRESS=.
+Images can be compressed further by specifying an external compressing function via =STBIW_ZLIB_COMPRESS=.
 
 I've taken code from https://blog.gibson.sh/2015/07/18/comparing-png-compression-ratios-of-stb_image_write-lodepng-miniz-and-libpng to use the miniz compression library.
 I just had to add a =static_cast= around =malloc= because C++ was having none of it.
 
-#+name: stb_image_write<compressed>
+#+name: stb_image_write<miniz>
 #+begin_src cpp :minipage
 static unsigned char* gibson_stbi_zlib_compress(
     unsigned char *data, int data_len,
@@ -393,32 +289,148 @@ static unsigned char* gibson_stbi_zlib_compress(
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb/stb_image_write.h>
 #+end_src
-#+depends:stb_image_write<compressed> :cpp miniz.c
+#+depends:stb_image_write<miniz> :cpp miniz.c
 
-To switch between the miniz and the pure stb version, edit the =#+depends:write_render_buffer= dependency declaration line above to use respectively =stb_image_write<compressed>= or =stb_image_write=.
-This means that the additional compression or lack thereof is hardcoded in this file.
+To switch between the miniz and the pure stb version, edit the =#+depends:= statement of the pertinent code block to use either =stb_image_write<miniz>= or =stb_image_write=.
+This means that the additional compression or lack thereof is hardcoded in the dependencies.
+
 I need to start thinking about a mechanism to pick alternative implementations.
-I think this angled braces syntax is a good starting point, meaning that =stb_image_write<compressed>= is declared as being an alternative implementation of the reference =stb_image_write=.
+I think this angled braces syntax is a good starting point, meaning that =stb_image_write<miniz>= is declared as being an alternative implementation of the reference =stb_image_write=.
 
 
-** Resizing
+** Render buffer
 
-My main use case for screen captures is to include them in compiled HTML or PDF documents, so I don't need and don't want to keep them at full resolution.
-Once again stb has me covered with the header =stb_image_resize.h=.
+Some preprocessing is needed to extract OpenGL pixels into a buffer but my work was cut out for me thanks to this post on the subject: https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/.
+I adapted it to the =window= class and organized it in the struct =render_buffer=.
 
-#+name: resize_render_buffer
+Data alignment and image writing are handled by an external =Format= class, which will be defined later.
+
+#+name: render_buffer
+#+begin_src cpp
+template<class Format>
+struct render_buffer {
+    GLsizei channels = 3, stride = 0, width = 0, height = 0;
+    // Using unsigned char storage, like stb does.
+    std::vector<unsigned char> storage = std::vector<unsigned char>(0);
+
+    render_buffer(const window& source) {grab(source);}
+    render_buffer(GLsizei w, GLsizei h, GLsizei c):
+        channels(c) {resize(w, h);}
+
+    render_buffer(render_buffer&&)=default;
+    render_buffer& operator=(render_buffer&&)=default;
+    render_buffer(const render_buffer&)=default;
+    render_buffer& operator=(const render_buffer&)=default;
+
+    void resize(GLsizei w, GLsizei h) {
+        width=w; height=h; stride = channels * width;
+        // Align the stride.
+        if(stride % Format::alignment)
+            stride += Format::alignment - stride % Format::alignment;
+        storage.resize(stride * height);
+    }
+
+    unsigned char* data() {return storage.data();}
+    const unsigned char* data() const {return storage.data();}
+
+    void grab(const window& source) {
+        resize(source.width(), source.height());
+        glPixelStorei(GL_PACK_ALIGNMENT, Format::alignment);
+        glReadBuffer(GL_FRONT);
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data());
+    }
+
+    void write(std::string_view destination) const {
+        stbi_flip_vertically_on_write(true);
+        Format::write(*this, destination);
+    }
+};
+#+end_src
+#+depends:render_buffer :noweb window stb_image_write<miniz> identity :cpp vector string_view
+
+
+** Image transformations
+
+Image transformations are implemented as a callable taking a source =render_buffer= and returning another, transformed, =render_buffer=.
+
+*** Cropping
+
+Cropping is done by wildly copying the cropped lines into another buffer of reduced dimensions.
+It is a very naïve implementation, in particular because I'm not sure how I am supposed to handle the strides.
+Anyway, it seems to be working.
+
+#+name: image/crop
 #+begin_src cpp :minipage
-render_buffer resize_render_buffer(const render_buffer& buffer, GLsizei w, GLsizei h) {
-    render_buffer resized(w, h, buffer.channels);
-    stbir_resize_uint8(
-        buffer.data(), buffer.width, buffer.height, buffer.stride,
-        resized.data(), resized.width, resized.height, resized.stride,
-        buffer.channels
-    );
-    return resized;
+namespace image {
+struct crop {
+    GLsizei left, right, top, bottom;
+
+    template<class RenderBuffer>
+    auto operator()(const RenderBuffer& buffer) const {
+        GLsizei cropped_w = buffer.width - right - left;
+        GLsizei cropped_h = buffer.height - top - bottom;
+        RenderBuffer cropped_buffer(cropped_w, cropped_h, buffer.channels);
+
+        for(GLsizei x = 0; x < cropped_h; ++x) {
+            auto source_offset = buffer.stride * (x + bottom) + left * buffer.channels;
+            auto start_line = buffer.storage.begin() + source_offset;
+            auto end_line = start_line + cropped_buffer.stride;
+            auto dest = cropped_buffer.storage.begin() + cropped_buffer.stride * x;
+            std::copy(start_line, end_line, dest);
+        }
+        return cropped_buffer;
+    }
+};
 }
 #+end_src
-#+depends:resize_render_buffer :noweb render_buffer stb_image_resize
+#+depends:image/crop :noweb :cpp algorithm
+
+This is a shortcut to transform the given buffer into the biggest square buffer possible:
+#+name: image/square_crop
+#+begin_src cpp :minipage
+namespace image {
+struct square_crop {
+    auto operator()(const auto& buffer) const {
+        GLsizei left=0, right=0, top=0, bottom=0;
+        if(buffer.width > buffer.height) { // Remove from left and right.
+            GLsizei diff = buffer.width - buffer.height;
+            left = diff / 2; right = diff - left;
+        } else if(buffer.height > buffer.width) { // Remove from top and bottom.
+            GLsizei diff = buffer.height - buffer.width;
+            top = diff / 2; bottom = diff - top;
+        }
+        return crop{left, right, top, bottom}(buffer);
+    }
+};
+}
+#+end_src
+#+depends:image/square_crop :noweb image/crop
+
+*** Resizing
+
+My main use case for screen captures is to include them in compiled html or pdf documents or in the README, so I don't really need them at full resolution.
+Furthermore, screen captures are managed by git and since I will make quite a few of them over the course of this project, resizing them will help to reduce their impact on this repository's size.
+
+The header =stb_image_resize.h= from stb provices =stbir_resize_uint8=.
+#+name: image/resize
+#+begin_src cpp :minipage
+namespace image {
+struct resize {
+    GLsizei width, height;
+
+    template<class RenderBuffer> auto operator()(const RenderBuffer& buffer) const {
+        RenderBuffer resized(width, height, buffer.channels);
+        stbir_resize_uint8(
+            buffer.data(), buffer.width, buffer.height, buffer.stride,
+            resized.data(), resized.width, resized.height, resized.stride,
+            buffer.channels
+        );
+        return resized;
+    }
+};
+} // namespace image
+#+end_src
+#+depends:image/resize :noweb stb_image_resize
 
 The handling of the =stb_image_resize= dependency is the same as with =stb_image_write=:
 #+name: stb_image_resize
@@ -427,46 +439,149 @@ The handling of the =stb_image_resize= dependency is the same as with =stb_image
 #include <stb/stb_image_resize.h>
 #+end_src
 
-Finally, below is a specialised implementation of =save_screenshot= to always save images scaled to 720p.
-#+name: save_screenshot<720p>
+
+** Image formats
+
+The formats defined here correspond to the =Format= template argument of =render_buffer=.
+Image formats are, along with the image transformations, the public-facing part of this screenshot system.
+
+*** Writer
+
+An image writer is merely a shortcut to grab pixels from a window, apply a transformation and save the transformed image.
+
+#+name: image/format/writer
 #+begin_src cpp :minipage
-void save_screenshot(const window& source, const std::string& destination) {
-    write_render_buffer(
-        resize_render_buffer(render_buffer(source), 1280, 720),
-        destination
-    );
-}
+namespace image::format {
+template<class Format, class Transformation>
+struct writer_impl {
+    Transformation transformation;
+    // Not sure if this is proper perfect forwarding.
+    writer_impl(Transformation&& t):
+        transformation(std::forward<Transformation>(t))
+    {}
+
+    writer_impl()=default;
+
+    void operator()(const window& source, std::string_view destination) const {
+        transformation(render_buffer<Format>(source)).write(destination);
+    }
+};
+} // namespace image::format
 #+end_src
-#+depends:save_screenshot<720p> :noweb window render_buffer write_render_buffer resize_render_buffer :cpp string
+#+depends:image/format/writer :noweb render_buffer :cpp utility string_view
+
+*** PNG
+
+#+name: image/format/png
+#+begin_src cpp :minipage
+namespace image::format {
+struct png {
+    template<class Transformation=identity> using writer = writer_impl<png, Transformation>;
+
+    static constexpr GLsizei alignment = 4;
+
+    static void write(const render_buffer<png>& buffer, std::string_view destination) {
+        stbi_write_png(destination.data(), buffer.width, buffer.height,
+                       buffer.channels, buffer.data(), buffer.stride);
+    }
+};
+} // namespace image::format
+#+end_src
+#+depends:image/format/png :noweb identity image/format/writer render_buffer :cpp string_view
+
+*** JPEG
+
+Quality should be between 1 and 100.
+
+#+name: image/format/jpeg
+#+begin_src cpp :minipage
+namespace image::format {
+template<int Quality> struct jpeg {
+    template<class Transformation=identity> using writer = writer_impl<jpeg, Transformation>;
+
+    static constexpr GLsizei alignment = 1;
+
+    static void write(const render_buffer<jpeg>& buffer, std::string_view destination) {
+        stbi_write_jpg(
+            destination.data(), buffer.width, buffer.height,
+            buffer.channels, buffer.data(), Quality
+        );
+    }
+};
+} // namespace image::format
+#+end_src
+#+depends:image/format/jpeg :noweb identity image/format/writer render_buffer :cpp string_view
+
+*** All formats
+
+Every format available can be included with =image/format=.
+#+depends:image/format :noweb image/format/jpeg image/format/png
+
+*** Deduce format by file extension
+
+=image::format::deduce= is not a proper file format since it only produces a writer that delegates to an actual format.
+
+#+name: image/format/deduce
+#+begin_src cpp :minipage
+namespace image::format {
+template<int JpegQuality, class Transformation>
+struct deduce_writer {
+    Transformation transformation;
+    deduce_writer(Transformation&& t):
+        transformation(std::forward<Transformation>(t))
+    {}
+
+    deduce_writer()=default;
+
+    void operator()(const window& source, std::string_view destination) const {
+        if(destination.ends_with(".jpeg") || destination.ends_with(".jpg"))
+            transformation(render_buffer<jpeg<JpegQuality>>(source)).write(destination);
+        else
+            transformation(render_buffer<png>(source)).write(destination);
+    }
+};
+
+template<int JpegQuality> struct deduce {
+    template<class Transformation=identity>
+    using writer = deduce_writer<JpegQuality, Transformation>;
+};
+} // namespace image::format
+#+end_src
+#+depends:image/format/deduce :noweb render_buffer image/format :cpp string_view
 
 
-** Lazy functions
+** Lazy functions (=lazy_window= extension)
 
 The helpers in this section make it a little less cumbersome to capture and save the desired frame.
 The =gl_= prefix here stands for game loop.
 
 #+name: gl_screen_nth
 #+begin_src cpp :minipage
-template<typename Callable>
+template<class Render, class ImageWriter>
 void gl_screen_nth(
-    const lazy_window& source, const std::string& destination,
-    Callable render, std::size_t n
+    const lazy_window& source, std::string_view destination,
+    const ImageWriter& writer, Render render, std::size_t n
 ) {
     source.render_n(n, render);
-    save_screenshot(source, destination);
+    writer(source, destination);
     std::cout << "[[file:" << destination << "]]\n";
     source.game_loop(render);
+    // source.render_n(20, render);
 }
 #+end_src
-#+depends:gl_screen_nth :noweb save_screenshot<720p> lazy_window :cpp iostream
+#+depends:gl_screen_nth :noweb lazy_window :cpp iostream string_view
 
+Shortcuts to save only the first frame:
 #+name: gl_screen_first
 #+begin_src cpp :minipage
-template<typename Callable>
-void gl_screen_first(
-    const lazy_window& source, const std::string& destination, Callable render
-) {
-    gl_screen_nth(source, destination, render, 1);
-}
+template<class Render, class ImageWriter> void gl_screen_first(
+    const lazy_window& source, std::string_view destination,
+    const ImageWriter& writer, Render render
+) {gl_screen_nth(source, destination, writer, render, 1);}
+
+// The default is to save the whole image losslessly.
+template<class Render> void gl_screen_first(
+    const lazy_window& source, std::string_view destination, Render render
+) {gl_screen_first(source, destination, image::format::png::writer{}, render);}
 #+end_src
-#+depends:gl_screen_first :noweb gl_screen_nth lazy_window
+#+depends:gl_screen_first :noweb gl_screen_nth image/format/png

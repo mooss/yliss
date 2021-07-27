@@ -622,7 +622,12 @@ And not the other way around.
 * OpenGL primitives examples
 
 All the examples below are adapted from the excellent OpenGL tutorial at =learnopengl.com=.
-A screenshot of the scene is saved and generated with each example to give an idea of what the result looks like.
+Screenshots of the scenes can be saved as a 720p png with the help of this code block (and =gl_screen_first=):
+#+name: png720p
+#+begin_src cpp
+image::format::png::writer png720p(image::resize{1280, 720});
+#+end_src
+#+depends:png720p :noweb image/format/png image/resize
 
 ** Drawing plain figures
 
@@ -661,7 +666,7 @@ The screen-capturing game loop function of [[window.org]] is put to good use to:
  - Setup a game loop using the given lambda.
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices")>>
+<<include(":noweb print lazy_window gl_screen_first VAO shader_program vec_vertices png720p")>>
 
 int main(){
     const char *vs_str =
@@ -680,7 +685,7 @@ int main(){
          0.0,  0.5, 0.0
     }, {3});
 
-    gl_screen_first(lazy, "images/screencaps/triangle_vertices.png", [&]{
+    gl_screen_first(lazy, "images/screencaps/triangle_vertices.png", png720p, [&]{
         basic_shader.use();
         triangle_vao.bind();
         triangle.draw();
@@ -699,7 +704,7 @@ int main(){
 Same thing as above, except we use =indexes= (and therefore =EBO=) as well as =vertices= to draw the two triangles forming a rectangle.
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices vec_indexes")>>
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices vec_indexes png720p")>>
 
 int main(){
     const char *vs_str =
@@ -723,7 +728,7 @@ int main(){
             1, 2, 3  // Second triangle.
     });
 
-    gl_screen_first(lazy, "images/screencaps/rectangle_indexes.png", [&]{
+    gl_screen_first(lazy, "images/screencaps/rectangle_indexes.png", png720p, [&]{
         basic_shader.use();
         rectangle_vao.bind();
         rectangle_indexes.draw();
@@ -760,7 +765,7 @@ void main() {
 The OpenGL program below is based on the =vertices= drawing program above and uses a =uniform_4f= to update the value of =color_cpu= every time a frame is drawn.
 
 #+begin_src cpp :eval no-export :exports both 
-<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices uniform_4f :cpp cmath")>>
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices uniform_4f png720p :cpp cmath")>>
 
 int main(){
     const char *vs_str =
@@ -780,7 +785,7 @@ int main(){
          0.0,  0.5, 0.0
     }, {3});
 
-    gl_screen_first(lazy, "images/screencaps/shifting_color.png", [&]{
+    gl_screen_first(lazy, "images/screencaps/shifting_color.png", png720p, [&]{
         float green = sin(glfwGetTime() * 3) * .07f + .75f;
         shifting_shader.use();
         color_cpu.send(.1, green, .8, 1.);
@@ -835,7 +840,7 @@ This means that two vertex attributes composed of 3 elements are defined next to
 The first one at location 0 is handled as the position in the vertex shader, whereas the second one at location 1 is handled as the color.
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices")>>
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices png720p")>>
 
 int main(){
     const char *vs_str =
@@ -858,7 +863,7 @@ int main(){
         {  3 /* Positions */,   3 /* Colors   */  }
     );
 
-    gl_screen_first(lazy, "images/screencaps/color_as_attribute.png", [&]{
+    gl_screen_first(lazy, "images/screencaps/color_as_attribute.png", png720p, [&]{
         basic_shader.use();
         triangle_vao.bind();
         triangle.draw();
@@ -1024,7 +1029,7 @@ const char *vs_str =
 const char *fs_str =
     <<shader("color_as_attribute_fs")>>
     ;
-<<include(":noweb colorful-example transform transform_uniform gl_screen_first")>>
+<<include(":noweb colorful-example transform transform_uniform gl_screen_first png720p")>>
 
 int main() {
     colorful_shader.use();
@@ -1035,7 +1040,7 @@ int main() {
         "transformation", colorful_shader
     );
 
-    gl_screen_first(lazy, "images/screencaps/cube_transformation.png", [&]{
+    gl_screen_first(lazy, "images/screencaps/cube_transformation.png", png720p, [&]{
         colorful_shader.use();
         colorful_vao.bind();
         colorful_indexes.draw();
@@ -1205,10 +1210,10 @@ const char *vs_str =
 const char *fs_str =
     <<shader("color_as_attribute_fs")>>
     ;
-<<include(":noweb colorful-viper-example gl_screen_first")>>
+<<include(":noweb colorful-viper-example gl_screen_first png720p")>>
 
 int main() {
-    gl_screen_first(lazy, "images/screencaps/cc_model_view_projection.png", [&]{
+    gl_screen_first(lazy, "images/screencaps/cc_model_view_projection.png", png720p, [&]{
         colorful_shader.use();
         colorful_vao.bind();
         colorful_indexes.draw();

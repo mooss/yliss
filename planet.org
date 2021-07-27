@@ -258,6 +258,10 @@ void render_octasierp(
     const shader_sources& sources, const other_args& args,
     LambdaPreRender prerender, LambdaRender render
 ) {
+    using namespace compose;
+    using namespace image;
+    using namespace image::format;
+
     lazy_window lazy(args.title);
     orbital_camera tmp_cam(
         {0, 0, 0}, args.camdist,
@@ -281,13 +285,18 @@ void render_octasierp(
     auto wrapped_render = [&]{render(state);};
     if(args.screenshot == nullptr)
         lazy.game_loop(wrapped_render);
-    else
-        gl_screen_first(lazy, args.screenshot, wrapped_render);
+    else {
+        auto image_writer = deduce<90>::writer(square_crop{} | resize{720, 720});
+        gl_screen_first(lazy, args.screenshot, image_writer, wrapped_render);
+    }
 }
 } // namespace render_octasierp_impl
 using render_octasierp_impl::render_octasierp;
 #+end_src
-#+depends:render_octasierp :noweb orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first :cpp vector glm/glm.hpp
+#+depends:render_octasierp :noweb orbital_camera lazy_window shader_unit transform to_span/glm sync_window_size gl_screen_first compose image/square_crop image/resize image/format/deduce :cpp vector glm/glm.hpp
+
+The screenshot format is deduced from the extension because while I prefer to save space with jpeg, some images have very visible jpeg artefacts.
+Those are saved as png.
 
 *** Baseline pre-render and render functions 
 
@@ -1085,7 +1094,7 @@ int main() {
          <<graphics(":noweb color_as_attribute_fs :c-string")>>},
         {.vertices=mesh.vertices, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
-         .screenshot="images/screencaps/gfgocta_deg8_triangles.png",
+         .screenshot="images/screencaps/gfgocta_deg8_triangles.jpg",
          .title="Midpoint-displaced height-colored pseudo-spherical octasierp"},
         nothing, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
@@ -1094,7 +1103,7 @@ int main() {
 
 #+RESULTS:
 :results:
-[[file:images/screencaps/gfgocta_deg8_triangles.png]]
+[[file:images/screencaps/gfgocta_deg8_triangles.jpg]]
 :end:
 
 
@@ -1315,7 +1324,7 @@ int main() {
          <<self(":noweb phong_fs :c-string")>>},
         {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
-         .screenshot="images/screencaps/gfgocta_phong.png",
+         .screenshot="images/screencaps/gfgocta_phong.jpg",
          .title="Midpoint-displaced height-colored pseudo-spherical Phong-shaded octasierp"},
         prerender_phong, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
@@ -1324,7 +1333,7 @@ int main() {
 
 #+RESULTS:
 :results:
-[[file:images/screencaps/gfgocta_phong.png]]
+[[file:images/screencaps/gfgocta_phong.jpg]]
 :end:
 
 
@@ -1400,7 +1409,7 @@ int main() {
          <<self(":noweb phong_fs :c-string")>>},
         {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
          .camlong=6, .camlat=6,
-         .screenshot="images/screencaps/gfgocta_phong_surface-waters_spherical.png",
+         .screenshot="images/screencaps/gfgocta_phong_surface-waters_spherical.jpg",
          .title="Midpoint-displaced height-colored pseudo-spherical surface-watered Phong-shaded octasierp"},
         prerender_phong, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
@@ -1409,7 +1418,7 @@ int main() {
 
 #+RESULTS:
 :results:
-[[file:images/screencaps/gfgocta_phong_surface-waters_spherical.png]]
+[[file:images/screencaps/gfgocta_phong_surface-waters_spherical.jpg]]
 :end:
 
 It also works for octahedral repartition:
@@ -1435,7 +1444,7 @@ int main() {
          <<self(":noweb phong_fs :c-string")>>},
         {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
          .camdist=2.8, .camlong=6, .camlat=6,
-         .screenshot="images/screencaps/gfgocta_phong_surface-waters_octahedral.png",
+         .screenshot="images/screencaps/gfgocta_phong_surface-waters_octahedral.jpg",
          .title="Midpoint-displaced height-colored octahedral surface-watered Phong-shaded octasierp"},
         prerender_phong, drawspin{.angle=.005, .axis={0, 1, 1}}
     );
@@ -1444,7 +1453,7 @@ int main() {
 
 #+RESULTS:
 :results:
-[[file:images/screencaps/gfgocta_phong_surface-waters_octahedral.png]]
+[[file:images/screencaps/gfgocta_phong_surface-waters_octahedral.jpg]]
 :end:
 
 
