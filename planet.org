@@ -344,14 +344,16 @@ struct constant_elevation {
 };
 #+end_src
 
-*** RM5CY coloration
+*** RM5CY_BNWS coloration
+
 
 This coloration policy consists of using a red to magenta to cyan (5 times) to yellow gradient to color the vertices in their order of storage.
+The north and south pole are respectively colored in black and white to make them stand out.
 This slightly convoluted color scheme was chosen because a simpler one looks like a swastika when rendered with a squarenet repartition.
 
-#+name: rm5cy_coloration
+#+name: rm5cy_bnws_coloration
 #+begin_src cpp :minipage
-struct rm5cy_coloration {
+struct rm5cy_bnws_coloration {
     template<class Octaform>
     void fill_colors(Octaform& ofo) {
         rgb_interpolation<segarray, 8> gradient{
@@ -364,13 +366,18 @@ struct rm5cy_coloration {
             0, 1, 1, // Cyan.
             1, 1, 0, // Yellow.
         };
+
         auto end = ofo.point_cardinality();
         for(std::size_t i = 0; i < end; ++i)
             gradient.fill(ofo.color_span(i), i, end);
+
+        auto pole = ofo.color_span(0); pole[0] = 0; pole[1] = 0; pole[2] = 0;
+        pole      = ofo.color_span(1); pole[0] = 1; pole[1] = 1; pole[2] = 1;
     }
 };
 #+end_src
-#+depends:rm5cy_coloration :noweb rgb_interpolation segarray
+#+depends:rm5cy_bnws_coloration :noweb rgb_interpolation segarray
+
 
 *** Squarenet repartition
 
@@ -465,14 +472,14 @@ No custom shaders are needed for rendering, =graphics.org= already defines a ver
 
 Constructing a mesh is now simply a matter of calling =grow_octasierp= with the desired policies:
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb grow_octasierp constant_elevation rm5cy_coloration squarenet_repartition render_octasierp thick_lines drawspin")>>
+<<include(":noweb grow_octasierp constant_elevation rm5cy_bnws_coloration squarenet_repartition render_octasierp thick_lines drawspin")>>
 
 int main(){
     std::size_t degree = 3;
     auto mesh = grow_octasierp(
         degree,
         constant_elevation{0},
-        rm5cy_coloration{},
+        rm5cy_bnws_coloration{},
         squarenet_repartition{}
     );
 
@@ -506,24 +513,7 @@ It doesn't have this unfortunate look but still illustrates the point ordering a
 
 ** Colored octasierp
 
-The policies implemented in this section will allow us to render an octasierp in three dimensions, as if the final rendering from the previous section was folded in 3d.
-
-*** RM5CY_BNWS coloration
-
-This coloration is the same as the RM5CY, except for the north and south poles, which are respectively colored in black and white, to make the north/south axis stand out.
-
-#+name: rm5cy_bnws_coloration
-#+begin_src cpp :minipage
-struct rm5cy_bnws_coloration {
-    template<class Octaform>
-    void fill_colors(Octaform& ofo) {
-        rm5cy_coloration{}.fill_colors(ofo);
-        auto pole = ofo.color_span(0); pole[0] = 0; pole[1] = 0; pole[2] = 0;
-        pole      = ofo.color_span(1); pole[0] = 1; pole[1] = 1; pole[2] = 1;
-    }
-};
-#+end_src
-#+depends:rm5cy_bnws_coloration :noweb rm5cy_coloration
+The policies implemented in this section will allow us to render an octasierp in three dimensions, as if the render from the previous section was folded in 3d.
 
 *** Generic index computation
 
