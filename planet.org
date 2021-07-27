@@ -595,14 +595,11 @@ apply<ForeverySubdivision>(ofo.degree, [&spanindex](auto& midpoint, const auto& 
 #+end_src
 
 In the second phase, the actual heights are applied to the octahedral shape.
-The naïve implementation below will probably need some adjustment to properly work with non-constant height.
 #+begin_src cpp :noweb-ref octahedral_repartition/fill_positions :minipage
 auto end = size(ofo);
 for(std::size_t i = 0; i < end; ++i) {
     dest = ofo.position_ptr(i);
     auto height = ofo.height(i);
-    // auto normalised = glm::normalize(*reinterpret_cast<glm::vec<3, float, glm::packed_highp>*>(dest));
-    // dest[0] *= normalised.x;
     dest[0] *= height; dest[1] *= height; dest[2] *= height;
 }
 #+end_src
