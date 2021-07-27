@@ -1336,10 +1336,10 @@ The goal of this section is to make the octasierp look more like a planet by kee
 
 The trick used to implement surface waters is to change the behaviour of a given type by inheriting from it and highjacking the method encoding said behaviour.
 
-First, =surface_waters_octaform= highjacks the original =octaform= so that its height method never returns less than the sea level:
+First, =regular= highjacks the original =octaform= so that its height method never returns less than the sea level:
 #+begin_src cpp :noweb-ref surface_waters_impl/scope
 template<class Octaform>
-struct surface_waters_octaform: public Octaform {
+struct regular: public Octaform {
     using height_type = typename Octaform::height_type;
     height_type height(auto index) const {
         height_type result = Octaform::height(index);
@@ -1350,16 +1350,16 @@ struct surface_waters_octaform: public Octaform {
 };
 #+end_src
 
-Then, =surface_waters= highjacks the repartition policy so that its =fill_position= consumes the =octaform= wrapped by =surface_waters_octaform=:
+Then, =surface_waters= highjacks the repartition policy so that its =fill_position= consumes the =octaform= wrapped by =regular=:
 #+begin_src cpp :noweb-ref surface_waters_impl/scope
-template<class Repartition>
+template<class Repartition, template <class> class Wrapper=regular>
 struct surface_waters: public Repartition {
     surface_waters(const Repartition& rep):
         Repartition(rep)
     {}
 
     template<class Octaform> void fill_positions(Octaform& ofo) {
-        Repartition::fill_positions(*reinterpret_cast<surface_waters_octaform<Octaform>*>(&ofo));
+        Repartition::fill_positions(*reinterpret_cast<Wrapper<Octaform>*>(&ofo));
     }
 };
 #+end_src
@@ -1374,7 +1374,6 @@ namespace surface_waters_impl {
 } // namespace surface_waters_impl
 using surface_waters_impl::surface_waters;
 #+end_src
-#+depends:surface_waters :cpp utility
 
 *** Rendering
 
