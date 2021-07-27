@@ -1457,3 +1457,137 @@ int main() {
 :end:
 
 
+** Cel shading
+
+This is an attempt at cel-shaded rendering of a planet.
+Outlines are not implemented yet.
+
+*** Water surface perturbation
+
+When the water is perfectly at the surface level, the specularity component is much too regular and visible, ruining the image.
+The solution to this is to keep some roughness in the water surface, rather than making it completely spherical.
+
+The precise implementation trick used here is to divide by a constant factor the height difference a given point has with the sea height, rather than simply returning the sea height.
+
+#+name: bumpy_surface_waters
+#+begin_src cpp
+namespace bumpy_surface_waters_impl {
+template<int Divider>
+struct divider {
+    template<class Octaform>
+    struct bumpy: public Octaform {
+        using height_type = typename Octaform::height_type;
+        height_type height(auto index) const {
+            height_type result = Octaform::height(index);
+            if(result < Octaform::stats.sea_height) {
+                return Octaform::stats.sea_height + (Octaform::stats.sea_height - result) / Divider;
+            }
+            return result;
+        }
+    };
+};
+}
+template<int Divider>
+struct bumpy {
+    template<class Repartition>
+    using surface_waters = surface_waters<Repartition, bumpy_surface_waters_impl::divider<Divider>::template bumpy>;
+};
+#+end_src
+#+depends:bumpy_surface_waters :noweb surface_waters
+
+*** Brightness step
+
+Part of the cartoon effect of cel shading is achieved by using stepped levels of brightness.
+This is handled here by two functions, one for the diffuse component, the other for the specular component.
+
+#+name: gl-cel_step_diffuse
+#+begin_src glsl
+float cel_step_diffuse(float brightness) {
+    if(brightness < .6) {
+        if(brightness < .3)    brightness = ambient_strength;
+        else                   brightness = .4;
+    } else if(brightness < .9) brightness = .75;
+    else                       brightness = 1;
+    return brightness;
+}
+#+end_src
+
+The step function for the specular component is not continuous for the most luminous values.
+This is not much different but I like it this way.
+
+#+name: gl-cel_step_specular
+#+begin_src glsl
+float cel_step_specular(float brightness) {
+    if(brightness < .3)      brightness = 0;
+    else if(brightness < .7) brightness = .4;
+    return brightness;
+}
+#+end_src
+
+*** Fragment shader
+
+The specular component renders much better when just ignoring the color of the fragment.
+
+The ambient component, though not present explicitely, is represented by virtue of =ambient_strength= being the absolute minimal value of =cel_step_diffuse=.
+
+#+name: cel_fs
+#+begin_src glsl
+#version 330 core
+out vec4 color_out;
+in vec3 position_fs;
+in vec3 color_fs;
+in vec3 normal_fs;
+
+uniform vec3 light_color = vec3(1, 1, 1);
+uniform vec3 light_position = vec3(6, 5, -2);
+uniform float ambient_strength = .1;
+
+// For specular only.
+uniform vec3 camera_position;
+uniform float specular_strength = .8;
+uniform float specular_exponent = 128;
+
+<<include(":noweb gl-diffuse gl-specular gl-cel_step_diffuse gl-cel_step_specular")>>
+
+void main() {
+    color_out = vec4(cel_step_diffuse(diffuse()) * color_fs * light_color
+                     + cel_step_specular(specular()) * light_color, 1);
+}
+#+end_src
+
+*** Rendering
+
+#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c :tangle cel.cpp
+<<include(":noweb print grow_octasierp midpoint_elevation height_coloration gfg_color_scheme bumpy_surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
+
+int main() {
+    std::size_t degree = 8;
+    auto mesh = grow_octasierp(
+        degree,
+        midpoint_elevation{{.init_degree=3}},
+        height_coloration{gfg_color_scheme},
+        bumpy<6>::surface_waters(spherical_repartition{}),
+        {.vertex_size=9, .sea_level=.6}
+    );
+
+    fill_octasierp_normals(mesh, 6);
+
+    render_octasierp(
+        {.vertex =
+         <<self(":noweb phong_vs :c-string")>>,
+         .fragment =
+         <<self(":noweb cel_fs :c-string")>>},
+        {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
+         // camlong is less than usual to focus the specular component on a more interesting spot.
+         .camlong=-6, .camlat=6,
+         .screenshot="images/screencaps/gfgocta_cel_without_outlines.jpg",
+         .title="Cel shading without outlines"},
+        prerender_phong, drawspin{.angle=.003, .axis={0, 1, 1}}
+    );
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/gfgocta_cel_without_outlines.jpg]]
+:end:
