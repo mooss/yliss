@@ -1227,30 +1227,39 @@ vec3 surface_to_light = normalize(light_position - position_fs);
 The ambient, diffuse and specular components are defined as functions:
 #+name: gl-ambient
 #+begin_src glsl
-vec3 ambient() {
-    return ambient_strength * light_color;
+float ambient() {
+    return ambient_strength;
 }
 #+end_src
 
 #+name: gl-diffuse
 #+begin_src glsl
-vec3 diffuse() {
-    float diffuse_brightness = max(dot(normal, surface_to_light), 0);
-    return diffuse_brightness * light_color;
+float diffuse() {
+    return max(dot(normal, surface_to_light), 0);
 }
 #+end_src
 #+depends:gl-diffuse :noweb gl-normal gl-surface_to_light
 
 #+name: gl-specular
 #+begin_src glsl
-vec3 specular() {
+float specular() {
     vec3 surface_to_camera = normalize(camera_position - position_fs);
     vec3 reflection_dir = reflect(-surface_to_light, normal);
     float specular_coeff = pow(max(dot(surface_to_camera, reflection_dir), 0), specular_exponent);
-    return specular_strength * specular_coeff * light_color;
+    return specular_strength * specular_coeff;
 }
 #+end_src
 #+depends:gl-specular :noweb gl-surface_to_light gl-normal
+
+It bothers me that, when summed, the ambient and diffuse brightness can go above 1 (when $diffuse > 1 - ambient\_strength$).
+Even though this is not a concern I have seen elsewhere, I've made the =amfuse= function to combine diffuse and ambient in a way that cannot go above 1.
+#+name: gl-amfuse
+#+begin_src cpp
+float amfuse() {
+    return ambient_strength + (1 - ambient_strength) * diffuse();
+}
+#+end_src
+#+depends:gl-amfuse :noweb gl-diffuse
 
 To work properly, the final fragment shader must define all the necessary global variables:
 #+name: phong_fs
@@ -1264,14 +1273,14 @@ in vec3 normal_fs;
 uniform vec3 light_color = vec3(1, 1, 1);
 uniform vec3 light_position = vec3(6, 5, -2);
 uniform vec3 camera_position;
-uniform float ambient_strength = .085;
+uniform float ambient_strength = .07;
 uniform float specular_strength = .5;
 uniform float specular_exponent = 64;
 
-<<include(":noweb gl-ambient gl-diffuse gl-specular")>>
+<<include(":noweb gl-amfuse gl-specular")>>
 
 void main() {
-    color_out = vec4((ambient() + diffuse() + specular()) * color_fs, 1);
+    color_out = vec4((amfuse() + specular()) * color_fs * light_color, 1);
 }
 #+end_src
 
