@@ -242,7 +242,7 @@ struct other_args {
     mandatory<const std::vector<float>&> vertices;
     std::vector<unsigned int> layout = {3, 3};
     mandatory<const std::vector<unsigned int>&> indexes;
-    float scale=.6; float camlong=0; float camlat=0;
+    float scale=1; float camdist=3; float camlong=0; float camlat=0;
     glm::vec3 up={0, 0, 1};
     const char* screenshot=nullptr;
     const char* title="Octasierp rendering";
@@ -260,7 +260,7 @@ void render_octasierp(
 ) {
     lazy_window lazy(args.title);
     orbital_camera tmp_cam(
-        {0, 0, 0}, 2, // Pointed at the origin, at a distance of 2.
+        {0, 0, 0}, args.camdist,
         args.camlong, args.camlat, args.up
     );
     render_state state{
@@ -489,7 +489,7 @@ int main(){
          .fragment =
          <<graphics(":noweb color_as_attribute_fs :c-string")>>},
         {.vertices=mesh.vertices, .indexes=mesh.indexes,
-        .scale=1.2, .camlong=90, .camlat=0, .up={0, 1, 0},
+        .camdist=1.62, .camlong=90, .camlat=0, .up={0, 1, 0},
         .screenshot="images/screencaps/gradient_squarenet.png",
         .title="Colored octanet"},
         thick_lines, drawspin{.axis={0, 1, 0}}
@@ -1435,7 +1435,7 @@ int main() {
          .fragment =
          <<self(":noweb phong_fs :c-string")>>},
         {.vertices=mesh.vertices, .layout={3, 3, 3}, .indexes=mesh.indexes,
-         .camlong=6, .camlat=6,
+         .camdist=2.8, .camlong=6, .camlat=6,
          .screenshot="images/screencaps/gfgocta_phong_surface-waters_octahedral.png",
          .title="Midpoint-displaced height-colored octahedral surface-watered Phong-shaded octasierp"},
         prerender_phong, drawspin{.angle=.005, .axis={0, 1, 1}}
