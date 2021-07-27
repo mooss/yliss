@@ -699,11 +699,13 @@ class spherical_converter {
 =convert_raw_quarter0= converts octasierp coordinates to spherical coordinates for quarter 0 only.
 
 The distance from the north pole corresponds to the slice number (lines parallel to the equator), which can be converted to the =polar= coordinate using the principle that the first slice corresponds to a polar value of $0\ rad$ and the last slice to a polar value of $\pi\ rad$.
+
 In a similar way, the azimuth corresponds to the angle from the north pole, with the following angles:
  - $0\ rad$ to corner 0.
  - $\frac{\pi}{2}\ rad$ to corner 1.
  - $\pi\ rad$ to corner 2.
  - $\frac{3 \pi}{2}\ rad$ to corner 3.
+The azimuth value is a bit more difficult to compute but it essentially boils down to answering the question "how far on its slice is this point located?".
 
 The =polar= and =azimuth= values will be multiplied by $\pi$ and $\frac{\pi}{2}$ later because it is easier this way.
 
@@ -712,29 +714,23 @@ spherical_coordinates convert_raw_quarter0(int abs_x, int abs_y) const {
     // Expects both coordinates to be absolute values, since this is quarter 0.
     spherical_coordinates result;
     int slice = abs_x + abs_y;
-    // out("[", abs_x, ", ", abs_y, "]");
-    // out(" slice ", slice);
-    if(slice >= mid_slice) { // Replace southern hemisphere with northern hemisphere equivalent.
-        // out(" > ", mid_slice);
+    result.polar = float(slice) / max_slice;
+
+    if(slice > mid_slice) { // Replace southern hemisphere with northern hemisphere equivalent.
         abs_x = mid_slice - abs_x;
         abs_y = mid_slice - abs_y;
         std::swap(abs_x, abs_y);
-        // out(" equiv northern: [", abs_x, ", ", abs_y, "]");
-    } // else out(" <= ", mid_slice);
+        slice = max_slice - slice;
+    }
 
     if(abs_x >= abs_y) {
-        // out(" first azimuth");
         if(abs_x == 0)
             result.azimuth = 0;
         else
-            result.azimuth = float(abs_y) / (2 * abs_x);
-    } else {
-        // out(" second azimuth");
-        result.azimuth = 1 - float(abs_x) / (2 * abs_y);
-    }
+            result.azimuth = float(abs_y) / slice;
+    } else
+        result.azimuth = 1 - float(abs_x) / slice;
 
-    result.polar = float(slice) / max_slice;
-    // out(" ", result, "\n");
     return result;
 }
 #+end_src
@@ -816,9 +812,6 @@ int main() {
 :results:
 [[file:images/screencaps/spherical_octasierp.png]]
 :end:
-
-As can be seen in the picture above, this way of transforming coordinates is flawed because the lines are squished around the four corners.
-I kinda like the effect though.
 
 
 * Midpoint displacement and height coloration
