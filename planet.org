@@ -103,7 +103,7 @@ std::size_t vertex_size = 6;
 Below is the outline of the actual implementation.
 The =HeightGetter= is deliberately moved because it can amount to a wrapped vector of heights, which would be costly to copy.
 #+begin_src cpp :noweb-ref octaform/impl :minipage
-template<class HeightGetter>
+template<class HeightGetter, template <std::size_t> class... SubVertices>
 class octaform: public octaform_base {
     HeightGetter height_;
   public:
@@ -125,12 +125,12 @@ class octaform: public octaform_base {
     <<octaform/public>>
 };
 #+end_src
-#+depends:octaform :noweb pointless_octasierp :cpp vector span utility
+#+depends:octaform :noweb pointless_octasierp meta::list meta::cat meta::steal dynasty :cpp vector span utility
 
-*** Sub-vertices getters
+*** Sub-vertices
 
-The methods ending with =ptr= and =span= serve to access the sub-vertices, with position and color being hardcoded as the first two sub-vertices:
-#+begin_src cpp :noweb-ref octaform/public
+The methods below will be used by the different sub-vertices to access to the relevant parts of vertices.
+#+begin_src cpp :noweb-ref octaform/public :minipage
 // Static ptr and span getters.
 template<std::size_t Offset>
 auto offset_ptr(auto index) {
@@ -141,11 +141,6 @@ template<std::size_t SpanSize, std::size_t Offset>
 auto offset_span(auto index) {
     return std::span<float, SpanSize>(offset_ptr<Offset>(index), SpanSize);
 }
-
-auto position_ptr(auto index) {return offset_ptr<0>(index);}
-auto color_ptr(auto index)    {return offset_ptr<3>(index);}
-auto position_span(auto index) {return offset_span<3, 0>(index);}
-auto color_span(auto index)    {return offset_span<3, 3>(index);}
 
 // Dynamic ptr and span getters.
 auto offset_ptr(auto index, auto offset) {
@@ -191,13 +186,90 @@ To summarise the role of =octaform=, here is a short list of what it will make a
  - All the interface of =pointless_octasierp= (via inheritance).
  - Whatever is inside =planet_properties= (via =.properties=).
  - The height associated with a given point (via =.height=).
- - A pointer and a span to a given sub-vertex (via the =*_ptr= and =*_span= methods).
+ - A pointer and a span to the desired offseted vertex (via the =offset_ptr= and =offset_span= methods).
  - Some statistics (via =.stats=).
 
 The only exception to this is, as stated above, the elevation policy that only gets access to what is in the base implementation (that is to say the first two points).
 
 Also note that while technically policies can directly access vertices and indexes, they are not supposed to.
 I'm not a fan of using encapsulation when it would make both the implementation and the usage inconvenient so I prefer to leave those attributes public.
+
+
+** Sub-vertices specification
+
+Sub-vertices can be defined via the template arguments of an octaform.
+The idea is to be able to reuse the octaform class using completely different data layouts.
+
+*** Instantiation
+
+Instantiation of sub-vertices occurs in the octaform itself.
+It consists of transforming the sub-vertices specification into a dynastic type with an octaform founder.
+That is to say, a type who will inherit from octaform as well as from all sub-vertices.
+It will therefore have access to all octaform methods and to all the methods provided by the sub-vertices.
+
+The most important parts of this code are:
+ - =impl= :: The actual type of the octaform.
+ - =vertex_size= :: The total size of a vertex, computed from the sizes of the individual sub-vertices.
+
+#+begin_src cpp :noweb-ref octaform/public :minipage
+template<std::size_t Offset, template <std::size_t> class... SubVertices2>
+struct instantiate;
+
+template<std::size_t Offset, template <std::size_t> class SubVertex>
+struct instantiate<Offset, SubVertex> {
+    using type = SubVertex<Offset>;
+    using list = meta::list<type>;
+    static constexpr std::size_t vertex_size = Offset + type::size;
+};
+
+template<
+    std::size_t Offset,
+    template <std::size_t> class Head,
+    template <std::size_t> class... Tail
+> struct instantiate<Offset, Head, Tail...> {
+    using up_ = instantiate<Offset + Head<0>::size, Tail...>;
+    using type = Head<Offset>;
+    using list = meta::cat<type, typename up_::list>;
+};
+
+using instantiated = instantiate<0, SubVertices...>;
+using impl = meta::steal<dynasty, meta::cat<octaform, typename instantiated::list>>;
+static constexpr std::size_t vertex_size = instantiated::vertex_size;
+#+end_src
+
+*** Color and position
+
+The color and position sub-vertices have the same size, they only differ in the name of their methods.
+
+#+name: subvertex/rgb
+#+begin_src cpp :minipage
+namespace subvertex {
+template<std::size_t Offset>
+struct rgb {
+    static constexpr std::size_t size = 3;
+    static constexpr std::size_t rgb_offset = Offset;
+    template<class Octaform> struct heir: Octaform {
+        auto rgb_ptr(std::size_t index) {return offset_ptr<Offset>(index);}
+        auto rgb_span(std::size_t index) {return offset_span<size, Offset>(index);}
+    };
+};
+}
+#+end_src
+
+#+name: subvertex/pos_3d
+#+begin_src cpp :minipage
+namespace subvertex {
+template<std::size_t Offset>
+struct pos_3d {
+    static constexpr std::size_t size = 3;
+    template<class Octaform> struct heir: Octaform {
+        static constexpr std::size_t position_offset = Offset;
+        auto position_ptr(std::size_t index) {return offset_ptr<Offset>(index);}
+        auto position_span(std::size_t index) {return offset_span<size, Offset>(index);}
+    };
+};
+}
+#+end_src
 
 
 ** Octasierp growth function
@@ -214,7 +286,9 @@ auto grow_octasierp(
     const planet_properties& properties=planet_properties{}
 ) {
     octaform_base base(degree, properties);
-    octaform ofo(base, elevation(base));
+    using namespace subvertex;
+    using actual_octaform = typename octaform<decltype(elevation(base)), pos_3d, rgb>::impl;
+    actual_octaform ofo({base, elevation(base)});
 
     ofo.vertices.resize(repartition.size(ofo) * properties.vertex_size, -999999.f);
     coloration.fill_colors(ofo);
@@ -225,7 +299,7 @@ auto grow_octasierp(
 } // namespace octaform_impl
 using octaform_impl::grow_octasierp;
 #+end_src
-#+depends:grow_octasierp :noweb octaform :cpp utility
+#+depends:grow_octasierp :noweb octaform subvertex/pos_3d subvertex/rgb :cpp utility
 
 This implementation de-facto defines the interfaces of the elevation, coloration and repartition policies.
 
@@ -378,15 +452,14 @@ struct rm5cy_bnws_coloration {
 
         auto end = ofo.point_cardinality();
         for(std::size_t i = 0; i < end; ++i)
-            gradient.fill(ofo.color_span(i), i, end);
+            gradient.fill(ofo.rgb_span(i), i, end);
 
-        auto pole = ofo.color_span(0); pole[0] = 0; pole[1] = 0; pole[2] = 0;
-        pole      = ofo.color_span(1); pole[0] = 1; pole[1] = 1; pole[2] = 1;
+        auto pole = ofo.rgb_span(0); pole[0] = 0; pole[1] = 0; pole[2] = 0;
+        pole      = ofo.rgb_span(1); pole[0] = 1; pole[1] = 1; pole[2] = 1;
     }
 };
 #+end_src
 #+depends:rm5cy_bnws_coloration :noweb rgb_interpolation segarray
-
 
 *** Squarenet repartition
 
@@ -605,7 +678,7 @@ for(std::size_t i = 0; i < end; ++i) {
 
 *** Rendering
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp constant_elevation rm5cy_bnws_coloration octahedral_repartition render_octasierp thick_lines drawspin")>>
 
 int main() {
@@ -781,7 +854,7 @@ struct spherical_repartition: public octasierp_triangle_indexer {
 
 *** Rendering
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp constant_elevation rm5cy_bnws_coloration spherical_repartition render_octasierp thick_lines drawspin")>>
 
 int main() {
@@ -918,7 +991,7 @@ struct midpoint_elevation {
 
 *** Rendering
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp midpoint_elevation rm5cy_bnws_coloration spherical_repartition render_octasierp thick_lines drawspin")>>
 
 int main() {
@@ -982,9 +1055,9 @@ void height_coloration_octasierp(
     for(std::size_t i = 0; i < end_index; ++i) {
         auto height = ofo.height(i);
         if(height <= ofo.stats.sea_height)
-            below.fill(ofo.color_span(i), height);
+            below.fill(ofo.rgb_span(i), height);
         else
-            above.fill(ofo.color_span(i), height);
+            above.fill(ofo.rgb_span(i), height);
     }
 }
 #+end_src
@@ -1041,7 +1114,7 @@ struct height_coloration {
 *** Rendering
 
 This first rendering uses the same parameter as the previous ones, but with height coloration.
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition render_octasierp thick_lines nothing drawspin")>>
 
 int main() {
@@ -1074,7 +1147,7 @@ int main() {
 
 
 Since height coloration at degree 3 is not very impressive, the code below renders at degree 8, with triangles instead of wireframe and with better midpoint displacement parameters:
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition render_octasierp nothing drawspin")>>
 
 int main() {
@@ -1302,7 +1375,7 @@ auto prerender_phong = [](auto& state) {
 
 The specular component is much too strong and makes the planet looks like it is made of plastic but I love the shinyness of this effect (it's made more obvious by the rotation so it's not as shocking in the capture below).
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme spherical_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
 
 int main() {
@@ -1387,7 +1460,7 @@ using surface_waters_impl::surface_waters;
 *** Rendering
 
 Applying =surface_waters= to the spherical repartition policy makes the rendering look a bit more like a planet:
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
 
 int main() {
@@ -1422,7 +1495,7 @@ int main() {
 :end:
 
 It also works for octahedral repartition:
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c
+#+begin_src cpp :eval no-export :exports both
 <<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme surface_waters octahedral_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
 
 int main() {
@@ -1557,8 +1630,8 @@ void main() {
 
 *** Rendering
 
-#+begin_src cpp :eval no-export :exports both :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c :tangle cel.cpp
-<<include(":noweb print grow_octasierp midpoint_elevation height_coloration gfg_color_scheme bumpy_surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb grow_octasierp midpoint_elevation height_coloration gfg_color_scheme bumpy_surface_waters spherical_repartition fill_octasierp_normals uniform_3f render_octasierp prerender_phong drawspin")>>
 
 int main() {
     std::size_t degree = 8;
