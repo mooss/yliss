@@ -582,6 +582,6 @@ template<class Render, class ImageWriter> void gl_screen_first(
 // The default is to save the whole image losslessly.
 template<class Render> void gl_screen_first(
     const lazy_window& source, std::string_view destination, Render render
-) {gl_screen_first(source, destination, image::format::png::writer{}, render);}
+) {gl_screen_first(source, destination, image::format::png::writer<identity>{}, render);}
 #+end_src
 #+depends:gl_screen_first :noweb gl_screen_nth image/format/png

@@ -625,7 +625,7 @@ All the examples below are adapted from the excellent OpenGL tutorial at =learno
 Screenshots of the scenes can be saved as a 720p png with the help of this code block (and =gl_screen_first=):
 #+name: png720p
 #+begin_src cpp
-image::format::png::writer png720p(image::resize{1280, 720});
+image::format::png::writer<image::resize> png720p(image::resize{1280, 720});
 #+end_src
 #+depends:png720p :noweb image/format/png image/resize
 
@@ -665,6 +665,7 @@ The screen-capturing game loop function of [[window.org]] is put to good use to:
  - Print the capture's filename as an org link.
  - Setup a game loop using the given lambda.
 
+# Red triangle example.
 #+begin_src cpp :eval no-export :exports both
 <<include(":noweb print lazy_window gl_screen_first VAO shader_program vec_vertices png720p")>>
 
