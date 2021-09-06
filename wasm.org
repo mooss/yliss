@@ -1,0 +1,79 @@
+* Prelude
+** About this file
+
+This is an exploration of C++ to WebAssembly compilation aimed at testing whether I could manage to run Yliss in a web browser.
+
+** Compile C++ to LLVM IR
+
+The following code block uses =include.pl= to extract a given code block with its dependencies and feeds it to =clang++=, thus producing LLVM-IR.
+
+#+name: cc-ll
+#+begin_src sh :var block="" language="c++" :results output :wrap "src llvm" :eval no-export
+function die() {
+    echo "$@"
+    exit
+}
+
+if [ -z "$block" ]; then
+    die "; cc-ll must be called with the name of a target block to compile."
+fi
+
+here=$PWD
+tmp=/tmp/litlib-wasm
+mkdir -p $tmp; cd $tmp
+
+source="$block.cpp"; out="$block.ll"
+
+function print_block() {
+    "$here/litlib/include.pl" "$here/wasm.org" ":exit-with-error :noweb $block"
+}
+
+print_block > "$source" || die "; Failed to tangle \`$block\`."
+clang++ --target=wasm32 -emit-llvm -c -S "$source" -x "$language"
+cat "$out"
+#+end_src
+
+* Compiling C++ the hard way
+
+I followed the post https://surma.dev/things/c-to-webassembly/, but using C++ instead of C.
+
+The C++ pseudo-add function does not differ from its C counterpart:
+#+name: bad-add-function
+#+begin_src cpp :name bad-add-function
+int add(int a, int b) {
+    return a * a + b;
+}
+#+end_src
+
+The corresponding LLVM IR can be generated via a call to the =cc-ll= codeblock;
+#+Call: cc-ll("bad-add-function")
+
+#+RESULTS:
+#+begin_src llvm
+; ModuleID = 'bad-add-function.cpp'
+source_filename = "bad-add-function.cpp"
+target datalayout = "e-m:e-p:32:32-i64:64-n32:64-S128"
+target triple = "wasm32"
+
+; Function Attrs: noinline nounwind optnone mustprogress
+define hidden i32 @_Z3addii(i32 %0, i32 %1) #0 {
+  %3 = alloca i32, align 4
+  %4 = alloca i32, align 4
+  store i32 %0, i32* %3, align 4
+  store i32 %1, i32* %4, align 4
+  %5 = load i32, i32* %3, align 4
+  %6 = load i32, i32* %3, align 4
+  %7 = mul nsw i32 %5, %6
+  %8 = load i32, i32* %4, align 4
+  %9 = add nsw i32 %7, %8
+  ret i32 %9
+}
+
+attributes #0 = { noinline nounwind optnone mustprogress "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="generic" "unsafe-fp-math"="false" "use-soft-float"="false" }
+
+!llvm.module.flags = !{!0}
+!llvm.ident = !{!1}
+
+!0 = !{i32 1, !"wchar_size", i32 4}
+!1 = !{!"clang version 12.0.1"}
+#+end_src
