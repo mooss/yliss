@@ -8,7 +8,7 @@ This is an exploration of C++ to WebAssembly compilation aimed at testing whethe
 The following code block uses =include.pl= to extract a given code block with its dependencies and feeds it to =clang++=, thus producing LLVM-IR.
 
 #+name: cc-ll
-#+begin_src sh :var block="" language="c++" :results output :wrap "src llvm :exports both" :eval no-export :exports code
+#+begin_src sh :var block="" language="c++" :results output :wrap src llvm :eval no-export :exports code
 function die() {
     echo "$@"
     exit
@@ -46,10 +46,10 @@ int add(int a, int b) {
 #+end_src
 
 The corresponding LLVM IR can be generated via a call to the =cc-ll= codeblock;
-#+Call: cc-ll("bad-add-function")
+#+Call: cc-ll("bad-add-function") :exports results
 
 #+RESULTS:
-#+begin_src llvm :exports both
+#+begin_src llvm
 ; ModuleID = 'bad-add-function.cpp'
 source_filename = "bad-add-function.cpp"
 target datalayout = "e-m:e-p:32:32-i64:64-n32:64-S128"
