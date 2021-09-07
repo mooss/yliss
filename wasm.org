@@ -39,7 +39,7 @@ I followed the post https://surma.dev/things/c-to-webassembly/, but using C++ in
 
 The C++ pseudo-add function does not differ from its C counterpart:
 #+name: bad-add-function
-#+begin_src cpp :name bad-add-function
+#+begin_src cpp
 int add(int a, int b) {
     return a * a + b;
 }
