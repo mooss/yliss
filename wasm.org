@@ -5,32 +5,38 @@ This is an exploration of C++ to WebAssembly compilation aimed at testing whethe
 
 ** Compile C++ to LLVM IR
 
-The following code block uses =include.pl= to extract a given code block with its dependencies and feeds it to =clang++=, thus producing LLVM-IR.
-
-#+name: cc-ll
-#+begin_src sh :var block="" language="c++" :results output :wrap src llvm :eval no-export :exports code
+The following code uses =include.pl= to extract a given code block with its dependencies and save it into a temporary file:
+#+name: tangle-to-file
+#+begin_src bash
 function die() {
     echo "$@"
     exit
 }
 
 if [ -z "$block" ]; then
-    die "; cc-ll must be called with the name of a target block to compile."
+    die "; missing block name to process."
 fi
 
 here=$PWD
-tmp=/tmp/litlib-wasm
-mkdir -p $tmp; cd $tmp
+tmp=/tmp/litlib-tangle
+rm $tmp -fr; mkdir -p $tmp; cd $tmp
 
-source="$block.cpp"; out="$block.ll"
+source="$block.cpp";
 
 function print_block() {
     "$here/litlib/include.pl" "$here/wasm.org" ":exit-with-error :noweb $block"
 }
 
 print_block > "$source" || die "; Failed to tangle \`$block\`."
+#+end_src
+
+
+This temporary file can then be fed to =clang++=, thus producing LLVM-IR.
+#+name: cc-ll
+#+begin_src sh :var block="" language="c++" :results output :wrap src llvm :eval no-export :noweb yes
+<<tangle-to-file>>
 clang++ --target=wasm32 -emit-llvm -c -S "$source" -x "$language"
-cat "$out"
+cat "$block.ll"
 #+end_src
 
 * Compiling C++ the hard way
@@ -46,7 +52,7 @@ int add(int a, int b) {
 #+end_src
 
 The corresponding LLVM IR can be generated via a call to the =cc-ll= codeblock;
-#+Call: cc-ll("bad-add-function") :exports results
+#+Call: cc-ll("bad-add-function")
 
 #+RESULTS:
 #+begin_src llvm
