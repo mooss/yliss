@@ -3,9 +3,8 @@
 
 This is an exploration of C++ to WebAssembly compilation aimed at testing whether I could manage to run Yliss in a web browser.
 
-** Compile C++ to LLVM IR
+** Tangle block to temporary file
 
-The following code uses =include.pl= to extract a given code block with its dependencies and save it into a temporary file:
 #+name: tangle-to-file
 #+begin_src bash
 function die() {
@@ -30,20 +29,11 @@ function print_block() {
 print_block > "$source" || die "; Failed to tangle \`$block\`."
 #+end_src
 
-
-This temporary file can then be fed to =clang++=, thus producing LLVM-IR.
-#+name: cc-ll
-#+begin_src sh :var block="" language="c++" :results output :wrap src llvm :eval no-export :noweb yes
-<<tangle-to-file>>
-clang++ --target=wasm32 -emit-llvm -c -S "$source" -x "$language"
-cat "$block.ll"
-#+end_src
-
 * Compiling C++ the hard way
 
 I followed the post https://surma.dev/things/c-to-webassembly/, but using C++ instead of C.
 
-The C++ pseudo-add function does not differ from its C counterpart:
+The example C pseudo-add function can be reused, but will this time be manipulated as C++ code:
 #+name: bad-add-function
 #+begin_src cpp
 int add(int a, int b) {
@@ -51,7 +41,18 @@ int add(int a, int b) {
 }
 #+end_src
 
-The corresponding LLVM IR can be generated via a call to the =cc-ll= codeblock;
+** C++ to LLVM IR
+
+The =tangle-to-file= operation defined in the prelude is invoked here, and the generated =$source= file is fed to =clang++=, thus producing LLVM-IR.
+#+name: cc-ll
+#+begin_src sh :var block="" language="c++" :results output :wrap src llvm :eval no-export :noweb yes
+<<tangle-to-file>>
+clang++ --target=wasm32 -emit-llvm -c -S "$source" -x "$language"
+cat "$block.ll" # The generated file still needs to be printed.
+#+end_src
+
+
+=cc-ll= can be used to reveal the LLVM IR of the =add= function;
 #+Call: cc-ll("bad-add-function")
 
 #+RESULTS:
