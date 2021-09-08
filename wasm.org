@@ -1,3 +1,4 @@
+#+property: header-args:bash :noweb no-export :results output
 * Prelude
 ** About this file
 
@@ -31,7 +32,7 @@ print_block > "$source" || die "; Failed to tangle \`$block\`."
 
 * Compiling C++ the hard way
 
-I followed the post https://surma.dev/things/c-to-webassembly/, but using C++ instead of C.
+I followed the post https://surma.dev/things/c-to-webassembly/, but using C++ instead of C, so the content in this section in not really my own, this is just a way to explore the subject a bit by building a few code blocks around C++ to WebAssembly compilation.
 
 The example C pseudo-add function can be reused, but will this time be manipulated as C++ code:
 #+name: bad-add-function
@@ -43,17 +44,21 @@ int add(int a, int b) {
 
 ** C++ to LLVM IR
 
-The =tangle-to-file= operation defined in the prelude is invoked here, and the generated =$source= file is fed to =clang++=, thus producing LLVM-IR.
+The =tangle-to-file= operation defined in the prelude is invoked here, and the generated =$source= file is fed to =clang++=, thus producing LLVM-IR (the result is saved to =$block.ll=).
 #+name: cc-ll
-#+begin_src sh :var block="" language="c++" :results output :wrap src llvm :eval no-export :noweb yes
+#+begin_src bash
 <<tangle-to-file>>
 clang++ --target=wasm32 -emit-llvm -c -S "$source" -x "$language"
+#+end_src
+
+For visualisation purposes, this block picks up where =cc-ll= left off and print the generated LLVM IR, wrapped in a nice =llvm= block:
+#+name: print-ll
+#+begin_src bash :wrap src llvm :var block="" language="c++"
+<<cc-ll>>
 cat "$block.ll" # The generated file still needs to be printed.
 #+end_src
 
-
-=cc-ll= can be used to reveal the LLVM IR of the =add= function;
-#+Call: cc-ll("bad-add-function")
+#+Call: print-ll("bad-add-function")
 
 #+RESULTS:
 #+begin_src llvm
