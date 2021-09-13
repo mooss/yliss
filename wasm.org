@@ -1,4 +1,5 @@
 #+property: header-args:bash :noweb no-export :results output
+
 * Prelude
 ** About this file
 
@@ -14,7 +15,7 @@ function die() {
 }
 
 if [ -z "$block" ]; then
-    die "; missing block name to process."
+    die "; missing \$block name to process."
 fi
 
 here=$PWD
@@ -48,14 +49,14 @@ The =tangle-to-file= operation defined in the prelude is invoked here, and the g
 #+name: cc-ll
 #+begin_src bash
 <<tangle-to-file>>
-clang++ --target=wasm32 -emit-llvm -c -S "$source" -x "$language"
+clang++ --target=wasm32 -emit-llvm -c -S "$source" -x c++
 #+end_src
 
 For visualisation purposes, this block picks up where =cc-ll= left off and print the generated LLVM IR, wrapped in a nice =llvm= block:
 #+name: print-ll
-#+begin_src bash :wrap src llvm :var block="" language="c++"
+#+begin_src bash :wrap src llvm :var block=""
 <<cc-ll>>
-cat "$block.ll" # The generated file still needs to be printed.
+cat "$block.ll"
 #+end_src
 
 #+Call: print-ll("bad-add-function")
@@ -93,8 +94,8 @@ attributes #0 = { noinline nounwind optnone mustprogress "disable-tail-calls"="f
 ** C++ to WebAssembly object file
 
 This will transform the LLVM IR code produced by =cc-ll= into a WebAssembly object file (the result is saved to =$block.o=):
-#+name: cc-wasmo
-#+begin_src bash :var block="" language="c++"
+#+name: cc-wasm-obj
+#+begin_src bash :var block=""
 <<cc-ll>>
 llc -march=wasm32 -filetype=obj "$block.ll"
 #+end_src
@@ -103,8 +104,8 @@ Information from a WebAssembly object file can be dumped with =wasm-objdump=.
 The WebAssembly Binary Toolkit is necessary for this operation (a common package name seems to be =wabt=, otherwise see https://github.com/WebAssembly/wabt).
 
 #+name: dump-wasmo
-#+begin_src bash :var block="" language="c++" :wrap src default
-<<cc-wasmo>>
+#+begin_src bash :var block="" :wrap src default
+<<cc-wasm-obj>>
 wasm-objdump -x "$block.o"
 #+end_src
 
