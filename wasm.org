@@ -34,21 +34,26 @@ For the following code block to work, it must be included before any change of d
 HERE="$PWD"
 #+end_src
 
+Printing a block from this file:
+#+name: print-local-block
+#+begin_src bash :eval never
+function print-local-block() {
+    "$HERE/litlib/include.pl" "$HERE/wasm.org" ":exit-with-error :noweb $@"
+}
+#+end_src
+#+depends:print-local-block :noweb HERE
+
 Tangle function:
 #+name: tangle
 #+begin_src bash :eval never
-function print_local_block() {
-    "$HERE/litlib/include.pl" "$HERE/wasm.org" ":exit-with-error :noweb $@"
-}
-
 function tangle() {
-    if ! print_local_block "$1" > "$2"; then
+    if ! print-local-block "$1" > "$2"; then
         error=$(cat "$2")
         stop "#error Failed to tangle \`$1\` ($error)."
     fi
 }
 #+end_src
-#+depends:tangle :noweb HERE stop
+#+depends:tangle :noweb print-local-block stop
 
 Moving to dedicated temporary directory:
 #+name: tangle-to-.cpp
