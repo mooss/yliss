@@ -212,6 +212,7 @@ This JavaScript template will be used to load a WebAssembly file and execute add
 The =//litlib-insert-*-here= strings will first need to be replaced with the desired value.
 #+name: nodejs-template
 #+begin_src js
+// .wasm loading code from https://thecodebarbarian.com/getting-started-with-webassembly-in-node.js.html.
 const fs = require('fs');
 const buf = fs.readFileSync('//litlib-insert-wasm-path-here');
 // Immediately Invoked Function Expression from https://www.codeproject.com/Articles/5308531/NodeJS-await-is-only-valid-in-async-function.
