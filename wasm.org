@@ -20,7 +20,7 @@ Here are defined some tools that will be used throughout this document.
 #+name: exec
 #+begin_src bash :var noweb=""
 noweb=":__blocks_to_exec $noweb"
-<<include("noweb-suite", "litlib/bash.org")>>
+<<include("assertions", "litlib/bash.org")>>
 source <(./litlib/include.pl 'wasm.org' ":noweb $__blocks_to_exec")
 #+end_src
 
@@ -63,7 +63,7 @@ tmp=/tmp/litlib-tangle
 rm $tmp -fr; mkdir -p $tmp; cd $tmp
 tangle "$block" "$block.cpp"
 #+end_src
-#+depends:tangle-to-.cpp :noweb tangle noweb-suite
+#+depends:tangle-to-.cpp :noweb tangle assertions
 
 
 * Compiling C++ the hard way
