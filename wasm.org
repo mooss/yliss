@@ -176,3 +176,29 @@ Custom:
 Custom:
  - name: "producers"
 #+end_src
+
+** WebAssembly object file linking
+
+The only missing step to produce a WebAssembly module is to link the object file.
+=cc-wasm-WIP= builds upon the previous steps to achieve this.
+
+#+name: cc-wasm-WIP
+#+begin_src bash
+wasm-ld --no-entry --export-all -o "$block.wasm" "$block.o"
+#+end_src
+#+depends:cc-wasm-WIP :noweb cc-wasm-obj
+
+I don't currently have a better visualisation than showing the disk usage (=du=) of the wasm module:
+#+name: du-wasm-WIP
+#+begin_src bash :var block=""
+<<include("cc-wasm-WIP")>>
+du -bh "$block.wasm"
+#+end_src
+
+#+Call: du-wasm-WIP("bad-add-function")
+
+#+RESULTS:
+:results:
+363	bad-add-function.wasm
+:end:
+
