@@ -1,35 +1,65 @@
 #+property: header-args:bash :noweb no-export :results output
 
 * Prelude
-** About this file
 
 This is an exploration of C++ to WebAssembly compilation aimed at testing whether I could manage to run Yliss in a web browser.
 
-** Tangle block to temporary file
+** Literate tools
 
-#+name: tangle-to-file
-#+begin_src bash
-function die() {
-    echo "$@"
-    exit
+Here are defined some tools that will be used throughout this document.
+
+*** Code block inclusion
+
+#+name: include
+#+begin_src bash :var __blocks_to_include="" __org_sources="litlib/bash.org wasm.org"
+./litlib/include.pl "$__org_sources" ":noweb $__blocks_to_include"
+#+end_src
+
+*** Code block execution                                           :noexport:
+
+#+name: exec
+#+begin_src bash :var noweb=""
+noweb=":__blocks_to_exec $noweb"
+<<include("noweb-suite", "litlib/bash.org")>>
+source <(./litlib/include.pl 'wasm.org' ":noweb $__blocks_to_exec")
+#+end_src
+
+*** Tangle block to temporary file
+
+Tangling to a temporary file will involve moving to another directory.
+It is mandatory to keep the current directory somewhere in memory to make it possible to call the include script from there.
+For the following code block to work, it must be included before any change of directory.
+#+name: HERE
+#+begin_src bash :eval never
+HERE="$PWD"
+#+end_src
+
+Tangle function:
+#+name: tangle
+#+begin_src bash :eval never
+function print_local_block() {
+    "$HERE/litlib/include.pl" "$HERE/wasm.org" ":exit-with-error :noweb $@"
 }
 
-if [ -z "$block" ]; then
-    die "; missing \$block name to process."
-fi
+function tangle() {
+    if ! print_local_block "$1" > "$2"; then
+        error=$(cat "$2")
+        stop "#error Failed to tangle \`$1\` ($error)."
+    fi
+}
+#+end_src
+#+depends:tangle :noweb HERE stop
 
-here=$PWD
+Moving to dedicated temporary directory:
+#+name: tangle-to-.cpp
+#+begin_src bash :eval never
+assert declared block
 tmp=/tmp/litlib-tangle
 rm $tmp -fr; mkdir -p $tmp; cd $tmp
-
-source="$block.cpp";
-
-function print_block() {
-    "$here/litlib/include.pl" "$here/wasm.org" ":exit-with-error :noweb $block"
-}
-
-print_block > "$source" || die "; Failed to tangle \`$block\`."
+tangle "$block" "$block.cpp"
 #+end_src
+#+depends:tangle-to-.cpp :noweb tangle noweb-suite
+
 
 * Compiling C++ the hard way
 
@@ -45,17 +75,17 @@ int add(int a, int b) {
 
 ** C++ to LLVM IR
 
-The =tangle-to-file= operation defined in the prelude is invoked here, and the generated =$source= file is fed to =clang++=, thus producing LLVM-IR (the result is saved to =$block.ll=).
+The =tangle-to-.cpp= operation defined in the prelude is invoked here (since it is declared as a dependency), and the generated =$block.cpp= file is fed to =clang++=, thus producing LLVM-IR (the result is saved to =$block.ll=).
 #+name: cc-ll
-#+begin_src bash
-<<tangle-to-file>>
-clang++ --target=wasm32 -emit-llvm -c -S "$source" -x c++
+#+begin_src bash :eval never
+clang++ --target=wasm32 -emit-llvm -c -S "$block.cpp" -x c++
 #+end_src
+#+depends:cc-ll :noweb tangle-to-.cpp
 
 For visualisation purposes, this block picks up where =cc-ll= left off and print the generated LLVM IR, wrapped in a nice =llvm= block:
 #+name: print-ll
 #+begin_src bash :wrap src llvm :var block=""
-<<cc-ll>>
+<<include("cc-ll")>>
 cat "$block.ll"
 #+end_src
 
@@ -91,21 +121,23 @@ attributes #0 = { noinline nounwind optnone mustprogress "disable-tail-calls"="f
 !1 = !{!"clang version 12.0.1"}
 #+end_src
 
+A problem with the LLVM IR produced this way is that the =add= function is compiled as =@_Z3addii=, whereas I would expect it to be simply called =add=.
+
 ** C++ to WebAssembly object file
 
 This will transform the LLVM IR code produced by =cc-ll= into a WebAssembly object file (the result is saved to =$block.o=):
 #+name: cc-wasm-obj
-#+begin_src bash :var block=""
-<<cc-ll>>
+#+begin_src bash :eval never
 llc -march=wasm32 -filetype=obj "$block.ll"
 #+end_src
+#+depends:cc-wasm-obj :noweb cc-ll
 
 Information from a WebAssembly object file can be dumped with =wasm-objdump=.
 The WebAssembly Binary Toolkit is necessary for this operation (a common package name seems to be =wabt=, otherwise see https://github.com/WebAssembly/wabt).
 
 #+name: dump-wasmo
 #+begin_src bash :var block="" :wrap src default
-<<cc-wasm-obj>>
+<<include("cc-wasm-obj")>>
 wasm-objdump -x "$block.o"
 #+end_src
 
