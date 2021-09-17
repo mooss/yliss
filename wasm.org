@@ -1,4 +1,5 @@
 #+property: header-args:bash :noweb no-export :results output
+#+property: header-args:js :results output
 
 * Prelude
 
@@ -201,4 +202,81 @@ du -bh "$block.wasm"
 :results:
 363	bad-add-function.wasm
 :end:
+
+
+* Testing WebAssembly
+
+** Direct execution via Node.js
+
+This JavaScript template will be used to load a WebAssembly file and execute additional code after loading.
+The =//litlib-insert-*-here= strings will first need to be replaced with the desired value.
+#+name: nodejs-template
+#+begin_src js
+const fs = require('fs');
+const buf = fs.readFileSync('//litlib-insert-wasm-path-here');
+// Immediately Invoked Function Expression from https://www.codeproject.com/Articles/5308531/NodeJS-await-is-only-valid-in-async-function.
+(async function() {
+    const wasm = await WebAssembly.instantiate(new Uint8Array(buf)).
+          then(res => res.instance.exports);
+    //litlib-insert-js-here
+})();
+#+end_src
+
+This function can be used to do this replacement:
+#+name: instantiate-wasm-template
+#+begin_src bash
+function instantiate-wasm-template() {
+    __wasm_path="$1"; __js_path="$2"; __instantiation_path="$3"
+    # Perl template instantiation inspired by https://unix.stackexchange.com/a/49438.
+    # Perl's substitution /e modifier means to evaluate the right-hand side as an expression.
+    perl -pe "s|//litlib-insert-wasm-path-here|$__wasm_path|; s|//litlib-insert-js-here|\`cat '$__js_path'\`|e"\
+         <(print-local-block nodejs-template) > "$__instantiation_path"
+}
+#+end_src
+#+depends:instantiate-wasm-template :noweb print-local-block
+
+This fetches the block described by =$js_block= and uses it to instantiate the Node.js template.
+#+name: cc-nodejs-WIP
+#+begin_src bash
+assert declared js_block
+js_template="$js_block-template.js"
+nodejs_dest="$js_block-instantiated.js"
+tangle "$js_block" "$js_template"
+instantiate-wasm-template "$block.wasm" "$js_template" "$nodejs_dest"
+#+end_src
+#+depends:cc-nodejs-WIP :noweb cc-wasm-WIP instantiate-wasm-template
+
+Only the execution remains:
+#+name: exec-nodejs-WIP
+#+begin_src bash :var block="" js_block="" :wrap src text
+<<include("cc-nodejs-WIP")>>
+node "$nodejs_dest" 2>&1
+#+end_src
+
+Since the function is exported as =_Z3addii= and not as =add=, this must be reflected by the =$js_block=:
+#+name: bad-add-function-js-WIP
+#+begin_src js
+console.log(wasm);
+console.log("add(4, 1) is: " + wasm._Z3addii(4, 1));
+#+end_src
+
+#+Call: exec-nodejs-WIP("bad-add-function", "bad-add-function-js-WIP")
+
+#+RESULTS:
+#+begin_src text
+[Object: null prototype] {
+  memory: Memory [WebAssembly.Memory] {},
+  __wasm_call_ctors: [Function: 0],
+  _Z3addii: [Function: 1],
+  __dso_handle: Global [WebAssembly.Global] {},
+  __data_end: Global [WebAssembly.Global] {},
+  __global_base: Global [WebAssembly.Global] {},
+  __heap_base: Global [WebAssembly.Global] {},
+  __memory_base: Global [WebAssembly.Global] {},
+  __table_base: Global [WebAssembly.Global] {}
+}
+add(4, 1) is: 17
+#+end_src
+
+17 is the expected result since the =add= function squares its first parameter and appends its second to the result.
 
