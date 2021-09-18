@@ -199,7 +199,7 @@ wasm-ld --no-entry --export-all -o "$block.wasm" "$block.o"
 
 I don't currently have a better visualisation than showing the disk usage (=du=) of the wasm module:
 #+name: du-wasm-LONG
-#+begin_src bash :var block=""
+#+begin_src bash :var block="" :wrap src text
 <<include("cc-wasm-LONG")>>
 du -bh "$block.wasm"
 #+end_src
@@ -207,9 +207,9 @@ du -bh "$block.wasm"
 #+Call: du-wasm-LONG("bad-add-function")
 
 #+RESULTS:
-:results:
+#+begin_src text
 347	bad-add-function.wasm
-:end:
+#+end_src
 
 
 * Testing WebAssembly
@@ -288,4 +288,65 @@ add(4, 1) is: 17
 #+end_src
 
 17 is the expected result since the =add= function squares its first parameter and appends its second to the result.
+
+** Skipping the optional steps (from C++ straight to WebAssembly)
+
+The compilation process can be shortened from /C++ -> LLVM IR -> WebAssembly object file -> WebAssembly module/ to the bare minimum /C++ -> WebAssembly module/.
+Note that this time, optimisations (=-O2 -flto -Wl,--lto-O2=) have been enabled.
+
+#+name: cc-wasm
+#+begin_src bash
+clang++ -x c++ --target=wasm32 -nostdlib -o "$block.wasm"\
+        -Wl,--no-entry -Wl,--export-all\
+        -O2 -flto -Wl,--lto-O2\
+        <(print-local-block "$block")
+#+end_src
+#+depends:cc-wasm :noweb print-local-block
+
+*** Blocks derived from =cc-wasm=
+
+The blocks defined are the equivalent of their =-LONG= form presented previously.
+
+#+depends:cc-nodejs :noweb cc-wasm instantiate-wasm-template cc-nodejs-impl
+
+#+name: du-wasm
+#+begin_src bash :var block="" :wrap src text
+<<include("cc-wasm")>>
+du -bh "$block.wasm"
+#+end_src
+
+#+name: exec-nodejs
+#+begin_src bash :var block="" js_block="" :wrap src text
+<<include("cc-nodejs")>>
+node "$nodejs_dest" 2>&1
+#+end_src
+
+*** Testing derived blocks
+
+#+Call: du-wasm("bad-add-function")
+
+#+RESULTS:
+#+begin_src text
+253	bad-add-function.wasm
+#+end_src
+
+#+Call: exec-nodejs("bad-add-function", "bad-add-function-js")
+
+#+RESULTS:
+#+begin_src text
+[Object: null prototype] {
+  memory: Memory [WebAssembly.Memory] {},
+  __wasm_call_ctors: [Function: 0],
+  add: [Function: 1],
+  __dso_handle: Global [WebAssembly.Global] {},
+  __data_end: Global [WebAssembly.Global] {},
+  __global_base: Global [WebAssembly.Global] {},
+  __heap_base: Global [WebAssembly.Global] {},
+  __memory_base: Global [WebAssembly.Global] {},
+  __table_base: Global [WebAssembly.Global] {}
+}
+add(4, 1) is: 17
+#+end_src
+
+As expected, the optimised wasm has a smaller footprint and the result is the same.
 
