@@ -74,9 +74,18 @@ I followed the post https://surma.dev/things/c-to-webassembly/, but using C++ in
 The example C pseudo-add function can be reused, but will this time be manipulated as C++ code:
 #+name: bad-add-function
 #+begin_src cpp
-int add(int a, int b) {
+WASM_EXPORT int add(int a, int b) {
     return a * a + b;
 }
+#+end_src
+#+depends:bad-add-function :noweb wasm-export
+
+Since add is C++ code, it needs to have C linkage to prevent its name from being mangled.
+The =WASM_EXPORT= macro comes from https://medium.com/@dougschaefer/going-straight-to-clang-for-webassembly-928df1484430.
+
+#+name: wasm-export
+#+begin_src cpp
+#define WASM_EXPORT __attribute__((visibility("default"))) extern "C"
 #+end_src
 
 ** C++ to LLVM IR
@@ -105,7 +114,7 @@ target datalayout = "e-m:e-p:32:32-i64:64-n32:64-S128"
 target triple = "wasm32"
 
 ; Function Attrs: noinline nounwind optnone mustprogress
-define hidden i32 @_Z3addii(i32 %0, i32 %1) #0 {
+define i32 @add(i32 %0, i32 %1) #0 {
   %3 = alloca i32, align 4
   %4 = alloca i32, align 4
   store i32 %0, i32* %3, align 4
@@ -126,8 +135,6 @@ attributes #0 = { noinline nounwind optnone mustprogress "disable-tail-calls"="f
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"clang version 12.0.1"}
 #+end_src
-
-A problem with the LLVM IR produced this way is that the =add= function is compiled as =@_Z3addii=, whereas I would expect it to be simply called =add=.
 
 ** C++ to WebAssembly object file
 
@@ -162,13 +169,13 @@ Import[2]:
  - memory[0] pages: initial=0 <- env.__linear_memory
  - global[0] i32 mutable=1 <- env.__stack_pointer
 Function[1]:
- - func[0] sig=0 <_Z3addii>
+ - func[0] sig=0 <add>
 Code[1]:
- - func[0] size=44 <_Z3addii>
+ - func[0] size=44 <add>
 Custom:
  - name: "linking"
   - symbol table [count=2]
-   - 0: F <_Z3addii> func=0 binding=global vis=hidden
+   - 0: F <add> func=0 binding=global vis=default
    - 1: G <env.__stack_pointer> global=0 undefined binding=global vis=default
 Custom:
  - name: "reloc.CODE"
@@ -181,26 +188,27 @@ Custom:
 ** WebAssembly object file linking
 
 The only missing step to produce a WebAssembly module is to link the object file.
-=cc-wasm-WIP= builds upon the previous steps to achieve this.
+=cc-wasm-LONG= builds upon the previous steps to achieve this.
+It, and other derived blocks, are suffixed with =-LONG= because they are using unnecessary steps that are only here to illustrate the compilation process.
 
-#+name: cc-wasm-WIP
+#+name: cc-wasm-LONG
 #+begin_src bash
 wasm-ld --no-entry --export-all -o "$block.wasm" "$block.o"
 #+end_src
-#+depends:cc-wasm-WIP :noweb cc-wasm-obj
+#+depends:cc-wasm-LONG :noweb cc-wasm-obj
 
 I don't currently have a better visualisation than showing the disk usage (=du=) of the wasm module:
-#+name: du-wasm-WIP
+#+name: du-wasm-LONG
 #+begin_src bash :var block=""
-<<include("cc-wasm-WIP")>>
+<<include("cc-wasm-LONG")>>
 du -bh "$block.wasm"
 #+end_src
 
-#+Call: du-wasm-WIP("bad-add-function")
+#+Call: du-wasm-LONG("bad-add-function")
 
 #+RESULTS:
 :results:
-363	bad-add-function.wasm
+347	bad-add-function.wasm
 :end:
 
 
@@ -237,7 +245,7 @@ function instantiate-wasm-template() {
 #+depends:instantiate-wasm-template :noweb print-local-block
 
 This fetches the block described by =$js_block= and uses it to instantiate the Node.js template.
-#+name: cc-nodejs-WIP
+#+name: cc-nodejs-impl
 #+begin_src bash
 assert declared js_block
 js_template="$js_block-template.js"
@@ -245,30 +253,30 @@ nodejs_dest="$js_block-instantiated.js"
 tangle "$js_block" "$js_template"
 instantiate-wasm-template "$block.wasm" "$js_template" "$nodejs_dest"
 #+end_src
-#+depends:cc-nodejs-WIP :noweb cc-wasm-WIP instantiate-wasm-template
+#+depends:cc-nodejs-impl :noweb assertions tangle instantiate-wasm-template
+#+depends:cc-nodejs-LONG :noweb cc-wasm-LONG cc-nodejs-impl
 
 Only the execution remains:
-#+name: exec-nodejs-WIP
+#+name: exec-nodejs-LONG
 #+begin_src bash :var block="" js_block="" :wrap src text
-<<include("cc-nodejs-WIP")>>
+<<include("cc-nodejs-LONG")>>
 node "$nodejs_dest" 2>&1
 #+end_src
 
-Since the function is exported as =_Z3addii= and not as =add=, this must be reflected by the =$js_block=:
-#+name: bad-add-function-js-WIP
+#+name: bad-add-function-js
 #+begin_src js
 console.log(wasm);
-console.log("add(4, 1) is: " + wasm._Z3addii(4, 1));
+console.log("add(4, 1) is: " + wasm.add(4, 1));
 #+end_src
 
-#+Call: exec-nodejs-WIP("bad-add-function", "bad-add-function-js-WIP")
+#+Call: exec-nodejs-LONG("bad-add-function", "bad-add-function-js")
 
 #+RESULTS:
 #+begin_src text
 [Object: null prototype] {
   memory: Memory [WebAssembly.Memory] {},
   __wasm_call_ctors: [Function: 0],
-  _Z3addii: [Function: 1],
+  add: [Function: 1],
   __dso_handle: Global [WebAssembly.Global] {},
   __data_end: Global [WebAssembly.Global] {},
   __global_base: Global [WebAssembly.Global] {},
