@@ -1,7 +1,7 @@
 ################
 # PDF creation #
 ################
-ORG_SOURCES := window graphics octasierp planet plate_tectonics
+ORG_SOURCES := window graphics octasierp planet plate_tectonics wasm
 
 .PHONY: pdf
 pdf: $(ORG_SOURCES:%=%.pdf)
