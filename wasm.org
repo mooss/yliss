@@ -235,11 +235,11 @@ This function can be used to do this replacement:
 #+name: instantiate-wasm-template
 #+begin_src bash
 function instantiate-wasm-template() {
-    __wasm_path="$1"; __js_path="$2"; __instantiation_path="$3"
+    __template_block="$1"; __wasm_path="$2"; __js_path="$3"; __instantiation_path="$4"
     # Perl template instantiation inspired by https://unix.stackexchange.com/a/49438.
     # Perl's substitution /e modifier means to evaluate the right-hand side as an expression.
     perl -pe "s|//litlib-insert-wasm-path-here|$__wasm_path|; s|//litlib-insert-js-here|\`cat '$__js_path'\`|e"\
-         <(print-local-block nodejs-template) > "$__instantiation_path"
+         <(print-local-block "$__template_block") > "$__instantiation_path"
 }
 #+end_src
 #+depends:instantiate-wasm-template :noweb print-local-block
@@ -251,7 +251,7 @@ assert declared js_block
 js_template="$js_block-template.js"
 nodejs_dest="$js_block-instantiated.js"
 tangle "$js_block" "$js_template"
-instantiate-wasm-template "$block.wasm" "$js_template" "$nodejs_dest"
+instantiate-wasm-template nodejs-template "$block.wasm" "$js_template" "$nodejs_dest"
 #+end_src
 #+depends:cc-nodejs-impl :noweb assertions tangle instantiate-wasm-template
 #+depends:cc-nodejs-LONG :noweb cc-wasm-LONG cc-nodejs-impl
