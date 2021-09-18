@@ -350,3 +350,82 @@ add(4, 1) is: 17
 
 As expected, the optimised wasm has a smaller footprint and the result is the same.
 
+** HTML generation
+
+HTML can be generated using the same principle as Node.js, i.e. by filling the template below:
+
+#+name: html-template
+#+begin_src html
+<!DOCTYPE html>
+<meta charset="utf-8"/>
+<script type="module">
+ async function init() {
+     const wasm = await WebAssembly.instantiateStreaming(fetch("//litlib-insert-wasm-path-here")).
+                                    then(res => res.instance.exports);
+     //litlib-insert-js-here
+ }
+ init();
+</script>
+#+end_src
+
+Instantiation of the HTML template:
+#+name: cc-html
+#+begin_src bash
+assert declared js_block
+js_template="$js_block-template.js"
+html_dest="$js_block-instantiated.html"
+tangle "$js_block" "$js_template"
+instantiate-wasm-template html-template "$block.wasm" "$js_template" "$html_dest"
+#+end_src
+#+depends:cc-html :noweb cc-wasm assertions tangle instantiate-wasm-template
+
+This can be used to print the result of the instantiation:
+#+name: print-html
+#+begin_src bash :var block="" js_block="" :wrap src html
+<<include("cc-html")>>
+cat "$html_dest"
+#+end_src
+
+#+Call: print-html("bad-add-function", "bad-add-function-js")
+
+#+RESULTS:
+#+begin_src html
+<!DOCTYPE html>
+<meta charset="utf-8"/>
+<script type="module">
+ async function init() {
+     const wasm = await WebAssembly.instantiateStreaming(fetch("bad-add-function.wasm")).
+                                    then(res => res.instance.exports);
+     console.log(wasm);
+console.log("add(4, 1) is: " + wasm.add(4, 1));
+
+ }
+ init();
+</script>
+#+end_src
+
+** File server
+
+Browsers are reluctant to work with files from local storage so testing the html requires to setup a file server.
+The simplest one I found is Python3's file server, to use it just paste the following line in a terminal:
+#+begin_src bash :eval never
+python -m http.server 16234 --directory /tmp/litlib-tangle
+#+end_src
+
+** Open with Firefox
+
+A call to this block will compile everything and open the HTML file in Firefox:
+#+name: open-html
+#+begin_src bash :var block="" js_block="" :wrap src text
+<<include("cc-html")>>
+url="http://0.0.0.0:16234/$html_dest"
+echo "Will open \`$url\` with Firefox."
+firefox --new-window "$url"
+#+end_src
+
+#+Call: open-html("bad-add-function", "bad-add-function-js")
+
+#+RESULTS:
+#+begin_src text
+Will open `http://0.0.0.0:16234/bad-add-function-js-instantiated.html` with Firefox.
+#+end_src
