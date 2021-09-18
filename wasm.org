@@ -301,13 +301,13 @@ clang++ -x c++ --target=wasm32 -nostdlib -o "$block.wasm"\
         -O2 -flto -Wl,--lto-O2\
         <(print-local-block "$block")
 #+end_src
-#+depends:cc-wasm :noweb print-local-block
+#+depends:cc-wasm :noweb tangle-to-.cpp print-local-block
 
 *** Blocks derived from =cc-wasm=
 
 The blocks defined are the equivalent of their =-LONG= form presented previously.
 
-#+depends:cc-nodejs :noweb cc-wasm instantiate-wasm-template cc-nodejs-impl
+#+depends:cc-nodejs :noweb cc-wasm cc-nodejs-impl
 
 #+name: du-wasm
 #+begin_src bash :var block="" :wrap src text
