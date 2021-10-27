@@ -1,6 +1,6 @@
 * Yliss
 
-This is a procedural planet generator written in litterate C++.
+This is a procedural planet generator written in literate C++.
 Here is a planet generated with this project:
 [[file:images/screencaps/gfgocta_cel_without_outlines.jpg]]
 
