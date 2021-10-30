@@ -479,3 +479,149 @@ firefox --new-window "$url"
 #+begin_src text
 Will open `http://0.0.0.0:16234/cpp-print-add.html` with Firefox.
 #+end_src
+
+
+* Pure WebGL with JavaScript (no C++ involved)
+
+I'm having troubles porting my OpenGL code to WebGL, I think my shaders are incorrect.
+This section will be used as a WebGL/JavaScript sandbox in order to help me get a better grasp of the bases.
+I'm following Mozilla's WebGL tutorial (https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial).
+
+The sandbox's name is =weglsabo=, for WEbGL SAndBOx.
+I should probably call this a playground instead of a sandbox but =weglplgr= doesn't have the same ring to it.
+
+** Implementation of dependencies
+
+** HTML template
+
+The HTML template below was directly adapted from this file: https://github.com/mdn/webgl-examples/blob/gh-pages/tutorial/sample1/index.html.
+It works in the same way as the other templates ; it contains a string designating where pertinent code should be inserted (=//litlib-insert-js-webgl-here=).
+
+#+name: weglsabo-html-template
+#+begin_src html
+<!doctype html>
+<html lang='en'>
+    <head>
+        <meta charset='utf-8'>
+    </head>
+
+    <body>
+        <canvas id='gl-canvas' width='640' height='480'></canvas>
+    </body>
+
+    <script>
+     main();
+     function main() {
+         const canvas = document.querySelector('#gl-canvas');
+         // Initialize the GL context.
+         const gl = canvas.getContext('webgl');
+
+         // If we don't have a GL context, give up now.
+         // Only continue if WebGL is available and working.
+         if (!gl) {
+             alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+             return;
+         }
+
+//litlib-insert-js-webgl-here
+     }
+    </script>
+</html>
+#+end_src
+
+** Instantiation of the weglsabo template
+
+This function will extract a template like the one defined above, insert the JavaScript WebGL code where it should be, and save it to a file:
+#+name: instantiate-weglsabo
+#+begin_src bash
+function instantiate-weglsabo() {
+    __template_block="$1"; __js_path="$2"; __instantiation_path="$3"
+    # Perl template instantiation inspired by https://unix.stackexchange.com/a/49438.
+    # Perl's substitution /e modifier means to evaluate the right-hand side as an expression.
+    perl -pe "s|//litlib-insert-js-webgl-here|\`cat '$__js_path'\`|e"\
+         <(print-local-block "$__template_block") > "$__instantiation_path"
+}
+#+end_src
+#+depends:instantiate-weglsabo :noweb print-local-block
+
+This will do the instantiation after a bit of setup inside =litlib-webgl-tanble=:
+#+name: weglsabo
+#+begin_src bash
+assert declared block
+tmp=/tmp/litlib-webgl-tanble
+rm -fr $tmp/*; mkdir -p $tmp; cd $tmp
+tangle "$block" "$block.js"
+instantiate-weglsabo weglsabo-html-template "$block.js" "$block.html"
+#+end_src
+#+depends:weglsabo :noweb assertions tangle instantiate-weglsabo
+
+** Display WebGL sandbox
+
+This is simply a matter of printing =$block.html= to stdout:
+#+name: cat-weglsabo
+#+begin_src bash :var block="" :wrap src html
+<<include("weglsabo")>>
+cat "$block.html"
+#+end_src
+
+A minimal snippet that displays a grey background on the canvas:
+#+name: grey-background-jsgl
+#+begin_src js
+gl.clearColor(.5, .5, .5, 1);
+gl.clear(gl.COLOR_BUFFER_BIT);
+#+end_src
+
+
+#+Call: cat-weglsabo("grey-background-jsgl")
+
+#+RESULTS:
+#+begin_src html
+<!doctype html>
+<html lang='en'>
+    <head>
+        <meta charset='utf-8'>
+    </head>
+
+    <body>
+        <canvas id='gl-canvas' width='640' height='480'></canvas>
+    </body>
+
+    <script>
+     main();
+     function main() {
+         const canvas = document.querySelector('#gl-canvas');
+         // Initialize the GL context
+         const gl = canvas.getContext('webgl');
+
+         // If we don't have a GL context, give up now.
+         // Only continue if WebGL is available and working.
+         if (!gl) {
+             alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+             return;
+         }
+
+gl.clearColor(.5, .5, .5, 1);
+gl.clear(gl.COLOR_BUFFER_BIT);
+
+     }
+    </script>
+</html>
+#+end_src
+
+** Open in firefox
+
+#+name: firefox-weglsabo
+#+begin_src bash :var block=""
+<<include("weglsabo")>>
+echo "Will open \`$block.html\` with Firefox."
+firefox --new-window "$block.html"
+#+end_src
+
+Sadly I didn't manage to take screenshots so there will be no illustrations, all I can do is confirm that it works.
+
+#+Call: firefox-weglsabo("grey-background-jsgl")
+
+#+RESULTS:
+:results:
+Will open `grey-background-jsgl.html` with Firefox.
+:end:
