@@ -490,9 +490,9 @@ I'm following Mozilla's WebGL tutorial (https://developer.mozilla.org/en-US/docs
 The sandbox's name is =weglsabo=, for WEbGL SAndBOx.
 I should probably call this a playground instead of a sandbox but =weglplgr= doesn't have the same ring to it.
 
-** Implementation of dependencies
+** Primitives
 
-** HTML template
+*** HTML template
 
 The HTML template below was directly adapted from this file: https://github.com/mdn/webgl-examples/blob/gh-pages/tutorial/sample1/index.html.
 It works in the same way as the other templates ; it contains a string designating where pertinent code should be inserted (=//litlib-insert-js-webgl-here=).
@@ -529,7 +529,7 @@ It works in the same way as the other templates ; it contains a string designati
 </html>
 #+end_src
 
-** Instantiation of the weglsabo template
+*** Instantiation of the weglsabo template
 
 This function will extract a template like the one defined above, insert the JavaScript WebGL code where it should be, and save it to a file:
 #+name: instantiate-weglsabo
@@ -555,7 +555,11 @@ instantiate-weglsabo weglsabo-html-template "$block.js" "$block.html"
 #+end_src
 #+depends:weglsabo :noweb assertions tangle instantiate-weglsabo
 
-** Display WebGL sandbox
+** Executables
+
+This section uses the primitives to assemble executable tools.
+
+*** Display WebGL sandbox
 
 This is simply a matter of printing =$block.html= to stdout:
 #+name: cat-weglsabo
@@ -570,7 +574,6 @@ A minimal snippet that displays a grey background on the canvas:
 gl.clearColor(.5, .5, .5, 1);
 gl.clear(gl.COLOR_BUFFER_BIT);
 #+end_src
-
 
 #+Call: cat-weglsabo("grey-background-jsgl")
 
@@ -608,7 +611,7 @@ gl.clear(gl.COLOR_BUFFER_BIT);
 </html>
 #+end_src
 
-** Open in firefox
+*** Open in firefox
 
 #+name: firefox-weglsabo
 #+begin_src bash :var block=""
