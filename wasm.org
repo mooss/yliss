@@ -259,6 +259,7 @@ instantiate-wasm-template nodejs-template "$block.wasm" "$js_template" "$nodejs_
 Only the execution remains:
 #+name: exec-nodejs-LONG
 #+begin_src bash :var block="" js_block="" :wrap src text
+set -Ee
 <<include("cc-nodejs-LONG")>>
 node "$nodejs_dest" 2>&1
 #+end_src
