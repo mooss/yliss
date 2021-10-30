@@ -1,4 +1,5 @@
 #+property: header-args:bash :noweb no-export :results output
+#+property: header-args:cpp :noweb no-export :results output
 #+property: header-args:js :results output
 
 * Prelude
@@ -11,9 +12,16 @@ Here are defined some tools that will be used throughout this document.
 
 *** Code block inclusion
 
+Include block setup for bash:
 #+name: include
 #+begin_src bash :var __blocks_to_include="" __org_sources="litlib/bash.org wasm.org"
 ./litlib/include.pl "$__org_sources" ":noweb $__blocks_to_include"
+#+end_src
+
+Include block setup for C++:
+#+name: cppinclude
+#+begin_src bash :var __blocks_to_include=""
+./litlib/include.pl "litlib/cpp.org wasm.org" ":noweb $__blocks_to_include"
 #+end_src
 
 *** Code block execution                                           :noexport:
@@ -39,7 +47,7 @@ Printing a block from this file:
 #+name: print-local-block
 #+begin_src bash :eval never
 function print-local-block() {
-    "$HERE/litlib/include.pl" "$HERE/wasm.org" ":exit-with-error :noweb $@"
+    "$HERE/litlib/include.pl" "$HERE/wasm.org $HERE/litlib/cpp.org" ":exit-with-error :noweb $@"
 }
 #+end_src
 #+depends:print-local-block :noweb HERE
@@ -61,7 +69,7 @@ Moving to dedicated temporary directory:
 #+begin_src bash :eval never
 assert declared block
 tmp=/tmp/litlib-tangle
-rm $tmp -fr; mkdir -p $tmp; cd $tmp
+rm -fr $tmp/*; mkdir -p $tmp; cd $tmp
 tangle "$block" "$block.cpp"
 #+end_src
 #+depends:tangle-to-.cpp :noweb tangle assertions
@@ -429,4 +437,45 @@ firefox --new-window "$url"
 #+RESULTS:
 #+begin_src text
 Will open `http://0.0.0.0:16234/bad-add-function-js-instantiated.html` with Firefox.
+#+end_src
+
+
+* Compiling C++ the easy way
+
+The C++ that can be compiled with the approach described above is quite limited, in particular I wasn't able to compile code using =std::vector=.
+The solution to this is to use =Emscripten=, which will handle a lot more things.
+
+#+name: cpp-print-add
+#+begin_src cpp :eval no-export :exports both
+int add(int a, int b) {
+    return a * a + b;
+}
+
+int main() {
+    print{"Add(4, 1):", add(4, 1)};
+}
+#+end_src
+#+depends:cpp-print-add :noweb print
+
+
+#+name: emcc-wasm
+#+begin_src bash
+/usr/lib/emscripten/em++ "$block.cpp" -s WASM=1 -o "$block.html" -std=c++20 2>&1
+#+end_src
+#+depends:emcc-wasm :noweb tangle-to-.cpp
+
+#+name: open-em-html
+#+begin_src bash :var block="" :wrap src text
+<<include("emcc-wasm")>>
+url="http://0.0.0.0:16234/$block.html"
+echo "Will open \`$url\` with Firefox."
+firefox --new-window "$url"
+#+end_src
+
+
+#+Call: open-em-html("cpp-print-add")
+
+#+RESULTS:
+#+begin_src text
+Will open `http://0.0.0.0:16234/cpp-print-add.html` with Firefox.
 #+end_src
