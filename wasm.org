@@ -300,9 +300,9 @@ Note that this time, optimisations (=-O2 -flto -Wl,--lto-O2=) have been enabled.
 clang++ -x c++ --target=wasm32 -nostdlib -o "$block.wasm"\
         -Wl,--no-entry -Wl,--export-all\
         -O2 -flto -Wl,--lto-O2\
-        <(print-local-block "$block")
+        "$block.cpp"
 #+end_src
-#+depends:cc-wasm :noweb tangle-to-.cpp print-local-block
+#+depends:cc-wasm :noweb tangle-to-.cpp
 
 *** Blocks derived from =cc-wasm=
 
