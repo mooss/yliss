@@ -2,7 +2,7 @@
 #+author: mooss
 
 #+property: header-args:bash :eval never
-#+property: header-args:cpp :flags -std=c++20 -Wall -I include -ldl -lGL -lglfw src/glad.c :eval never :main no :noweb no-export
+#+property: header-args:cpp :flags -std=c++20 -Wall -I include src/glad.c -ldl -lGL -lglfw :eval never :main no :noweb no-export
 #+property: header-args:glsl :noweb no-export
 #+options: ^:nil
 

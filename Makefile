@@ -12,9 +12,9 @@ pdf: $(ORG_SOURCES:%=%.pdf)
 ###############################
 # Dependencies initialization #
 ###############################
-.PHONY: glm_retrieval submodules_retrieval dependencies LitLib
+.PHONY: glm_retrieval submodules_retrieval init LitLib
 
-dependencies: glm_retrieval miniz_retrieval submodules_retrieval LitLib
+init: glm_retrieval miniz_retrieval submodules_retrieval LitLib
 
 glm_retrieval:
 	./script/retrieve-dependency.sh https://github.com/g-truc/glm/releases/download/0.9.9.8 glm-0.9.9.8 7z include/glm ':to_include glm/glm'
@@ -41,3 +41,26 @@ clean:
 
 purge: clean
 	rm -fr litlib include/stb
+
+############
+# Tangling #
+############
+tangle/partial-cel-shading.cpp: planet.org
+	./script/tangle.sh $<
+
+###############
+# Compilation #
+###############
+build:
+	mkdir -p build
+
+build/partial-cel-shading: tangle/partial-cel-shading.cpp build
+	g++ -O2 -std=c++20 -Wall -I include src/glad.c $< -ldl -lGL -lglfw -o $@
+
+#############
+# Execution #
+#############
+.PHONY: run/partial-cel-shading
+
+run/partial-cel-shading: build/partial-cel-shading
+	./build/partial-cel-shading

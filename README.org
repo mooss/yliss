@@ -7,11 +7,19 @@ Here is a planet generated with this project:
 For now the only way to make it run is to use an up-to-date version of Emacs to execute the relevant Org mode code blocks.
 There is probably a bunch of other constraints, like having a suitable version of GLFW installed.
 
-** Files included from other projects
+** Compilation
 
-Some files from external dependencies are included directly in this repository.
-The projects from which files were borrowed are the following:
- - glad (https://glad.dav1d.de) :: Since this is an OpenGL loader generator, I figured that the best way to use it would be to directly include the generated code.
+Compiling this project requires a recent GCC compiler, a working glfw3 installation and a working Docker installation setup to run without sudo (see https://docs.docker.com/engine/install/linux-postinstall/).
+
+Initialize the dependencies:
+#+begin_src bash
+make init
+#+end_src
+
+Compile and run the partial cel shading implementation:
+#+begin_src bash
+make run/partial-cel-shading # Use build/partial-cel-shading to only compile.
+#+end_src
 
 ** Documents generation
 
@@ -27,13 +35,11 @@ Notable missing features are:
 Here are features that have been implemented:
  - Export some code blocks within minipages.
 
-** TODO Tangler
+** Files included from other projects
 
-A tangler is a program that can extract source code blocks from a literate document and gather (tangle) them into their destination file.
-
-This project needs one, ideally one that is written in C/C++ without external dependencies and one that supports =noweb-ref= so that rules out Worgle at least.
-
-Currently lithel's =include.pl= has been adapted to perform some tangling duties but this whole script is an ugly hack that will come back to haunt me.
+Some files from external dependencies are included directly in this repository.
+The projects from which files were borrowed are the following:
+ - glad (https://glad.dav1d.de) :: Since this is an OpenGL loader generator, I figured that the best way to use it would be to directly include the generated code.
 
 ** Sources
 
