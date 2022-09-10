@@ -70,7 +70,7 @@ window_handle = glfwCreateWindow(
 );
 if(window_handle == nullptr){
     glfwTerminate();
-    throw std::runtime_error("Failed to create glfw window");
+    throw std::runtime_error("Failed to create glfw window.");
 }
 #+end_src
 
@@ -241,6 +241,64 @@ int main(){
     lazy_window lazy("Sloth", 640u, 480u);
     lazy.game_loop([]{});
     return 0;
+}
+#+end_src
+
+* OpenGL context
+
+=gl_context= can create an OpenGL context without opening a window.
+OSMesa is used for offscreen rendering.
+
+#+name: gl_context
+#+begin_src cpp
+class gl_context {
+  public:
+    std::vector<GLubyte> buffer;
+    gl_context(int width, int height):
+        width_(width), height_(height), buffer(width * height * 4) {
+        auto mesa_context = OSMesaCreateContext(OSMESA_RGBA, NULL);
+
+        if(!mesa_context){ // TODO: panic function.
+            std::cerr << "Failed to create OSMesa context.\n";
+            exit(1);
+        }
+        if(!OSMesaMakeCurrent(mesa_context, buffer.data(), GL_UNSIGNED_BYTE, width_, height_)) {
+            std::cerr << "Failed to make OSMesa context current.\n";
+            exit(1);
+        }
+        if(!gladLoadGLLoader((GLADloadproc) OSMesaGetProcAddress)){
+            std::cerr << "Failed to create OpenGL context with glad.\n";
+            exit(1);
+        }
+
+        glViewport(0, 0, width_, height_);
+    }
+
+    // TODO: destructor to cleanup?
+
+    void resize(int w, int h) {
+        width_ = w; height_ = h;
+        glViewport(0, 0, width_, height_);
+    }
+
+    int width() const { return width_; }
+    int height() const { return height_; }
+
+    <<gl_context/public>>
+
+  private:
+    int width_;
+    int height_;
+};
+#+end_src
+#+depends:gl_context :cpp glad/glad.h GL/osmesa.h iostream
+
+Renders one image, with the same interface as =window=.
+#+begin_src cpp :noweb-ref gl_context/public
+template<typename F>
+void render_one(F rendering) const {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    rendering();
 }
 #+end_src
 
