@@ -647,3 +647,18 @@ template<class Render> void gl_screen_first(
 ) {gl_screen_first(source, destination, image::format::png::writer{}, render);}
 #+end_src
 #+depends:gl_screen_first :noweb gl_screen_nth image/format/png
+
+Render one frame, save the screenshot and return:
+#+name: gl_screen_one
+#+begin_src cpp :minipage
+template<class Render, class ImageWriter, class Source>
+void gl_screen_one( //TODO: use in other gl_screen*.
+    const Source& source, std::string_view destination,
+    const ImageWriter& writer, Render render
+) {
+    source.render_one(render);
+    writer(source, destination);
+    std::cout << "[[file:" << destination << "]]\n";
+}
+#+end_src
+#+depends: gl_screen_one :cpp iostream string_view
