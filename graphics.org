@@ -674,7 +674,7 @@ The screen-capturing game loop function of [[window.org]] is put to good use to:
  - Setup a game loop using the given lambda.
 
 #+begin_src cpp :eval no-export :exports both
-<<include(":noweb print lazy_window gl_screen_first VAO shader_program vec_vertices png720p")>>
+<<include(":noweb lazy_window gl_screen_first VAO shader_program vec_vertices png720p")>>
 
 int main(){
     const char *vs_str =
