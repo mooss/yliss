@@ -5,19 +5,19 @@ if [[ $# -ne 1 ]]; then
     exit 1
 fi
 
-repo="$1"
+repo=$1
 
-if [[ -L "$repo" ]]; then
+if [[ -L $repo ]]; then
     echo "$repo is initialised as a link to $(readlink -f $repo)."
     exit 0
 fi
 
-if [[ -d "$repo" ]]; then
-    if [[ -s "$repo" ]]; then
-        echo "$repo is already initialised."
+if [[ -d $repo ]]; then
+    if [[ -z "$(ls -A $repo)" ]]; then
+        git submodule init $repo
+        git submodule update $repo
     else
-        git submodule init "$repo"
-        git submodule update "$repo"
+        echo "$repo is already initialised."
     fi
     exit 0
 fi
