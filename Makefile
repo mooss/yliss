@@ -23,8 +23,8 @@ miniz_retrieval:
 	./script/retrieve-dependency.sh https://github.com/richgel999/miniz/releases/download/2.1.0 miniz-2.1.0 zip include/miniz.c ':to_include miniz.h miniz.c'
 
 submodules_retrieval:
-	git submodule init
-	git submodule update
+	./script/init-submodule.bash litlib
+	./script/init-submodule.bash include/stb
 
 litlib: submodules_retrieval
 
