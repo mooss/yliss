@@ -69,6 +69,14 @@ I'm not sure this is a very good idea because there are probably tons of situati
 Fail immediately when an error occurs.
 
 
+** OpenGL loader
+
+#+begin_src bash :eval no-export :results silent
+pip -qq install --user glad
+glad --profile core --api 'gl=3.3' --generator c --spec gl --reproducible --out-path . --extensions ''
+#+end_src
+
+
 * OpenGL primitives
 
 In this section are defined various OpenGL-related objects that let us draw things.
