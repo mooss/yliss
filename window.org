@@ -86,7 +86,7 @@ glfwMakeContextCurrent(window_handle);
 if(!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
     glfwDestroyWindow(window_handle);
     glfwTerminate();
-    throw std::runtime_error("Failed to create OpenGL context with glad");
+    throw std::runtime_error("Failed to create OpenGL context with glad.");
 }
 
 int fb_width, fb_height;
@@ -313,7 +313,8 @@ struct render_buffer {
     // Using unsigned char storage, like stb does.
     std::vector<unsigned char> storage = std::vector<unsigned char>(0);
 
-    render_buffer(const window& source) {grab(source);}
+    template<class Source>
+    render_buffer(const Source& source) {grab(source);}
     render_buffer(GLsizei w, GLsizei h, GLsizei c):
         channels(c) {resize(w, h);}
 
@@ -333,7 +334,8 @@ struct render_buffer {
     unsigned char* data() {return storage.data();}
     const unsigned char* data() const {return storage.data();}
 
-    void grab(const window& source) {
+    template<class Source>
+    void grab(const Source& source) {
         resize(source.width(), source.height());
         glPixelStorei(GL_PACK_ALIGNMENT, Format::alignment);
         glReadBuffer(GL_FRONT);
@@ -346,7 +348,7 @@ struct render_buffer {
     }
 };
 #+end_src
-#+depends:render_buffer :noweb window stb_image_write<miniz> identity :cpp vector string_view
+#+depends:render_buffer :noweb stb_image_write<miniz> identity :cpp vector string_view
 
 
 ** Image transformations
@@ -462,7 +464,8 @@ struct writer_impl {
 
     writer_impl()=default;
 
-    void operator()(const window& source, std::string_view destination) const {
+    template<class Source>
+    void operator()(const Source& source, std::string_view destination) const {
         transformation(render_buffer<Format>(source)).write(destination);
     }
 };
@@ -533,7 +536,8 @@ struct deduce_writer {
 
     deduce_writer()=default;
 
-    void operator()(const window& source, std::string_view destination) const {
+    template<class Source>
+    void operator()(const Source& source, std::string_view destination) const {
         if(destination.ends_with(".jpeg") || destination.ends_with(".jpg"))
             transformation(render_buffer<jpeg<JpegQuality>>(source)).write(destination);
         else
