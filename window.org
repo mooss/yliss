@@ -661,4 +661,4 @@ void gl_screen_one( //TODO: use in other gl_screen*.
     std::cout << "[[file:" << destination << "]]\n";
 }
 #+end_src
-#+depends: gl_screen_one :cpp iostream string_view
+#+depends:gl_screen_one :cpp iostream string_view
