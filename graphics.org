@@ -1170,6 +1170,31 @@ using movipers = movipr<perspective_projection>;
 #+end_src
 #+depends:movipers :noweb movipr perspective_projection
 
+*** Orthographic projection
+
+Orthograpthic projection is more suitable for 2d rendering, it doesn't take perspective into account, which make 3d objects render strangely.
+#+name: orthographic_projection
+#+begin_src cpp
+struct orthographic_projection {
+    mandatory<float> left;
+    mandatory<float> right;
+    mandatory<float> bottom;
+    mandatory<float> top;
+    float            near{.1};
+    float            far{100};
+    auto make() const {
+        return glm::ortho(*left, *right, *bottom, *top, near, far);
+    }
+};
+#+end_src
+#+depends:orthographic_projection :noweb mandatory :cpp glm/ext/matrix_clip_space.hpp
+
+=moviort= is a =movipr= explicitly using a orthographic projection:
+#+name: moviort
+#+begin_src cpp
+using moviort = movipr<orthographic_projection>;
+#+end_src
+#+depends:moviort :noweb movipr orthographic_projection
 
 *** Usage
 
@@ -1191,8 +1216,8 @@ void main() {
 }
 #+end_src
 
-The =colorful-example= used previously is expanded below with =movipers=, to send the appropriate values of the =model=, =view= and =projection= uniforms to the shader.
-A window size observer is also setup to update the projection's aspect ratio when the window is resized.
+The =colorful-example= used previously is expanded below with a =movipr=, to send the appropriate values of the =model=, =view= and =projection= uniforms to the shader.
+This movipr relies on the =proj= variable that needs to be a valid projection (an instance of =perspective_projection= or =orthographic_projection=) and on the =refresh_proj= callable that must refresh this projection when a window size change occurs.
 
 #+name: colorful-viper-example
 #+begin_src cpp
@@ -1202,33 +1227,24 @@ auto cube_transformation = transform().translate(cube_location)
                                     .rotate_deg(45,  { 0,  0,  1})
                                     .rotate_deg(270, { 0,  1,  0})
                                     .rotate_deg(90,  { 1,  0,  1});
-movipers viper(
+movipr viper(
     cube_transformation,
     transform().translate({0, 0, -2}),
-    {.aspect = lazy.aspect()},
+    proj,
     colorful_shader
 );
 
-auto size_sub = lazy.observe_size([](auto const& size) {
-    viper.projection_parameters.aspect = size.aspect();
-    viper.refresh_projection();
+auto size_sub = lazy.observe_size([](auto const& size){
+    refresh_proj(viper, size);
 });
 #+end_src
-#+depends:colorful-viper-example :noweb colorful-example movipers transform :cpp glm/vec3.hpp
+#+depends:colorful-viper-example :noweb colorful-example movipr transform :cpp glm/vec3.hpp
 
-Only the vertex and fragment shaders, as well as a game loop must be added to produce something that looks less like the squashed lozenge of the previous example and more like a cube viewed from a certain perspective.
-
-#+begin_src cpp :eval no-export :exports both
-const char *vs_str =
-    <<shader("model_view_projection_vs")>>
-    ;
-const char *fs_str =
-    <<shader("color_as_attribute_fs")>>
-    ;
-<<include(":noweb colorful-viper-example gl_screen_first png720p")>>
-
+This main function uses the =movipr= defined above to render the model using the specified perspective:
+#+name: colorful-viper-main
+#+begin_src cpp
 int main() {
-    gl_screen_first(lazy, "images/screencaps/cc_model_view_projection.png", png720p, [&]{
+    gl_screen_first(lazy, screenshot_path, png720p, [&]{
         colorful_shader.use();
         colorful_vao.bind();
         colorful_indexes.draw();
@@ -1238,10 +1254,66 @@ int main() {
     });
 }
 #+end_src
+#+depends:colorful-viper-main :noweb colorful-viper-example gl_screen_first png720p
+
+Using a perspective projection:
+#+name: colorful-example-pers
+#+begin_src cpp
+perspective_projection proj{.aspect = lazy.aspect()};
+auto refresh_proj = [](auto& viper, auto const& size) {
+    viper.projection_parameters.aspect = size.aspect();
+    viper.refresh_projection();
+};
+const char* screenshot_path = "images/screencaps/cc_model_view_perspective_projection.png";
+#+end_src
+#+depends:colorful-example-pers :noweb colorful-example perspective_projection
+
+#+begin_src cpp :eval no-export :exports both
+const char *vs_str =
+    <<shader("model_view_projection_vs")>>
+    ;
+const char *fs_str =
+    <<shader("color_as_attribute_fs")>>
+    ;
+<<include(":noweb colorful-example-pers colorful-viper-main")>>
+#+end_src
 
 #+RESULTS:
 :results:
-[[file:images/screencaps/cc_model_view_projection.png]]
+[[file:images/screencaps/cc_model_view_perspective_projection.png]]
+:end:
+
+Using an orthographic projection:
+#+name: colorful-example-ort
+#+begin_src cpp
+auto aspect = lazy.aspect();
+auto inv_aspect = 1.f / aspect;
+orthographic_projection proj{.left=-aspect, .right=aspect, .bottom=-inv_aspect, .top=inv_aspect};
+auto refresh_proj = [](auto& viper, auto const& size) {
+    auto aspect = lazy.aspect();
+    auto inv_aspect = 1.f / aspect;
+    auto& proj = viper.projection_parameters;
+    proj.left = -aspect; proj.right = aspect; proj.bottom = -inv_aspect; proj.top = inv_aspect;
+    viper.refresh_projection();
+};
+const char* screenshot_path = "images/screencaps/cc_model_view_orthographic_projection.png";
+#+end_src
+#+depends:colorful-example-ort :noweb colorful-example orthographic_projection
+
+Looking at the rendered image below, I don't know if the vertical distortion comes from the orthographic projection or from a mistake on my end.
+#+begin_src cpp :eval no-export :exports both
+const char *vs_str =
+    <<shader("model_view_projection_vs")>>
+    ;
+const char *fs_str =
+    <<shader("color_as_attribute_fs")>>
+    ;
+<<include(":noweb colorful-example-ort colorful-viper-main")>>
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/screencaps/cc_model_view_orthographic_projection.png]]
 :end:
 
 
