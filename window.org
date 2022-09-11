@@ -244,6 +244,7 @@ int main(){
 }
 #+end_src
 
+
 * OpenGL context
 
 =gl_context= can create an OpenGL context without opening a window.
@@ -273,16 +274,7 @@ class gl_context {
 
         glViewport(0, 0, width_, height_);
     }
-
     // TODO: destructor to cleanup?
-
-    void resize(int w, int h) {
-        width_ = w; height_ = h;
-        glViewport(0, 0, width_, height_);
-    }
-
-    int width() const { return width_; }
-    int height() const { return height_; }
 
     <<gl_context/public>>
 
@@ -293,6 +285,8 @@ class gl_context {
 #+end_src
 #+depends:gl_context :cpp glad/glad.h GL/osmesa.h iostream
 
+** Short public methods
+
 Renders one image, with the same interface as =window=.
 #+begin_src cpp :noweb-ref gl_context/public
 template<typename F>
@@ -301,6 +295,18 @@ void render_one(F rendering) const {
     rendering();
 }
 #+end_src
+
+Size-related utilities:
+#+begin_src cpp :noweb-ref gl_context/public
+void resize(int w, int h) {
+    width_ = w; height_ = h;
+    glViewport(0, 0, width_, height_);
+}
+int width() const { return width_; }
+int height() const { return height_; }
+float aspect() const { return (float) width_ / (float) height_; }
+#+end_src
+
 
 
 * Screenshots
