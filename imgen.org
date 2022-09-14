@@ -1,0 +1,193 @@
+#+title: Image generation tools
+
+#+property: header-args:cpp :flags -std=c++20 -I include -lGL -lOSMesa src/glad.c :eval never :main no :exports both :noweb no-export
+
+* Prelude
+
+** Inclusion
+
+The following script uses LitLib's =include.pl= to fetch code blocks defined in =Yliss= and =LitLib=, along with their dependencies.
+Most of the work to generate images is defined in =Yliss=, the current document merely assembles a few primitives.
+
+
+#+name: include
+#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
+./litlib/include.pl "window.org litlib/cpp.org graphics.org imgen.org" "$args"
+#+end_src
+
+
+* Image specification (=imgspec=)
+
+Gathers all the information needed to generate an image, with reasonable defaults for the vertex and fragment shaders.
+
+#+name: imgspec
+#+begin_src cpp
+struct imgspec {
+    const char *vs =
+        "#version 330 core\n"
+        "layout (location = 0) in vec2 position;\n"
+        "layout (location = 1) in vec3 color_in;\n"
+        "out vec3 color_fs;\n"
+        "\n"
+        "uniform mat4 model;\n"
+        "uniform mat4 view;\n"
+        "uniform mat4 projection;\n"
+        "\n"
+        "void main() {\n"
+        "    gl_Position = projection * view * model * vec4(position, 0.0f, 1.0f);\n"
+        "    color_fs = color_in;\n"
+        "}\n";
+    const char *fs =
+        "#version 330 core\n"
+        "out vec4 color_out;\n"
+        "in vec3 color_fs;\n"
+        "\n"
+        "void main() {\n"
+        "    color_out = vec4(color_fs, 1.);\n"
+        "}\n";
+    const std::vector<float>& vtx;
+    const std::vector<unsigned int>& layout;
+    const std::vector<unsigned int>& idx;
+    orthographic_projection proj{.left = 0, .right = 1, .bottom = 0, .top = 1};
+    mandatory<unsigned int> width;
+    mandatory<unsigned int> height;
+
+    <<imgspec/public>>
+};
+#+end_src
+#+depends:imgspec :noweb mandatory moviort gl_context shader_program VAO vertices indexes transform gl_screen_one image/format/deduce :cpp vector string_view
+
+The =gen= method can generate an image under the given path by creating an OpenGL context and rendering one frame using the information contained in the =imgspec=.
+
+#+begin_src cpp :eval no-export :exports both :noweb-ref imgspec/public
+void gen(std::string_view destination) {
+    gl_context offscreen(*width, *height);
+    glClearColor(.5f, .5f, .5f, 0.0f);
+    shader_program shader{vertex_shader(vs), fragment_shader(fs)};
+    VAO vao{};
+    vertices<GLfloat> vtxobj(vtx, layout);
+    indexes idxobj(idx);
+    moviort viper(
+        transform(),
+        transform().translate({0, 0, -1}), // Move the view otherwise it would get clipped by the near value.
+        proj,
+        shader
+    );
+
+    auto render = [&]{
+        shader.use();
+        vao.bind();
+        idxobj.draw();
+    };
+    using writer = image::format::deduce<90>::writer<identity>;
+    gl_screen_one(offscreen, destination, writer(), render);
+}
+#+end_src
+
+** Usage
+
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb imgspec")>>
+
+int main() {
+    imgspec{
+        .vtx = { // Positions // Colors
+                    1, 1,        1, 1, 0,  // Top right,    yellow.
+                    0, 1,        1, 0, 1,  // Top left,     magenta.
+                    1, 0,        0, 1, 1,  // Bottom right, cyan.
+                    0, 0,        0, 0, 0}, // Bottom left,  black.
+        .layout = { 2, 3 },
+        .idx = { 0, 1, 2,
+                 1, 2, 3 },
+        .width = 64, .height = 64
+    }.gen("images/imgen/usage.png");
+    return 0;
+}
+#+end_src
+
+#+RESULTS:
+:results:
+[[file:images/imgen/usage.png]]
+:end:
+
+** Command-line tool
+
+The goal is to write a tool able to read this kind of image specification format:
+#+begin_src txt :tangle tangle/usage.imgspec
+1 1 1 1 0
+0 1 1 0 1
+1 0 0 1 1
+0 0 0 0 0
+
+2 3
+
+0 1 2
+1 2 3
+
+64 64
+#+end_src
+
+This format is composed of 4 section separated by empty lines:
+ 1. The vertices.
+ 2. The layout.
+ 3. The indexes.
+ 4. The size of the generated image.
+
+*** Implementation
+
+#+name: imgen-cli
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb slurp split/sv keepin panic maybe mapassert <<vector print print_size :cpp string string_view cstdlib")>>
+
+bool is_space(char c) {
+    return c == ' ' || c == '\n';
+}
+
+sub next_spaces(const std::string_view s) {
+    for(std::size_t begin = 0; begin < s.size(); ++begin) {
+        if(is_space(s[begin])) {
+            auto end = begin;
+            while(++end < s.size() && is_space(s[end]));
+            return sub{.pos=begin, .len=end-begin};
+        }
+    }
+    return sub{};
+}
+
+bool not_spaces(const std::string_view str) {
+    for(auto c: str)
+        if(!is_space(c)) return true;
+    return false;
+}
+
+// TODO: utility to add more context to maybe error messages.
+maybe<float> to_float(const std::string_view str) {
+    double res = std::atof(str.data());
+    if(res == 0 && str != "0" && str != "0.0" && str != ".0") {
+        return sterr{std::string("invalid float value: ") + std::string(str)};
+    }
+    return float(res);
+}
+
+int main() {
+    auto raw = slurp("tangle/usage.imgspec");
+    auto splitted = split(raw, "\n\n");
+    keepin(not_spaces, splitted);
+    if(splitted.size() != 4) {
+        std::string err = "expected 4 sections to imgspec file but got ";
+        panic(err + std::to_string(splitted.size()));
+    }
+
+    auto vertices = mapassert(to_float, split(splitted[0], next_spaces));
+    print_size<decltype(vertices)>();
+    print{vertices};
+    return 0;
+}
+#+end_src
+
+#+RESULTS: imgen-cli
+:results:
+std::vector<float, std::allocator<float> > -> 24 bytes (192 bits)
+[1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0]
+:end:
+
