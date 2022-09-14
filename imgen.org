@@ -135,7 +135,7 @@ This format is composed of 4 section separated by empty lines:
 *** Implementation
 
 #+name: imgen-cli
-#+begin_src cpp :eval no-export :exports both
+#+begin_src cpp :eval no-export :exports both :wrap src text
 <<include(":noweb slurp split/sv keepin panic maybe mapassert <<vector print print_size :cpp string string_view cstdlib")>>
 
 bool is_space(char c) {
@@ -159,13 +159,28 @@ bool not_spaces(const std::string_view str) {
     return false;
 }
 
+sterr conv_error(const std::string message, const std::string_view str) {
+    return sterr{message + std::string(str)};
+}
+
 // TODO: utility to add more context to maybe error messages.
 maybe<float> to_float(const std::string_view str) {
-    double res = std::atof(str.data());
+    double res = std::atof(str.data()); // The fact that str might not be null-terminated is problematic.
     if(res == 0 && str != "0" && str != "0.0" && str != ".0") {
-        return sterr{std::string("invalid float value: ") + std::string(str)};
+        return conv_error("failed to parse value as float: ", str);
     }
     return float(res);
+}
+
+maybe<unsigned int> to_uint(const std::string_view str) {
+    long res = std::atol(str.data());
+    if(res < 0) {
+        return conv_error("expected an unsigned int: ", str);
+    }
+    if(res == 0 && str != "0") {
+        return conv_error("failed to parse value as unsigned int: ", str);
+    }
+    return (unsigned int) res;
 }
 
 int main() {
@@ -180,13 +195,29 @@ int main() {
     auto vertices = mapassert(to_float, split(splitted[0], next_spaces));
     print_size<decltype(vertices)>();
     print{vertices};
+
+    auto layout = mapassert(to_uint, split(splitted[1], next_spaces));
+    print_size<decltype(layout)>();
+    print{layout};
+
+    print{};
+    print{splitted};
     return 0;
 }
 #+end_src
 
 #+RESULTS: imgen-cli
-:results:
+#+begin_src text
 std::vector<float, std::allocator<float> > -> 24 bytes (192 bits)
 [1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0]
-:end:
+std::vector<unsigned int, std::allocator<unsigned int> > -> 24 bytes (192 bits)
+[2, 3]
+
+[1 1 1 1 0
+0 1 1 0 1
+1 0 0 1 1
+0 0 0 0 0, 2 3, 0 1 2
+1 2 3, 64 64
+]
+#+end_src
 
