@@ -7,8 +7,7 @@
 ** Inclusion
 
 The following script uses LitLib's =include.pl= to fetch code blocks defined in =Yliss= and =LitLib=, along with their dependencies.
-Most of the work to generate images is defined in =Yliss=, the current document merely assembles a few primitives.
-
+Most of the work to generate images is defined in in those other documents, the current document merely assembles a few primitives.
 
 #+name: include
 #+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
