@@ -184,40 +184,41 @@ maybe<unsigned int> to_uint(const std::string_view str) {
 }
 
 int main() {
+    auto cleansplit = [](const auto& range, auto splitter) {
+        auto res = split(range, splitter);
+        keepin(not_spaces, res);
+        return res;
+    };
+
     auto raw = slurp("tangle/usage.imgspec");
-    auto splitted = split(raw, "\n\n");
-    keepin(not_spaces, splitted);
+    auto splitted = cleansplit(raw, "\n\n");
     if(splitted.size() != 4) {
         std::string err = "expected 4 sections to imgspec file but got ";
         panic(err + std::to_string(splitted.size()));
     }
 
-    auto vertices = mapassert(to_float, split(splitted[0], next_spaces));
-    print_size<decltype(vertices)>();
+    auto parse = [&](auto i, auto convert) {
+        return mapassert(convert, cleansplit(splitted[i], next_spaces));
+    };
+
+    auto vertices = parse(0, to_float);
     print{vertices};
-
-    auto layout = mapassert(to_uint, split(splitted[1], next_spaces));
-    print_size<decltype(layout)>();
+    auto layout = parse(1, to_uint);
     print{layout};
+    auto indexes = parse(2, to_uint);
+    print{indexes};
+    auto imsize = parse(3, to_uint);
+    print{imsize};
 
-    print{};
-    print{splitted};
     return 0;
 }
 #+end_src
 
 #+RESULTS: imgen-cli
 #+begin_src text
-std::vector<float, std::allocator<float> > -> 24 bytes (192 bits)
 [1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0]
-std::vector<unsigned int, std::allocator<unsigned int> > -> 24 bytes (192 bits)
 [2, 3]
-
-[1 1 1 1 0
-0 1 1 0 1
-1 0 0 1 1
-0 0 0 0 0, 2 3, 0 1 2
-1 2 3, 64 64
-]
+[0, 1, 2, 1, 2, 3]
+[64, 64]
 #+end_src
 
