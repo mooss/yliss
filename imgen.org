@@ -1,6 +1,7 @@
 #+title: Image generation tools
 
 #+property: header-args:cpp :flags -std=c++20 -I include -lGL -lOSMesa src/glad.c :eval never :main no :exports both :noweb no-export
+#+property: header-args:bash :noweb no-export :prologue "exec 2>&1" :epilogue "true"
 
 * Prelude
 
@@ -10,8 +11,8 @@ The following script uses LitLib's =include.pl= to fetch code blocks defined in 
 Most of the work to generate images is defined in in those other documents, the current document merely assembles a few primitives.
 
 #+name: include
-#+begin_src sh :var args="" :results output :wrap "src cpp" :eval no-export
-./litlib/include.pl "window.org litlib/cpp.org graphics.org imgen.org" "$args"
+#+begin_src sh :var args="" :results output :wrap src cpp :eval no-export
+./litlib/include.pl 'window.org litlib/cpp.org graphics.org imgen.org' "$args"
 #+end_src
 
 
@@ -135,9 +136,7 @@ This format is composed of 4 section separated by empty lines:
 *** Implementation
 
 #+name: imgen-cli
-#+begin_src cpp :eval no-export :exports both :cmdline tangle/usage.imgspec images/imgen/usage.png
-<<include(":noweb slurp split/sv keepin panic maybe mapassert imgspec :cpp string string_view cstdlib")>>
-
+#+begin_src cpp
 bool is_space(char c) {
     return c == ' ' || c == '\n';
 }
@@ -228,9 +227,59 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 #+end_src
+#+depends:imgen-cli :noweb slurp split/sv keepin panic maybe mapassert imgspec :cpp string string_view cstdlib
 
-#+RESULTS: imgen-cli
+*** Compilation
+
+This compiles =imgen= into =./bin=:
+#+begin_src bash :wrap src compilation
+mkdir -p bin
+tangled=tangle/imgen.cpp
+./litlib/include.pl 'window.org litlib/cpp.org graphics.org imgen.org' ':noweb imgen-cli' > $tangled
+g++ -Wall -std=c++20 -O2 -I include -lGL -lOSMesa src/glad.c $tangled -o bin/imgen
+du -sh bin/imgen
+wc -l $tangled
+rm $tangled
+#+end_src
+
+#+RESULTS:
+#+begin_src compilation
+tangle/imgen.cpp: In constructor ‘gl_context::gl_context(int, int)’:
+tangle/imgen.cpp:379:9: warning: ‘gl_context::height_’ will be initialized after [-Wreorder]
+  379 |     int height_;
+      |         ^~~~~~~
+tangle/imgen.cpp:347:26: warning:   ‘std::vector<unsigned char> gl_context::buffer’ [-Wreorder]
+  347 |     std::vector<GLubyte> buffer;
+      |                          ^~~~~~
+tangle/imgen.cpp:348:5: warning:   when initialized here [-Wreorder]
+  348 |     gl_context(int width, int height):
+      |     ^~~~~~~~~~
+In file included from tangle/imgen.cpp:582:
+include/stb/stb_image_write.h: In function ‘void stbiw__write1(stbi__write_context*, unsigned char)’:
+include/stb/stb_image_write.h:400:24: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+  400 |    if (s->buf_used + 1 > sizeof(s->buffer))
+      |        ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+include/stb/stb_image_write.h: In function ‘void stbiw__write3(stbi__write_context*, unsigned char, unsigned char, unsigned char)’:
+include/stb/stb_image_write.h:408:24: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+  408 |    if (s->buf_used + 3 > sizeof(s->buffer))
+      |        ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+200K	bin/imgen
+835 tangle/imgen.cpp
+#+end_src
+
+*** Code block
+
+#+name: imgen
+#+begin_src bash :var spec="" dest=""
+[[ -f "$spec" ]] || { echo "Specification file \`$spec\` does not exist."; exit; }
+destdir=$(dirname "$dest")
+[[ -d "$destdir" ]] || mkdir -p "$destdir"
+./bin/imgen "$spec" "$dest"
+#+end_src
+
+#+call: imgen("tangle/usage.imgspec", "images/imgen/usage.png")
+
+#+RESULTS:
 :results:
 [[file:images/imgen/usage.png]]
 :end:
-
