@@ -135,8 +135,8 @@ This format is composed of 4 section separated by empty lines:
 *** Implementation
 
 #+name: imgen-cli
-#+begin_src cpp :eval no-export :exports both :wrap src text
-<<include(":noweb slurp split/sv keepin panic maybe mapassert <<vector print print_size :cpp string string_view cstdlib")>>
+#+begin_src cpp :eval no-export :exports both
+<<include(":noweb slurp split/sv keepin panic maybe mapassert imgspec :cpp string string_view cstdlib")>>
 
 bool is_space(char c) {
     return c == ' ' || c == '\n';
@@ -202,23 +202,28 @@ int main() {
     };
 
     auto vertices = parse(0, to_float);
-    print{vertices};
     auto layout = parse(1, to_uint);
-    print{layout};
     auto indexes = parse(2, to_uint);
-    print{indexes};
     auto imsize = parse(3, to_uint);
-    print{imsize};
+
+    if(imsize.size() != 2) {
+        panic(std::string("expected image size section to be 2 uint, got") + std::to_string(imsize.size()));
+    }
+
+    imgspec{
+        .vtx = vertices,
+        .layout = layout,
+        .idx = indexes,
+        .width = imsize[0],
+        .height = imsize[0],
+    }.gen("images/imgen/usage.png");
 
     return 0;
 }
 #+end_src
 
 #+RESULTS: imgen-cli
-#+begin_src text
-[1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0]
-[2, 3]
-[0, 1, 2, 1, 2, 3]
-[64, 64]
-#+end_src
+:results:
+[[file:images/imgen/usage.png]]
+:end:
 
