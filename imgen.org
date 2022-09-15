@@ -141,45 +141,10 @@ bool is_space(char c) {
     return c == ' ' || c == '\n';
 }
 
-sub next_spaces(const std::string_view s) {
-    for(std::size_t begin = 0; begin < s.size(); ++begin) {
-        if(is_space(s[begin])) {
-            auto end = begin;
-            while(++end < s.size() && is_space(s[end]));
-            return sub{.pos=begin, .len=end-begin};
-        }
-    }
-    return sub{};
-}
-
 bool not_spaces(const std::string_view str) {
     for(auto c: str)
         if(!is_space(c)) return true;
     return false;
-}
-
-sterr conv_error(const std::string message, const std::string_view str) {
-    return sterr{message + std::string(str)};
-}
-
-// TODO: utility to add more context to maybe error messages.
-maybe<float> to_float(const std::string_view str) {
-    double res = std::atof(str.data()); // The fact that str might not be null-terminated is problematic.
-    if(res == 0 && str != "0" && str != "0.0" && str != ".0") {
-        return conv_error("failed to parse value as float: ", str);
-    }
-    return float(res);
-}
-
-maybe<unsigned int> to_uint(const std::string_view str) {
-    long res = std::atol(str.data());
-    if(res < 0) {
-        return conv_error("expected an unsigned int: ", str);
-    }
-    if(res == 0 && str != "0") {
-        return conv_error("failed to parse value as unsigned int: ", str);
-    }
-    return (unsigned int) res;
 }
 
 int main(int argc, char *argv[]) {
@@ -204,7 +169,7 @@ int main(int argc, char *argv[]) {
     }
 
     auto parse = [&](auto i, auto convert) {
-        return mapassert(convert, cleansplit(splitted[i], next_spaces));
+        return mapassert(convert, cleansplit(splitted[i], greedy_finder(is_space)));
     };
 
     auto vertices = parse(0, to_float);
@@ -227,7 +192,8 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 #+end_src
-#+depends:imgen-cli :noweb slurp split/sv keepin panic maybe mapassert imgspec :cpp string string_view cstdlib
+#+depends:imgen-cli :noweb panic slurp split/sv keepin mapassert greedy_finder to-numbers imgspec :cpp string string_view
+
 
 *** Compilation
 
@@ -245,16 +211,16 @@ rm $tangled
 #+RESULTS:
 #+begin_src compilation
 tangle/imgen.cpp: In constructor ‘gl_context::gl_context(int, int)’:
-tangle/imgen.cpp:379:9: warning: ‘gl_context::height_’ will be initialized after [-Wreorder]
-  379 |     int height_;
+tangle/imgen.cpp:409:9: warning: ‘gl_context::height_’ will be initialized after [-Wreorder]
+  409 |     int height_;
       |         ^~~~~~~
-tangle/imgen.cpp:347:26: warning:   ‘std::vector<unsigned char> gl_context::buffer’ [-Wreorder]
-  347 |     std::vector<GLubyte> buffer;
+tangle/imgen.cpp:377:26: warning:   ‘std::vector<unsigned char> gl_context::buffer’ [-Wreorder]
+  377 |     std::vector<GLubyte> buffer;
       |                          ^~~~~~
-tangle/imgen.cpp:348:5: warning:   when initialized here [-Wreorder]
-  348 |     gl_context(int width, int height):
+tangle/imgen.cpp:378:5: warning:   when initialized here [-Wreorder]
+  378 |     gl_context(int width, int height):
       |     ^~~~~~~~~~
-In file included from tangle/imgen.cpp:582:
+In file included from tangle/imgen.cpp:612:
 include/stb/stb_image_write.h: In function ‘void stbiw__write1(stbi__write_context*, unsigned char)’:
 include/stb/stb_image_write.h:400:24: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
   400 |    if (s->buf_used + 1 > sizeof(s->buffer))
@@ -263,8 +229,8 @@ include/stb/stb_image_write.h: In function ‘void stbiw__write3(stbi__write_con
 include/stb/stb_image_write.h:408:24: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
   408 |    if (s->buf_used + 3 > sizeof(s->buffer))
       |        ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
-200K	bin/imgen
-835 tangle/imgen.cpp
+196K	bin/imgen
+830 tangle/imgen.cpp
 #+end_src
 
 *** Code block
