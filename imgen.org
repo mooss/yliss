@@ -135,7 +135,7 @@ This format is composed of 4 section separated by empty lines:
 *** Implementation
 
 #+name: imgen-cli
-#+begin_src cpp :eval no-export :exports both
+#+begin_src cpp :eval no-export :exports both :cmdline tangle/usage.imgspec images/imgen/usage.png
 <<include(":noweb slurp split/sv keepin panic maybe mapassert imgspec :cpp string string_view cstdlib")>>
 
 bool is_space(char c) {
@@ -183,15 +183,22 @@ maybe<unsigned int> to_uint(const std::string_view str) {
     return (unsigned int) res;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    if(argc != 3) {
+        panic("expected 2 arguments, got " + std::to_string(argc-1));
+    }
+    auto spec = argv[1];
+    auto dest = argv[2];
+
     auto cleansplit = [](const auto& range, auto splitter) {
         auto res = split(range, splitter);
         keepin(not_spaces, res);
         return res;
     };
 
-    auto raw = slurp("tangle/usage.imgspec");
+    auto raw = slurp(spec); // TODO: ensure it exists.
     auto splitted = cleansplit(raw, "\n\n");
+
     if(splitted.size() != 4) {
         std::string err = "expected 4 sections to imgspec file but got ";
         panic(err + std::to_string(splitted.size()));
@@ -215,8 +222,8 @@ int main() {
         .layout = layout,
         .idx = indexes,
         .width = imsize[0],
-        .height = imsize[0],
-    }.gen("images/imgen/usage.png");
+        .height = imsize[1],
+    }.gen(dest);
 
     return 0;
 }
