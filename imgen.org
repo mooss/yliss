@@ -210,16 +210,6 @@ rm $tangled
 
 #+RESULTS:
 #+begin_src compilation
-tangle/imgen.cpp: In constructor ‘gl_context::gl_context(int, int)’:
-tangle/imgen.cpp:409:9: warning: ‘gl_context::height_’ will be initialized after [-Wreorder]
-  409 |     int height_;
-      |         ^~~~~~~
-tangle/imgen.cpp:377:26: warning:   ‘std::vector<unsigned char> gl_context::buffer’ [-Wreorder]
-  377 |     std::vector<GLubyte> buffer;
-      |                          ^~~~~~
-tangle/imgen.cpp:378:5: warning:   when initialized here [-Wreorder]
-  378 |     gl_context(int width, int height):
-      |     ^~~~~~~~~~
 In file included from tangle/imgen.cpp:612:
 include/stb/stb_image_write.h: In function ‘void stbiw__write1(stbi__write_context*, unsigned char)’:
 include/stb/stb_image_write.h:400:24: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]

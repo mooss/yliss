@@ -256,7 +256,7 @@ class gl_context {
   public:
     std::vector<GLubyte> buffer;
     gl_context(int width, int height):
-        width_(width), height_(height), buffer(width * height * 4) {
+        buffer(width * height * 4), width_(width), height_(height) {
         auto mesa_context = OSMesaCreateContext(OSMESA_RGBA, NULL);
 
         if(!mesa_context){ panic("Failed to create OSMesa context."); }
