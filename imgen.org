@@ -1,5 +1,6 @@
 #+title: Image generation tools
 
+#+property: header-args:python :results output :noweb no-export
 #+property: header-args:cpp :flags -std=c++20 -I include -lGL -lOSMesa src/glad.c :eval never :main no :exports both :noweb no-export
 #+property: header-args:bash :noweb no-export :prologue "exec 2>&1" :epilogue "true"
 
@@ -110,6 +111,7 @@ int main() {
 [[file:images/imgen/usage.png]]
 :end:
 
+
 ** Command-line tool
 
 The goal is to write a tool able to read this kind of image specification format:
@@ -194,7 +196,6 @@ int main(int argc, char *argv[]) {
 #+end_src
 #+depends:imgen-cli :noweb panic slurp split/sv keepin mapassert greedy_finder to-numbers imgspec :cpp string string_view
 
-
 *** Compilation
 
 This compiles =imgen= into =./bin=:
@@ -228,12 +229,226 @@ include/stb/stb_image_write.h:408:24: warning: comparison of integer expressions
 #+name: imgen
 #+begin_src bash :var spec="" dest=""
 [[ -f "$spec" ]] || { echo "Specification file \`$spec\` does not exist."; exit; }
-destdir=$(dirname "$dest")
-[[ -d "$destdir" ]] || mkdir -p "$destdir"
+mkdir -p "$(dirname "$dest")"
 ./bin/imgen "$spec" "$dest"
 #+end_src
 
 #+call: imgen("tangle/usage.imgspec", "images/imgen/usage.png")
+
+#+RESULTS:
+:results:
+[[file:images/imgen/usage.png]]
+:end:
+
+
+* Image specification generation (=pymgen=)
+
+The idea is to use an expressive language with fast compilation or fast enough interpretation to quickly output image specifications.
+This implementation is based on Python and is called =pymgen=.
+
+The proper implementation is splitted into three parts:
+ 1. *Primitives* directly related to image generation.
+ 2. *Generation* of the imgspec data.
+ 3. *Definition* of the image to generate.
+
+An additional *Code blocks and usage* section then sets up a few code blocks and shows =pymgen= in action.
+
+** Primitives
+
+=enumerator= automatically associates an increasing number to the keys that have not been defined yet.
+It can be seen as an handy way to associate a numerical index to potentially duplicated data points.
+#+name: enumerator
+#+begin_src python
+class enumerator(dict):
+    def __init__(self):
+        self.i = 0
+    def __getitem__(self, key):
+        if key in self:
+            return super().__getitem__(key)
+        self[key] = self.i
+        self.i += 1
+        return self.i - 1
+#+end_src
+
+Usage:
+#+begin_src python
+<<include(":noweb enumerator")>>
+lost = enumerator()
+indexes = [lost[i] for i in (4, 8, 15, 16, 23, 42, 16, 16, 16, 42, 108)]
+print(indexes)
+print(lost)
+#+end_src
+
+#+RESULTS:
+:results:
+[0, 1, 2, 3, 4, 5, 3, 3, 3, 5, 6]
+{4: 0, 8: 1, 15: 2, 16: 3, 23: 4, 42: 5, 108: 6}
+:end:
+
+
+** Generation
+
+Generation is mainly concerned with two things:
+ 1. Ensuring that the initial definition is correct.
+ 2. Transforming this definition to a textual specification.
+
+*** Vertices
+
+Vertices can be defined with the =vertex= class.
+The main design principle is to not bother with error checking.
+If there is an error, execution is immediately stopped.
+
+#+begin_src python :noweb-ref pymgen
+def within_bounds(coord):
+    return coord >= 0 and coord <= 1
+
+class vertex:
+    def __init__(self, *spec):
+        def assert5():
+            s = tuple(spec)
+            if len(spec) == 1:
+                s = spec[0]
+            if len(s) == 2:
+                return list(s) + [0, 0, 0] # Black.
+            assert len(s) == 5, f"invalid vertex spec `{s}`"
+            return s
+
+        spec = assert5()
+        self.x, self.y, self.r, self.g, self.b = spec
+        assert self.valid(), f'invalid vertex `{self}`, all components should be between 0 and 1'
+
+    def __repr__(self):
+        return ' '.join(map(str, (self.x, self.y, self.r, self.g, self.b)))
+
+    def valid(self):
+        return within_bounds(self.x) and within_bounds(self.y)\
+          and within_bounds(self.r) and within_bounds(self.g) and within_bounds(self.b)
+#+end_src
+
+
+** Assembly of vertices
+
+This is the last step of imgspec generation, instantiating the raw vertices into text.
+The raw vertices are manipulated as triangles defined as sequences of vertices.
+=triangle='s role is to assert that its argument is indeed a sequence of 3 vertices (ultimately relying on =vertex= to do so).
+
+#+begin_src python :noweb-ref pymgen
+def vstr(*spec):
+    return str(vertex(*spec))
+
+def triangle(spec):
+    assert len(spec) == 3, f'invalid triangle spec {spec}'
+    return tuple(map(vstr, spec))
+#+end_src
+
+The ultimate function of this image specification generator takes a sequence of triangles and turns it into
+#+begin_src python :noweb-ref pymgen
+def imgspec(triangles, width, height):
+    indexes = list()
+    vertices = enumerator()
+    for tri in triangles:
+        idxstr = ' '.join(str(vertices[vtx]) for vtx in triangle(tri))
+        indexes.append(idxstr)
+    print('\n'.join(vertices.keys()))
+    print()
+    print(2, 3)
+    print()
+    print('\n'.join(indexes))
+    print()
+    print(width, height)
+#+end_src
+#+depends:pymgen :noweb enumerator
+
+
+** Definition
+
+This part is concerned with setting up primitives to help defining and combining geometric shapes.
+
+*** Predefined constants
+
+Positions:
+#+begin_src python :noweb-ref pymgen
+lu = left_up       = (0,   1)
+ru = right_up      = (1,   1)
+lb = left_bottom   = (0,   0)
+rb = right_bottom  = (1,   0)
+mu = middle_up     = (0.5, 1)
+mb = middle_bottom = (0.5, 0)
+lm = left_middle   = (0,   0.5)
+rm = right_middle  = (1,   0.5)
+#+end_src
+
+Colors:
+#+begin_src python :noweb-ref pymgen
+r = red     = (1, 0, 0)
+g = green   = (0, 1, 0)
+b = blue    = (0, 0, 1)
+c = cyan    = (0, 1, 1)
+m = magenta = (1, 0, 1)
+y = yellow  = (1, 1, 0)
+k = black   = (0, 0, 0)
+w = white   = (1, 1, 1)
+#+end_src
+
+*** Vertex manipulation
+
+Instantiate a quad (simply as two triangles):
+#+begin_src python :noweb-ref pymgen
+def quad(a, b, c,  d):
+    return [(a, b, c), (b, c, d)]
+#+end_src
+
+
+** Code blocks and usage
+
+This Python one-liner is =pymgen='s equivalent of the colorful square specification, which is for now the only image that has been generated:
+#+name: usage
+#+begin_src python
+imgspec(quad(ru + y, lu + m, rb + c, lb + k), 64, 64)
+#+end_src
+
+*** Display an image spec
+
+This is just a matter of using =LitLib='s =include.pl= to fetch the given code block, with the added =pymgen= dependency and to execute it with Python.
+
+#+name: spec
+#+begin_src bash :var definition="" :wrap example
+./litlib/include.pl imgen.org ":noweb pymgen $definition" | python
+#+end_src
+
+#+call: spec("usage")
+
+#+RESULTS:
+#+begin_example
+1 1 1 1 0
+0 1 1 0 1
+1 0 0 1 1
+0 0 0 0 0
+
+2 3
+
+0 1 2
+1 2 3
+
+64 64
+#+end_example
+
+*** Generate the image
+
+This is basically the same thing, except that the image is also forwarded to the =imgen= binary.
+#+name: py
+#+begin_src bash :var definition="" destination=""
+[[ -n "$definition" ]] || { echo "A definition code block is required."; exit; }
+if [[ -z "$destination" ]]; then
+    destination="images/imgen/$definition.png"
+fi
+mkdir -p "$(dirname "$dest")"
+./litlib/include.pl imgen.org ":noweb pymgen $definition" | python > removeme.imspec
+./bin/imgen removeme.imspec "$destination"
+rm removeme.imspec
+#+end_src
+
+#+call: py("usage")
 
 #+RESULTS:
 :results:
