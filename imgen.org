@@ -313,17 +313,21 @@ class vertex:
         return ' '.join(map(str, (self.x, self.y, self.r, self.g, self.b)))
 #+end_src
 
-*** Assembly of vertices
+*** Triangles
 
-This is the last step of image specification generation, instantiating the raw vertices into text.
-The main geometric primitive is the triangle, defined as sequences of 3 vertices.
-=triangle='s role is to assert that its argument is indeed a sequence of 3 vertices and to convert each of those vertices to strings (ultimately relying on =vertex= to do so).
-
+The main geometric primitive is the triangle, defined as sequences of 3 vertices:
 #+begin_src python :noweb-ref pymgen
-def triangle(spec):
-    assert len(spec) == 3, f'invalid triangle spec {spec}'
-    return str(vertex(spec[0])), str(vertex(spec[1])), str(vertex(spec[2]))
+class triangle:
+    def __init__(self, *spec):
+        assert len(spec) == 3, f'invalid triangle spec {spec}'
+        self.a, self.b, self.c = vertex(spec[0]), vertex(spec[1]), vertex(spec[2])
+
+    def str(self):
+        return str(self.a), str(self.b), str(self.c)
+tri = triangle # For brevity.
 #+end_src
+
+*** Assembly of vertices
 
 The ultimate function of the specification generation part is =imgspec=, which takes a sequence of triangles and turns it into an image specification.
 Unique, non-duplicated indexes are attributed via an instance of =enumerator=, which is quite neat.
@@ -331,8 +335,8 @@ Unique, non-duplicated indexes are attributed via an instance of =enumerator=, w
 #+begin_src python :noweb-ref pymgen
 def imgspec(triangles, width, height):
     vertices = enumerator()
-    indexes = [ ' '.join(str(vertices[vtx]) for vtx in triangle(tri))
-                for tri in triangles ]
+    indexes = [ ' '.join(str(vertices[vtx]) for vtx in t.str())
+                for t in triangles ]
     print('\n'.join(vertices.keys()))
     print()
     print(2, 3)
@@ -380,8 +384,8 @@ w = white   = (1, 1, 1)
 
 A =quad= is made of two triangles:
 #+begin_src python :noweb-ref pymgen
-def quad(a, b, c,  d):
-    return [(a, b, c), (b, c, d)]
+def quad(a, b, c, d):
+    return [tri(a, b, c), tri(b, c, d)]
 #+end_src
 
 **** =line=
@@ -405,7 +409,7 @@ def line(a, b, width=.01):
     a1, a2, b1, b2 = list(a), list(a), list(b), list(b)
     a1[0] -= dy; a1[1] += dx; a2[0] += dy; a2[1] -= dx
     b1[0] -= dy; b1[1] += dx; b2[0] += dy; b2[1] -= dx
-    return [(a1, a2, b1), (a2, b1, b2)]
+    return [tri(a1, a2, b1), tri(a2, b1, b2)]
 #+end_src
 
 
