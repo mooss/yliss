@@ -368,11 +368,11 @@ This part is concerned with setting up primitives to help defining and combining
 
 Positions:
 #+begin_src python :noweb-ref pymgen
-lu = left_up       = (0,   1)
-ru = right_up      = (1,   1)
+lt = left_top       = (0,   1)
+rt = right_top      = (1,   1)
 lb = left_bottom   = (0,   0)
 rb = right_bottom  = (1,   0)
-mu = middle_up     = (0.5, 1)
+mu = middle_top     = (0.5, 1)
 mb = middle_bottom = (0.5, 0)
 lm = left_middle   = (0,   0.5)
 rm = right_middle  = (1,   0.5)
@@ -404,7 +404,7 @@ def quad(a, b, c,  d):
 This Python one-liner is =pymgen='s equivalent of the colorful square specification, which is for now the only image that has been generated:
 #+name: usage
 #+begin_src python
-imgspec(quad(ru + y, lu + m, rb + c, lb + k), 64, 64)
+imgspec(quad(rt + y, lt + m, rb + c, lb + k), 64, 64)
 #+end_src
 
 *** Display an image spec
