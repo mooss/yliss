@@ -29,7 +29,7 @@ submodules_retrieval:
 litlib: submodules_retrieval
 
 LitLib: litlib
-	cd litlib && make --silent LitLib
+	cd litlib && make LitLib
 
 #####################
 # Various utilities #
@@ -41,26 +41,3 @@ clean:
 
 purge: clean
 	rm -fr litlib include/stb
-
-############
-# Tangling #
-############
-tangle/partial-cel-shading.cpp: planet.org
-	./script/tangle.sh $<
-
-###############
-# Compilation #
-###############
-build:
-	mkdir -p build
-
-build/partial-cel-shading: tangle/partial-cel-shading.cpp build
-	g++ -O2 -std=c++20 -Wall -I include src/glad.c $< -ldl -lGL -lglfw -o $@
-
-#############
-# Execution #
-#############
-.PHONY: run/partial-cel-shading
-
-run/partial-cel-shading: build/partial-cel-shading
-	./build/partial-cel-shading
