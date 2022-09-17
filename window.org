@@ -368,14 +368,13 @@ Data alignment and image writing are handled by an external =Format= class, whic
 #+begin_src cpp
 template<class Format>
 struct render_buffer {
-    GLsizei channels = 3, stride = 0, width = 0, height = 0;
+    static constexpr GLsizei channels = Format::channels;
+    GLsizei stride = 0, width = 0, height = 0;
     // Using unsigned char storage, like stb does.
     std::vector<unsigned char> storage = std::vector<unsigned char>(0);
 
     template<class Source>
     render_buffer(const Source& source) {grab(source);}
-    render_buffer(GLsizei w, GLsizei h, GLsizei c):
-        channels(c) {resize(w, h);}
 
     render_buffer(render_buffer&&)=default;
     render_buffer& operator=(render_buffer&&)=default;
@@ -398,7 +397,7 @@ struct render_buffer {
         resize(source.width(), source.height());
         glPixelStorei(GL_PACK_ALIGNMENT, Format::alignment);
         glReadBuffer(GL_FRONT);
-        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data());
+        glReadPixels(0, 0, width, height, Format::pixel_format, GL_UNSIGNED_BYTE, data());
     }
 
     void write(std::string_view destination) const {
@@ -539,17 +538,36 @@ struct writer_impl {
 namespace image::format {
 struct png {
     template<class Transformation=identity> using writer = writer_impl<png, Transformation>;
-
     static constexpr GLsizei alignment = 4;
-
+    static constexpr GLsizei channels = 3;
+    static constexpr GLenum pixel_format = GL_RGB;
     static void write(const render_buffer<png>& buffer, std::string_view destination) {
         stbi_write_png(destination.data(), buffer.width, buffer.height,
                        buffer.channels, buffer.data(), buffer.stride);
     }
 };
-} // namespace image::format
+}
 #+end_src
 #+depends:image/format/png :noweb identity image/format/writer render_buffer :cpp string_view
+
+*** PNG with transparency
+
+#+name: image/format/pnga
+#+begin_src cpp
+namespace image::format {
+struct pnga {
+    template<class Transformation=identity> using writer = writer_impl<pnga, Transformation>;
+    static constexpr GLsizei alignment = 4;
+    static constexpr GLsizei channels = 4;
+    static constexpr GLenum pixel_format = GL_RGBA;
+    static void write(const render_buffer<pnga>& buffer, std::string_view destination) {
+        stbi_write_png(destination.data(), buffer.width, buffer.height,
+                       buffer.channels, buffer.data(), buffer.stride);
+    }
+};
+}
+#+end_src
+#+depends:image/format/pnga :noweb identity image/format/writer render_buffer :cpp string_view
 
 *** JPEG
 
@@ -560,9 +578,9 @@ Quality should be between 1 and 100.
 namespace image::format {
 template<int Quality> struct jpeg {
     template<class Transformation=identity> using writer = writer_impl<jpeg, Transformation>;
-
     static constexpr GLsizei alignment = 1;
-
+    static constexpr GLsizei channels = 3;
+    static constexpr GLenum pixel_format = GL_RGB;
     static void write(const render_buffer<jpeg>& buffer, std::string_view destination) {
         stbi_write_jpg(
             destination.data(), buffer.width, buffer.height,
@@ -570,14 +588,14 @@ template<int Quality> struct jpeg {
         );
     }
 };
-} // namespace image::format
+}
 #+end_src
 #+depends:image/format/jpeg :noweb identity image/format/writer render_buffer :cpp string_view
 
 *** All formats
 
-Every format available can be included with =image/format=.
-#+depends:image/format :noweb image/format/jpeg image/format/png
+Every format available can be included with =image/formats=.
+#+depends:image/formats :noweb image/format/jpeg image/format/png image/format/pnga
 
 *** Deduce format by file extension
 
@@ -600,7 +618,7 @@ struct deduce_writer {
         if(destination.ends_with(".jpeg") || destination.ends_with(".jpg"))
             transformation(render_buffer<jpeg<JpegQuality>>(source)).write(destination);
         else
-            transformation(render_buffer<png>(source)).write(destination);
+            transformation(render_buffer<pnga>(source)).write(destination);
     }
 };
 
@@ -610,7 +628,7 @@ template<int JpegQuality> struct deduce {
 };
 } // namespace image::format
 #+end_src
-#+depends:image/format/deduce :noweb render_buffer image/format :cpp string_view
+#+depends:image/format/deduce :noweb render_buffer image/formats :cpp string_view
 
 
 ** Lazy functions (=lazy_window= extension)

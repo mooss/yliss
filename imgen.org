@@ -221,7 +221,7 @@ include/stb/stb_image_write.h:408:24: warning: comparison of integer expressions
   408 |    if (s->buf_used + 3 > sizeof(s->buffer))
       |        ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
 196K	bin/imgen
-830 tangle/imgen.cpp
+841 tangle/imgen.cpp
 #+end_src
 
 *** Code block
@@ -523,8 +523,7 @@ def mid(l, r):
 def sierec(a, b, c, n=1):
     if n <= 0: return [(a, b, c)]
     ab, ac, bc = mid(a, b), mid(a, c), mid(b, c)
-    n -= 1
-    return sierec(a, ab, ac, n) + sierec(b, ab, bc, n) + sierec(c, ac, bc, n)
+    return sierec(a, ab, ac, n-1) + sierec(b, ab, bc, n-1) + sierec(c, ac, bc, n-1)
 #+end_src
 
 Then =sierpinski= assembles the triangles into lines, with the help of =toline=:
@@ -546,14 +545,11 @@ def height():
     return int(math.sqrt((3 * width * width) / 4))
 #+end_src
 
-Only image specification generation remains, with a reasonable width and a turquoise background:
+Only image specification generation remains, with a reasonable width:
 #+begin_src python :noweb-ref sierpiński
 width = 1024
-t = (0, .6, .7) # Turquoise.
-imgspec(quad(lb+t, rb+t, lt+t, rt+t) + sierpinski(lb, rb, mt, 7, .0015), width, height())
+imgspec(sierpinski(lb, rb, mt, 7, .0015), width, height())
 #+end_src
-
-
 #+call: py("sierpiński")
 
 #+RESULTS:
