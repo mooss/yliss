@@ -364,7 +364,7 @@ lt = left_top      = (0,   1)
 rt = right_top     = (1,   1)
 lb = left_bottom   = (0,   0)
 rb = right_bottom  = (1,   0)
-mu = middle_top    = (0.5, 1)
+mt = middle_top    = (0.5, 1)
 mb = middle_bottom = (0.5, 0)
 lm = left_middle   = (0,   0.5)
 rm = right_middle  = (1,   0.5)
@@ -511,3 +511,51 @@ Here is what the spec looks like[fn::The line vertices are very easy to spot.]:
 
 128 64
 #+end_example
+
+*** A less trivial example, Sierpiński triangle
+
+Constructing the coordinates of a Sierpiński triangle is a matter of recursing through each subtriangle, this is done in =sierec=.
+Those subtriangles are themselves constructed using midpoints computed with the =mid= function.
+#+begin_src python :noweb-ref sierpiński
+def mid(l, r):
+    return (l[0] + r[0]) / 2, (l[1] + r[1]) / 2
+def sierec(a, b, c, n=1):
+    if n <= 0: return [(a, b, c)]
+    ab, ac, bc = mid(a, b), mid(a, c), mid(b, c)
+    n -= 1
+    return sierec(a, ab, ac, n) + sierec(b, ab, bc, n) + sierec(c, ac, bc, n)
+#+end_src
+
+Then =sierpinski= assembles the triangles into lines, with the help of =toline=:
+#+begin_src python :noweb-ref sierpiński
+def toline(tri, width):
+    a, b, c = tri
+    return line(a, b, width) + line(a, c, width) + line(b, c, width)
+def sierpinski(a, b, c, n=1, width=.01):
+    return [ triangle_line
+             for triangle      in sierec(a, b, c, n)
+             for triangle_line in toline(triangle, width) ]
+#+end_src
+
+Since the sierpinski triangle uses equilateral triangle, the size of the canvas mush be adjusted so that the length of the width is equal to the length of the other sides of the triangles.
+This is done by solving $(\frac{width}{2})^2 + height^2 = side^2$, with $side$ being the length of the left and right sides of the triangle.
+Since we want $side$ to be equal to $width$, this can be rewritten as $(\frac{width}{2})^2 + height^2 = width^2$, which eventually gives the formula $height = \sqrt{\frac{3 \times width^2}{4}}$, implemented below:
+#+begin_src python :noweb-ref sierpiński
+def height():
+    return int(math.sqrt((3 * width * width) / 4))
+#+end_src
+
+Only image specification generation remains, with a reasonable width and a turquoise background:
+#+begin_src python :noweb-ref sierpiński
+width = 1024
+t = (0, .6, .7) # Turquoise.
+imgspec(quad(lb+t, rb+t, lt+t, rt+t) + sierpinski(lb, rb, mt, 7, .0015), width, height())
+#+end_src
+
+
+#+call: py("sierpiński")
+
+#+RESULTS:
+:results:
+[[file:images/imgen/sierpiński.png]]
+:end:
