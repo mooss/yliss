@@ -200,15 +200,10 @@ int main(int argc, char *argv[]) {
 
 *** Compilation
 
-This compiles =imgen= into =./bin=:
+The imgen binary is made to be used from the outside and its compilation is therefore defined as a target in the =Makefile=:
 #+begin_src bash :wrap src compilation
-mkdir -p bin
-tangled=tangle/imgen.cpp
-./litlib/include.pl 'window.org litlib/cpp.org graphics.org imgen.org' ':noweb imgen-cli' > $tangled
-g++ -Wall -std=c++20 -O2 -I include -lGL -lOSMesa src/glad.c $tangled -o bin/imgen
-du -sh bin/imgen
-wc -l $tangled
-rm $tangled
+make bin/imgen >/dev/null
+du -h bin/imgen
 #+end_src
 
 #+RESULTS:
@@ -223,7 +218,6 @@ include/stb/stb_image_write.h:408:24: warning: comparison of integer expressions
   408 |    if (s->buf_used + 3 > sizeof(s->buffer))
       |        ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
 196K	bin/imgen
-841 tangle/imgen.cpp
 #+end_src
 
 *** Code block

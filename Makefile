@@ -45,7 +45,7 @@ purge: clean
 #########
 # Imgen #
 #########
-.PHONY: tangle
+.PHONY: tangle cli
 
 tangle: $(ORG_SOURCES:%=tangle/%.tangled)
 
@@ -53,3 +53,9 @@ tangle/%.tangled: %.org
 	@mkdir -p tangle
 	@./litlib/include.pl "$< $$(sed -rn 's/^#\+tangle-deps:\s+(.*)/\1/p' $<)" ':tangle :exit-with-error'
 	@touch "$@"
+
+cli: bin/imgen
+
+bin/imgen: tangle/imgen.tangled
+	@mkdir -p bin
+	g++ -Wall -std=c++20 -O2 -I include -lGL -lOSMesa src/glad.c tangle/imgen.cpp -o bin/imgen
