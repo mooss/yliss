@@ -3,6 +3,7 @@
 #+property: header-args:python :results output :noweb no-export
 #+property: header-args:cpp :flags -std=c++20 -I include -lGL -lOSMesa src/glad.c :eval never :main no :exports both :noweb no-export
 #+property: header-args:bash :noweb no-export :prologue "exec 2>&1" :epilogue "true"
+#+tangle-deps: window.org litlib/cpp.org graphics.org
 
 * Prelude
 
@@ -195,6 +196,7 @@ int main(int argc, char *argv[]) {
 }
 #+end_src
 #+depends:imgen-cli :noweb panic slurp split/sv keepin mapassert greedy_finder to-numbers imgspec :cpp string string_view
+#+tangle:imgen-cli tangle/imgen.cpp
 
 *** Compilation
 
@@ -452,13 +454,13 @@ This is just a matter of using =LitLib='s =include.pl= to fetch the given code b
 
 This is basically the same thing, except that the image is also forwarded to the =imgen= binary.
 #+name: py
-#+begin_src bash :var definition="" destination=""
+#+begin_src bash :var definition="" destination="" sources="imgen.org"
 [[ -n "$definition" ]] || { echo "A definition code block is required."; exit; }
 if [[ -z "$destination" ]]; then
     destination="images/imgen/$definition.png"
 fi
 mkdir -p "$(dirname "$dest")"
-./litlib/include.pl imgen.org ":noweb pymgen $definition" | python > removeme.imspec
+./litlib/include.pl "$sources" ":noweb pymgen $definition" | python > removeme.imspec
 ./bin/imgen removeme.imspec "$destination"
 rm removeme.imspec
 #+end_src
@@ -469,6 +471,20 @@ rm removeme.imspec
 :results:
 [[file:images/imgen/usage.png]]
 :end:
+
+=pymgen-cli= specifies a script allowing to interact with pymgen from outside this file.
+#+name: pymgen-cli-impl
+#+begin_src bash :shebang "#!/usr/bin/env bash"
+if [[ $# -ne 3 ]]; then
+    echo "Usage: $0 source definition destination"
+    exit 1
+fi
+source="$1"
+definition="$2"
+destination="$3"
+#+end_src
+#+depends:pymgen-cli :noweb pymgen-cli-impl py
+#+tangle:pymgen-cli tangle/pymgen.bash
 
 
 ** Usage

@@ -1,7 +1,7 @@
 ################
 # PDF creation #
 ################
-ORG_SOURCES := window graphics octasierp planet plate_tectonics
+ORG_SOURCES := window graphics octasierp planet plate_tectonics imgen
 
 .PHONY: pdf
 pdf: $(ORG_SOURCES:%=%.pdf)
@@ -41,3 +41,15 @@ clean:
 
 purge: clean
 	rm -fr litlib include/stb
+
+#########
+# Imgen #
+#########
+.PHONY: tangle
+
+tangle: $(ORG_SOURCES:%=tangle/%.tangled)
+
+tangle/%.tangled: %.org
+	@mkdir -p tangle
+	@./litlib/include.pl "$< $$(sed -rn 's/^#\+tangle-deps:\s+(.*)/\1/p' $<)" ':tangle :exit-with-error'
+	@touch "$@"
