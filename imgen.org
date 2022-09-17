@@ -313,8 +313,7 @@ class vertex:
         return ' '.join(map(str, (self.x, self.y, self.r, self.g, self.b)))
 #+end_src
 
-
-** Assembly of vertices
+*** Assembly of vertices
 
 This is the last step of image specification generation, instantiating the raw vertices into text.
 The main geometric primitive is the triangle, defined as sequences of 3 vertices.
