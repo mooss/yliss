@@ -487,3 +487,27 @@ imgspec(quad(rt + y, lt + m, rb + c, lb + k) + line(lb, rt, .1), 128, 64)
 :results:
 [[file:images/imgen/colorful-square+line.png]]
 :end:
+
+Here is what the spec looks like[fn::the line vertices are very easy to spot]:
+#+call: spec("colorful-square+line")
+
+#+RESULTS:
+#+begin_example
+1 1 1 1 0
+0 1 1 0 1
+1 0 0 1 1
+0 0 0 0 0
+-0.035355339059327376 0.035355339059327376 0 0 0
+0.035355339059327376 -0.035355339059327376 0 0 0
+0.9646446609406726 1.0353553390593273 0 0 0
+1.0353553390593273 0.9646446609406726 0 0 0
+
+2 3
+
+0 1 2
+1 2 3
+4 5 6
+5 6 7
+
+128 64
+#+end_example
