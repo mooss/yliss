@@ -271,7 +271,7 @@ class enumerator(dict):
 #+end_src
 
 Usage:
-#+begin_src python
+#+begin_src python :exports both
 <<include(":noweb enumerator")>>
 lost = enumerator()
 indexes = [lost[i] for i in (4, 8, 15, 16, 23, 42, 16, 16, 16, 42, 108)]
@@ -295,7 +295,7 @@ Generation is mainly concerned with two things:
 *** Vertices
 
 Vertices can be defined with the =vertex= class.
-The main design principle is to not bother with error checking.
+The main design principle is to not bother with error handling.
 If there is an error, execution is immediately stopped.
 
 #+begin_src python :noweb-ref pymgen
@@ -320,27 +320,24 @@ class vertex:
 
 ** Assembly of vertices
 
-This is the last step of imgspec generation, instantiating the raw vertices into text.
-The raw vertices are manipulated as triangles defined as sequences of vertices.
-=triangle='s role is to assert that its argument is indeed a sequence of 3 vertices (ultimately relying on =vertex= to do so).
+This is the last step of image specification generation, instantiating the raw vertices into text.
+The main geometric primitive is the triangle, defined as sequences of 3 vertices.
+=triangle='s role is to assert that its argument is indeed a sequence of 3 vertices and to convert each of those vertices to strings (ultimately relying on =vertex= to do so).
 
 #+begin_src python :noweb-ref pymgen
-def vstr(*spec):
-    return str(vertex(*spec))
-
 def triangle(spec):
     assert len(spec) == 3, f'invalid triangle spec {spec}'
-    return tuple(map(vstr, spec))
+    return str(vertex(spec[0])), str(vertex(spec[1])), str(vertex(spec[2]))
 #+end_src
 
-The ultimate function of this image specification generator takes a sequence of triangles and turns it into
+The ultimate function of the specification generation part is =imgspec=, which takes a sequence of triangles and turns it into an image specification.
+Unique, non-duplicated indexes are attributed via an instance of =enumerator=, which is quite neat.
+
 #+begin_src python :noweb-ref pymgen
 def imgspec(triangles, width, height):
-    indexes = list()
     vertices = enumerator()
-    for tri in triangles:
-        idxstr = ' '.join(str(vertices[vtx]) for vtx in triangle(tri))
-        indexes.append(idxstr)
+    indexes = [ ' '.join(str(vertices[vtx]) for vtx in triangle(tri))
+                for tri in triangles ]
     print('\n'.join(vertices.keys()))
     print()
     print(2, 3)
@@ -384,11 +381,15 @@ w = white   = (1, 1, 1)
 
 *** Vertex manipulation
 
+**** =quad=
+
 A =quad= is made of two triangles:
 #+begin_src python :noweb-ref pymgen
 def quad(a, b, c,  d):
     return [(a, b, c), (b, c, d)]
 #+end_src
+
+**** =line=
 
 A =line= is also represented as two triangles, except that it is only defined as two points and a $width$.
 
