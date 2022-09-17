@@ -247,11 +247,11 @@ The idea is to use an expressive language with fast compilation or fast enough i
 This implementation is based on Python and is called =pymgen=.
 
 The proper implementation is splitted into three parts:
- 1. *Primitives* directly related to image generation.
+ 1. *Primitives* not directly related to image generation.
  2. *Generation* of the imgspec data.
  3. *Definition* of the image to generate.
 
-An additional *Code blocks and usage* section then sets up a few code blocks and shows =pymgen= in action.
+Two additional sections, *Code blocks* and *Usage* are appended at the end to set up code blocks and to show =pymgen= in action.
 
 ** Primitives
 
@@ -299,9 +299,6 @@ The main design principle is to not bother with error checking.
 If there is an error, execution is immediately stopped.
 
 #+begin_src python :noweb-ref pymgen
-def within_bounds(coord):
-    return coord >= 0 and coord <= 1
-
 class vertex:
     def __init__(self, *spec):
         def assert5():
@@ -315,14 +312,9 @@ class vertex:
 
         spec = assert5()
         self.x, self.y, self.r, self.g, self.b = spec
-        assert self.valid(), f'invalid vertex `{self}`, all components should be between 0 and 1'
 
     def __repr__(self):
         return ' '.join(map(str, (self.x, self.y, self.r, self.g, self.b)))
-
-    def valid(self):
-        return within_bounds(self.x) and within_bounds(self.y)\
-          and within_bounds(self.r) and within_bounds(self.g) and within_bounds(self.b)
 #+end_src
 
 
@@ -392,14 +384,36 @@ w = white   = (1, 1, 1)
 
 *** Vertex manipulation
 
-Instantiate a quad (simply as two triangles):
+A =quad= is made of two triangles:
 #+begin_src python :noweb-ref pymgen
 def quad(a, b, c,  d):
     return [(a, b, c), (b, c, d)]
 #+end_src
 
+A =line= is also represented as two triangles, except that it is only defined as two points and a $width$.
 
-** Code blocks and usage
+Its implementation is more complex because each of the two initial points must splitted in two new points in order to generate a line with a width.
+The position of those new points is computed by shifting them towards each of the normal directions by an amount of $width / 2$, thus making the distance between them equal to $width$.
+
+#+begin_src python :noweb-ref pymgen
+import math
+def line(a, b, width=.01):
+    # Compute the tangent components (that once flipped become the normal components).
+    dx = (b[0] - a[0])
+    dy = (b[1] - a[1])
+    # Apply the width:
+    width = width / (2 * math.sqrt(dx * dx + dy * dy))
+    dx *= width
+    dy *= width
+    # Shift the points.
+    a1, a2, b1, b2 = list(a), list(a), list(b), list(b)
+    a1[0] -= dy; a1[1] += dx; a2[0] += dy; a2[1] -= dx
+    b1[0] -= dy; b1[1] += dx; b2[0] += dy; b2[1] -= dx
+    return [(a1, a2, b1), (a2, b1, b2)]
+#+end_src
+
+
+** Code blocks
 
 This Python one-liner is =pymgen='s equivalent of the colorful square specification, which is for now the only image that has been generated:
 #+name: usage
@@ -453,4 +467,23 @@ rm removeme.imspec
 #+RESULTS:
 :results:
 [[file:images/imgen/usage.png]]
+:end:
+
+
+** Usage
+
+*** Colorful square, with added line
+
+This is the same basic example, but with an additional line going from the left-bottom point to the right-top one.
+Also the width of this image is doubled to 128.
+
+#+name: colorful-square+line
+#+begin_src python
+imgspec(quad(rt + y, lt + m, rb + c, lb + k) + line(lb, rt, .1), 128, 64)
+#+end_src
+#+call: py("colorful-square+line")
+
+#+RESULTS:
+:results:
+[[file:images/imgen/colorful-square+line.png]]
 :end:
