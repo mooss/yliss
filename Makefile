@@ -37,10 +37,10 @@ LitLib: litlib
 .PHONY: clean purge
 
 clean:
-	rm -fr include/{miniz.{c,h},glm} *.pdf
+	rm -fr *.pdf tangle/*.tangled
 
 purge: clean
-	rm -fr litlib include/stb
+	rm -fr include/{miniz.{c,h},glm} litlib include/stb
 
 #########
 # Imgen #
