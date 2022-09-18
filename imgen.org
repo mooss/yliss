@@ -243,13 +243,148 @@ The idea is to use an expressive language with fast compilation or fast enough i
 This implementation is based on Python and is called =pymgen=.
 
 The proper implementation is splitted into three parts:
- 1. *Primitives* not directly related to image generation.
- 2. *Generation* of the imgspec data.
- 3. *Definition* of the image to generate.
+ 1. *Primitives*.
+ 2. *Shapes*.
+ 3. *Generation*.
 
 Two additional sections, *Code blocks* and *Usage* are appended at the end to set up code blocks and to show =pymgen= in action.
 
+A pattern used throughout the implementation of =pymgen= is defining three-letter aliases to various entities.
+The goal is to help keeping definitions concise.
+Also, when appropriate the short versions are making additional assertions, the idea is to ensure that manually-defined instances are correct, whereas the long versions provide a way to define instances without assertions.
+This separation is required, otherwise things like making a line at the edge of the canvas would trigger an assertion failure because of the added width.
+
 ** Primitives
+
+*** Color
+
+#+begin_src python :noweb-ref pymgen
+class color:
+    def __init__(self, r:float, g:float, b:float):
+        self.r = r; self.g = g; self.b = b
+    def __repr__(self):
+        return str(self.r) + ' ' + str(self.g) + ' ' + str(self.b)
+    def copy(self): return color(self.r, self.g, self.b)
+def col(r:float, g:float, b:float):
+    assert 0 <= r <= 1 and 0 <= g <= 1 and 0 <= b <= 1; return color(r, g, b)
+#+end_src
+
+Predefined colors:
+#+begin_src python :noweb-ref pymgen
+r = red     = col(1, 0, 0)
+g = green   = col(0, 1, 0)
+b = blue    = col(0, 0, 1)
+c = cyan    = col(0, 1, 1)
+m = magenta = col(1, 0, 1)
+y = yellow  = col(1, 1, 0)
+k = black   = col(0, 0, 0)
+w = white   = col(1, 1, 1)
+#+end_src
+
+*** Coordinates
+
+#+begin_src python :noweb-ref pymgen
+import math
+class coord:
+    def __init__(self, x:float, y:float):
+        self.x = x; self.y = y
+    def __or__(self, other:'coord'): # self|other, midpoint of self and other.
+        return coord((self.x + other.x) / 2, (self.y + other.y) / 2)
+    def __sub__(self, other:'coord'): # self-other, substraction.
+        return coord(self.x - other.x, self.y - other.y)
+    def __imul__(self, coeff: float): # self *= coeff, in-place multiplication.
+        self.x *= coeff; self.y *= coeff; return self
+    def __and__(self, col:color): # self&col, combine position and color in a vertex.
+        return vertex(self, col)
+    def copy(self):     return coord(self.x, self.y)
+    def norm(self):     return math.sqrt(self.x * self.x + self.y * self.y)
+    def __repr__(self): return str(self.x) + ' ' + str(self.y)
+def pos(x:float, y:float):
+    assert 0 <= x <= 1 and 0 <= y <= 1; return coord(x, y)
+#+end_src
+
+Predefined coordinates:
+#+begin_src python :noweb-ref pymgen
+lt = left_top      = pos(0,   1)
+rt = right_top     = pos(1,   1)
+lb = left_bottom   = pos(0,   0)
+rb = right_bottom  = pos(1,   0)
+mt = middle_top    = pos(0.5, 1)
+mb = middle_bottom = pos(0.5, 0)
+lm = left_middle   = pos(0,   0.5)
+rm = right_middle  = pos(1,   0.5)
+mm = center        = pos(0.5, 0.5)
+#+end_src
+
+*** Vertices
+
+#+begin_src python :noweb-ref pymgen
+class vertex:
+    def __init__(self, pos:coord, col:color=color(0, 0, 0)):
+        self.pos = pos
+        self.col = col
+    def __repr__(self):
+        return str(self.pos) + ' ' + str(self.col)
+    def copy(self): return vertex(self.pos.copy(), self.col.copy())
+    @property
+    def x(self): return self.pos.x
+    @x.setter
+    def x(self, x): self.pos.x = x
+    @property
+    def y(self): return self.pos.y
+    @y.setter
+    def y(self, y): self.pos.y = y
+vtx = vertex
+#+end_src
+
+
+** Shapes
+
+*** Triangles
+
+The main geometric primitive is the triangle, defined as sequences of 3 vertices:
+#+begin_src python :noweb-ref pymgen
+class triangle:
+    def __init__(self, a:vertex, b:vertex, c:vertex):
+        self.a, self.b, self.c = a, b, c
+    def str(self):
+        return str(self.a), str(self.b), str(self.c)
+tri = triangle
+#+end_src
+
+*** Quadrangles
+
+A =quad= is made of two triangles:
+#+begin_src python :noweb-ref pymgen
+def quad(a, b, c, d):
+    return [tri(a, b, c), tri(b, c, d)]
+#+end_src
+
+*** Lines
+
+A =line= is also represented as two triangles, except that it is only defined as two points and a $width$.
+
+Its implementation is more complex because each of the two initial points must splitted in two new points in order to generate a line with a width.
+The position of those new points is computed by shifting them towards each of the normal directions by an amount of $width / 2$, thus making the distance between them equal to $width$.
+
+#+begin_src python :noweb-ref pymgen
+def line(a, b, width=.01):
+    # Compute the tangent.
+    t = b.pos-a.pos
+    # Apply the width:
+    width /= 2 * t.norm()
+    t *= width
+    # Shift the points.
+    a1, a2, b1, b2 = a.copy(), a.copy(), b.copy(), b.copy()
+    a1.x -= t.y; a1.y += t.x; a2.x += t.y; a2.y -= t.x
+    b1.x -= t.y; b1.y += t.x; b2.x += t.y; b2.y -= t.x
+    return [tri(a1, a2, b1), tri(a2, b1, b2)]
+#+end_src
+
+
+** Generation
+
+*** Utilities
 
 =enumerator= automatically associates an increasing number to the keys that have not been defined yet.
 It can be seen as an handy way to associate a numerical index to potentially duplicated data points.
@@ -281,92 +416,9 @@ print(lost)
 {4: 0, 8: 1, 15: 2, 16: 3, 23: 4, 42: 5, 108: 6}
 :end:
 
+*** Specification generation
 
-** Generation
-
-Generation is mainly concerned with two things:
- 1. Ensuring that the initial definition is correct.
- 2. Transforming this definition to a textual specification.
-
-*** Color
-
-#+begin_src python :noweb-ref pymgen
-class color:
-    def __init__(self, r:float, g:float, b:float):
-        self.r = r; self.g = g; self.b = b
-    def __repr__(self):
-        return str(self.r) + ' ' + str(self.g) + ' ' + str(self.b)
-    def copy(self):
-        return color(self.r, self.g, self.b)
-def col(r:float, g:float, b:float):
-    assert 0 <= r <= 1 and 0 <= g <= 1 and 0 <= b <= 1
-    return color(r, g, b)
-#+end_src
-
-*** 2d coordinate
-
-#+begin_src python :noweb-ref pymgen
-import math
-class coord:
-    def __init__(self, x:float, y:float):
-        self.x = x; self.y = y
-    def __or__(self, other:'coord'): # self|other, midpoint of self and other.
-        return coord((self.x + other.x) / 2, (self.y + other.y) / 2)
-    def __sub__(self, other:'coord'): # self-other, substraction.
-        return coord(self.x - other.x, self.y - other.y)
-    def __imul__(self, coeff: float): # self *= coeff, in-place multiplication.
-        self.x *= coeff; self.y *= coeff
-        return self
-    def __and__(self, col:color): # self&col, combine position and color in a vertex.
-        return vertex(self, col)
-    def copy(self):     return coord(self.x, self.y)
-    def norm(self):     return math.sqrt(self.x * self.x + self.y * self.y)
-    def __repr__(self): return str(self.x) + ' ' + str(self.y)
-def pos(x:float, y:float):
-    assert 0 <= x <= 1 and 0 <= y <= 1
-    return coord(x, y)
-#+end_src
-
-*** Vertices
-
-Vertices can be defined with the =vertex= class.
-The main design principle is to not bother with error handling.
-If there is an error, execution is immediately stopped.
-
-#+begin_src python :noweb-ref pymgen
-class vertex:
-    def __init__(self, pos:coord, col:color=color(0, 0, 0)):
-        self.pos = pos
-        self.col = col
-    def __repr__(self):
-        return str(self.pos) + ' ' + str(self.col)
-    def copy(self): return vertex(self.pos.copy(), self.col.copy())
-    @property
-    def x(self): return self.pos.x
-    @x.setter
-    def x(self, x): self.pos.x = x
-    @property
-    def y(self): return self.pos.y
-    @y.setter
-    def y(self, y): self.pos.y = y
-vtx = vertex
-#+end_src
-
-*** Triangles
-
-The main geometric primitive is the triangle, defined as sequences of 3 vertices:
-#+begin_src python :noweb-ref pymgen
-class triangle:
-    def __init__(self, a:vertex, b:vertex, c:vertex):
-        self.a, self.b, self.c = a, b, c
-    def str(self):
-        return str(self.a), str(self.b), str(self.c)
-tri = triangle
-#+end_src
-
-*** Assembly of vertices
-
-The ultimate function of the specification generation part is =imgspec=, which takes a sequence of triangles and turns it into an image specification.
+=imgspec= takes a sequence of triangles and turns it into an image specification.
 Unique, non-duplicated indexes are attributed via an instance of =enumerator=, which is quite neat.
 
 #+begin_src python :noweb-ref pymgen
@@ -383,68 +435,6 @@ def imgspec(triangles, width, height):
     print(width, height)
 #+end_src
 #+depends:pymgen :noweb enumerator
-
-
-** Definition
-
-This part is concerned with setting up primitives to help defining and combining geometric shapes.
-
-*** Predefined constants
-
-Positions:
-#+begin_src python :noweb-ref pymgen
-lt = left_top      = pos(0,   1)
-rt = right_top     = pos(1,   1)
-lb = left_bottom   = pos(0,   0)
-rb = right_bottom  = pos(1,   0)
-mt = middle_top    = pos(0.5, 1)
-mb = middle_bottom = pos(0.5, 0)
-lm = left_middle   = pos(0,   0.5)
-rm = right_middle  = pos(1,   0.5)
-#+end_src
-
-Colors:
-#+begin_src python :noweb-ref pymgen
-r = red     = col(1, 0, 0)
-g = green   = col(0, 1, 0)
-b = blue    = col(0, 0, 1)
-c = cyan    = col(0, 1, 1)
-m = magenta = col(1, 0, 1)
-y = yellow  = col(1, 1, 0)
-k = black   = col(0, 0, 0)
-w = white   = col(1, 1, 1)
-#+end_src
-
-*** Vertex manipulation
-
-**** =quad=
-
-A =quad= is made of two triangles:
-#+begin_src python :noweb-ref pymgen
-def quad(a, b, c, d):
-    return [tri(a, b, c), tri(b, c, d)]
-#+end_src
-
-**** =line=
-
-A =line= is also represented as two triangles, except that it is only defined as two points and a $width$.
-
-Its implementation is more complex because each of the two initial points must splitted in two new points in order to generate a line with a width.
-The position of those new points is computed by shifting them towards each of the normal directions by an amount of $width / 2$, thus making the distance between them equal to $width$.
-
-#+begin_src python :noweb-ref pymgen
-def line(a, b, width=.01):
-    # Compute the tangent.
-    t = b.pos-a.pos
-    # Apply the width:
-    width /= 2 * t.norm()
-    t *= width
-    # Shift the points.
-    a1, a2, b1, b2 = a.copy(), a.copy(), b.copy(), b.copy()
-    a1.x -= t.y; a1.y += t.x; a2.x += t.y; a2.y -= t.x
-    b1.x -= t.y; b1.y += t.x; b2.x += t.y; b2.y -= t.x
-    return [tri(a1, a2, b1), tri(a2, b1, b2)]
-#+end_src
 
 
 ** Code blocks
