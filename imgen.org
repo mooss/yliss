@@ -340,24 +340,38 @@ vtx = vertex
 
 ** Shapes
 
+*** Polygon
+
+A polygon is a shape with any number of sides.
+Everything in Imgen is triangle-based so =polygon= can be seen as a sequence of triangles, represented as a sequence of vertices.
+It must therefore maintain the invariant that its underlying vertices are a multiple of 3.
+
+#+begin_src python :noweb-ref pymgen
+class polygon:
+    vertices: list[vertex]
+    def __init__(self, *args:vertex):
+        assert len(args) %3 == 0, f'invalid length of polygon vertices: {len(args)}'
+        self.vertices = args
+    def str(self): return map(str, self.vertices)
+    def __add__(self, other): return polygon(*(self.vertices + other.vertices))
+    def __iter__(self): # Iterate on triangles, from https://stackoverflow.com/a/71273919.
+        it = iter(self.vertices)
+        return zip(it, it, it)
+pol = polygon
+#+end_src
+
 *** Triangles
 
-The main geometric primitive is the triangle, defined as sequences of 3 vertices:
 #+begin_src python :noweb-ref pymgen
-class triangle:
-    def __init__(self, a:vertex, b:vertex, c:vertex):
-        self.a, self.b, self.c = a, b, c
-    def str(self):
-        return str(self.a), str(self.b), str(self.c)
+def triangle(a, b, c): return polygon(a, b, c)
 tri = triangle
 #+end_src
 
 *** Quadrangles
 
-A =quad= is made of two triangles:
 #+begin_src python :noweb-ref pymgen
-def quad(a, b, c, d):
-    return [tri(a, b, c), tri(b, c, d)]
+def quadrangle(a, b, c, d): return polygon(a, b, c, b, c, d)
+quad = quadrangle
 #+end_src
 
 *** Lines
@@ -378,7 +392,7 @@ def line(a, b, width=.01):
     a1, a2, b1, b2 = a.copy(), a.copy(), b.copy(), b.copy()
     a1.x -= t.y; a1.y += t.x; a2.x += t.y; a2.y -= t.x
     b1.x -= t.y; b1.y += t.x; b2.x += t.y; b2.y -= t.x
-    return [tri(a1, a2, b1), tri(a2, b1, b2)]
+    return quadrangle(a1, a2, b1, b2)
 #+end_src
 
 
@@ -422,10 +436,10 @@ print(lost)
 Unique, non-duplicated indexes are attributed via an instance of =enumerator=, which is quite neat.
 
 #+begin_src python :noweb-ref pymgen
-def imgspec(triangles, width, height):
+def imgspec(polygon, width, height):
     vertices = enumerator()
-    indexes = [ ' '.join(str(vertices[v]) for v in t.str())
-                for t in triangles ]
+    indexes = [ ' '.join(str(vertices[str(v)]) for v in triangle)
+                for triangle in polygon ]
     print('\n'.join(vertices.keys()))
     print()
     print(2, 3)
