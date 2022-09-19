@@ -242,19 +242,15 @@ mkdir -p "$(dirname "$dest")"
 The idea is to use an expressive language with fast compilation or fast enough interpretation to quickly output image specifications.
 This implementation is based on Python and is called =pymgen=.
 
-The proper implementation is splitted into three parts:
- 1. *Primitives*.
- 2. *Shapes*.
- 3. *Generation*.
-
-Two additional sections, *Code blocks* and *Usage* are appended at the end to set up code blocks and to show =pymgen= in action.
-
 A pattern used throughout the implementation of =pymgen= is defining three-letter aliases to various entities.
 The goal is to help keeping definitions concise.
 Also, when appropriate the short versions are making additional assertions, the idea is to ensure that manually-defined instances are correct, whereas the long versions provide a way to define instances without assertions.
 This separation is required, otherwise things like making a line at the edge of the canvas would trigger an assertion failure because of the added width.
 
 ** Primitives
+
+The primitives classes can include a noweb inclusion (something like =<<class_name/>>), this will be used later to add new functionalities.
+This way the initial definition can focus on the essentials.
 
 *** Color
 
@@ -264,7 +260,7 @@ class color:
         self.r = r; self.g = g; self.b = b
     def __repr__(self):
         return str(self.r) + ' ' + str(self.g) + ' ' + str(self.b)
-    def copy(self): return color(self.r, self.g, self.b)
+    <<color/>>
 def col(r:float, g:float, b:float):
     assert 0 <= r <= 1 and 0 <= g <= 1 and 0 <= b <= 1; return color(r, g, b)
 #+end_src
@@ -288,17 +284,8 @@ import math
 class coord:
     def __init__(self, x:float, y:float):
         self.x = x; self.y = y
-    def __or__(self, other:'coord'): # self|other, midpoint of self and other.
-        return coord((self.x + other.x) / 2, (self.y + other.y) / 2)
-    def __sub__(self, other:'coord'): # self-other, substraction.
-        return coord(self.x - other.x, self.y - other.y)
-    def __imul__(self, coeff: float): # self *= coeff, in-place multiplication.
-        self.x *= coeff; self.y *= coeff; return self
-    def __and__(self, col:color): # self&col, combine position and color in a vertex.
-        return vertex(self, col)
-    def copy(self):     return coord(self.x, self.y)
-    def norm(self):     return math.sqrt(self.x * self.x + self.y * self.y)
     def __repr__(self): return str(self.x) + ' ' + str(self.y)
+    <<coord/>>
 def pos(x:float, y:float):
     assert 0 <= x <= 1 and 0 <= y <= 1; return coord(x, y)
 #+end_src
@@ -325,20 +312,9 @@ class vertex:
         self.col = col
     def __repr__(self):
         return str(self.pos) + ' ' + str(self.col)
-    def copy(self): return vertex(self.pos.copy(), self.col.copy())
-    @property
-    def x(self): return self.pos.x
-    @x.setter
-    def x(self, x): self.pos.x = x
-    @property
-    def y(self): return self.pos.y
-    @y.setter
-    def y(self, y): self.pos.y = y
+    <<vertex/>>
 vtx = vertex
 #+end_src
-
-
-** Shapes
 
 *** Polygon
 
@@ -353,48 +329,26 @@ class polygon:
         assert len(args) %3 == 0, f'invalid length of polygon vertices: {len(args)}'
         self.vertices = args
     def str(self): return map(str, self.vertices)
-    def __add__(self, other): return polygon(*(self.vertices + other.vertices))
     def __iter__(self): # Iterate on triangles, from https://stackoverflow.com/a/71273919.
         it = iter(self.vertices)
         return zip(it, it, it)
+    <<polygon/>>
 pol = polygon
 #+end_src
 
-*** Triangles
+*** Triangle
 
 #+begin_src python :noweb-ref pymgen
 def triangle(a, b, c): return polygon(a, b, c)
 tri = triangle
 #+end_src
 
-*** Quadrangles
+*** Quadrangle
 
 #+begin_src python :noweb-ref pymgen
 def quadrangle(a, b, c, d): return polygon(a, b, c, b, c, d)
 quad = quadrangle
 #+end_src
-
-*** Lines
-
-A =line= is also represented as two triangles, except that it is only defined as two points and a $width$.
-
-Its implementation is more complex because each of the two initial points must splitted in two new points in order to generate a line with a width.
-The position of those new points is computed by shifting them towards each of the normal directions by an amount of $width / 2$, thus making the distance between them equal to $width$.
-
-#+begin_src python :noweb-ref pymgen
-def line(a, b, width=.01):
-    # Compute the tangent.
-    t = b.pos-a.pos
-    # Apply the width:
-    width /= 2 * t.norm()
-    t *= width
-    # Shift the points.
-    a1, a2, b1, b2 = a.copy(), a.copy(), b.copy(), b.copy()
-    a1.x -= t.y; a1.y += t.x; a2.x += t.y; a2.y -= t.x
-    b1.x -= t.y; b1.y += t.x; b2.x += t.y; b2.y -= t.x
-    return quadrangle(a1, a2, b1, b2)
-#+end_src
-
 
 ** Generation
 
@@ -450,13 +404,12 @@ def imgspec(polygon, width, height):
 #+end_src
 #+depends:pymgen :noweb enumerator
 
-
 ** Code blocks
 
 This Python one-liner is =pymgen='s equivalent of the colorful square specification, which is for now the only image that has been generated:
 #+name: usage
 #+begin_src python
-imgspec(quad(rt&y, lt&m, rb&c, lb&k), 64, 64)
+imgspec(quad(vtx(rt, y), vtx(lt, m), vtx(rb, c), vtx(lb, k)), 64, 64)
 #+end_src
 
 *** Display an image spec
@@ -464,8 +417,8 @@ imgspec(quad(rt&y, lt&m, rb&c, lb&k), 64, 64)
 This is just a matter of using =LitLib='s =include.pl= to fetch the given code block, with the added =pymgen= dependency and to execute it with Python.
 
 #+name: spec
-#+begin_src bash :var definition="" :wrap example
-./litlib/include.pl imgen.org ":noweb pymgen $definition" | python
+#+begin_src bash :var definition="" interpreter="python" :wrap example
+./litlib/include.pl imgen.org ":noweb pymgen $definition" | $interpreter
 #+end_src
 
 #+call: spec("usage")
@@ -521,10 +474,128 @@ destination="$3"
 #+depends:pymgen-cli :noweb pymgen-cli-impl py
 #+tangle:pymgen-cli tangle/pymgen.bash
 
+** Extension of primitives
 
-** Usage
+*** Combination
 
-*** Colorful square, with added line
+Each subsection will define one new functionality extending the available primitives, along with its dependencies and will be followed by an illustration of what was implemented.
+
+*** Easy vertex creation
+
+#+begin_src python :noweb-ref coord/
+def __and__(self, col:color): # self&col, combine position and color in a vertex.
+    return vertex(self, col)
+#+end_src
+
+This is the same image as always:
+#+name: usage2
+#+begin_src python
+imgspec(quad(rt&y, lt&m, rb&c, lb&k), 64, 64)
+#+end_src
+#+call: py("usage2", "images/imgen/usage.png")
+
+#+RESULTS:
+:results:
+[[file:images/imgen/usage.png]]
+:end:
+
+Here is what the original definition looked like:
+#+begin_src python
+imgspec(quad(vtx(rt, y), vtx(lt, m), vtx(rb, c), vtx(lb, k)), 64, 64)
+#+end_src
+Not a huge difference but I definitely prefer this version.
+
+*** Concatenation of polygons
+
+This allows the =+= operator to be used to concatenate polygons:
+#+begin_src python :noweb-ref polygon/
+def __add__(self, other:'polygon'): return polygon(*(self.vertices + other.vertices))
+#+end_src
+
+Using this, we can set a background and draw a triangle over it on the top right corner:
+#+name: tricorner
+#+begin_src python
+imgspec(quad(lb&k, rb&w, lt&w, rt&k) + tri(rt&c, rm&y, mt&m), 64, 64)
+#+end_src
+#+call: py("tricorner")
+
+#+RESULTS:
+:results:
+[[file:images/imgen/tricorner.png]]
+:end:
+
+*** Lines
+
+A line is conceptually nothing more than a rectangle, aka two triangles.
+However, it differs from a rectangle by being defined as two points and a $width$.
+
+Implementing =line= is more challenging than implementing =quad= because to add the required amount of width, each of the two initial points must be splitted in two new points whose position has to be deduced.
+
+The position of those new points is computed by shifting them towards each of the normal directions by an amount of $width / 2$, thus making the distance between them equal to $width$.
+
+#+begin_src python :noweb-ref pymgen
+def line(a, b, width=.01):
+    # Compute the tangent.
+    t = b.pos-a.pos
+    # Apply the width:
+    width /= 2 * t.norm()
+    t *= width
+    # Shift the points.
+    a1, a2, b1, b2 = a.copy(), a.copy(), b.copy(), b.copy()
+    a1.x -= t.y; a1.y += t.x; a2.x += t.y; a2.y -= t.x
+    b1.x -= t.y; b1.y += t.x; b2.x += t.y; b2.y -= t.x
+    return quadrangle(a1, a2, b1, b2)
+#+end_src
+
+There is a lot to unpack dependency-wise in this implementation:
+ 1. src_python[]{t = b.pos-a.pos}: requires coordinate substraction.
+ 2. src_python[]{width /= 2 * t.norm()}: requires coordinate norm.
+ 3. src_python[]{t *= width}: requires coordinate scaling.
+ 4. src_python[]{a1, a2, b1, b2 = a.copy(), a.copy(), b.copy(), b.copy()}: requires vertex copy.
+ 5. The following lines:
+    #+begin_src python
+a1.x -= t.y; a1.y += t.x; a2.x += t.y; a2.y -= t.x
+b1.x -= t.y; b1.y += t.x; b2.x += t.y; b2.y -= t.x
+    #+end_src
+    Require accessors to the $x$ and $y$ components for the =vertex= class.
+
+This implements 1, 2, and 3, in that order:
+#+begin_src python :noweb-ref coord/
+def __sub__(self, other:'coord'): # self-other, substraction.
+    return coord(self.x - other.x, self.y - other.y)
+def norm(self): return math.sqrt(self.x * self.x + self.y * self.y)
+def __imul__(self, coeff: float): # self *= coeff, in-place multiplication.
+    self.x *= coeff; self.y *= coeff; return self
+#+end_src
+
+Manual =vertex= copy is necessary because simply assigning a =vertex= creates a reference, thus any operation on the "new" =vertex= will modify the original.
+This implement =vertex= copy:
+#+begin_src python :noweb-ref vertex/
+def copy(self): return vertex(self.pos.copy(), self.col.copy())
+#+end_src
+But it in turn requires =coord= copy:
+#+begin_src python :noweb-ref coord/
+def copy(self): return coord(self.x, self.y)
+#+end_src
+As well as =color= copy:
+#+begin_src python :noweb-ref color/
+def copy(self): return color(self.r, self.g, self.b)
+#+end_src
+
+Finally this implements $x$ and $y$ accessors on =vertex=:
+#+begin_src python :noweb-ref vertex/
+@property
+def x(self): return self.pos.x
+@x.setter
+def x(self, x): self.pos.x = x
+@property
+def y(self): return self.pos.y
+@y.setter
+def y(self, y): self.pos.y = y
+#+end_src
+
+
+**** Usage: colorful square with added line
 
 This is the same basic example, but with an additional line going from the left-bottom point to the right-top one.
 Also the width of this image is doubled to 128.
@@ -539,6 +610,8 @@ imgspec(quad(rt&y, lt&m, rb&c, lb&k) + line(lb&k, rt&k, .1), 128, 64)
 :results:
 [[file:images/imgen/colorful-square+line.png]]
 :end:
+
+
 
 Here is what the spec looks like[fn::The line vertices are very easy to spot.]:
 #+call: spec("colorful-square+line")
@@ -564,7 +637,17 @@ Here is what the spec looks like[fn::The line vertices are very easy to spot.]:
 128 64
 #+end_example
 
-*** A less trivial example, Sierpiński triangle
+*** Midpoint
+
+This =|= operator can be used to return the midpoint of two coordinates, i.e. the coordinates right between them.
+#+begin_src python :noweb-ref coord/
+def __or__(self, other:'coord'):
+    return coord((self.x + other.x) / 2, (self.y + other.y) / 2)
+#+end_src
+
+**** Usage: Sierpiński triangle
+
+Where the previous section had a complex implementation illustrated by a short usage, this time it is the usage that is a bit more complex, because while the Sierpiński triangle is a pretty simple concept, it is not as trivial as the images that have been constructed until now.
 
 Constructing the coordinates of a Sierpiński triangle is a matter of recursing through each subtriangle, this is done in =sierec=.
 Those subtriangles are themselves constructed using midpoints computed with the =mid= function.
@@ -575,18 +658,18 @@ def sierec(a, b, c, n=1):
     return sierec(a, ab, ac, n-1) + sierec(b, ab, bc, n-1) + sierec(c, ac, bc, n-1)
 #+end_src
 
-Then =sierpinski= assembles the triangles into lines, with the help of =toline=:
+Then =sierpinski= assembles the triangles into lines, uniformly colored in black, with the help of =toline=:
 #+begin_src python :noweb-ref sierpiński
 def toline(tri, width):
     a, b, c = tri
     return line(a&k, b&k, width) + line(a&k, c&k, width) + line(b&k, c&k, width)
-def sierpinski(a, b, c, n=1, width=.01):
+def sierpinski(a, b, c, n, width):
     return [ triangle_line
              for triangle      in sierec(a, b, c, n)
              for triangle_line in toline(triangle, width) ]
 #+end_src
 
-Since the sierpinski triangle uses equilateral triangle, the size of the canvas mush be adjusted so that the length of the width is equal to the length of the other sides of the triangles.
+Since the Sierpiński triangle is based on equilateral triangles, the size of the canvas mush be adjusted so that the length of the width is equal to the length of the other sides of the triangles.
 This is done by solving $(\frac{width}{2})^2 + height^2 = side^2$, with $side$ being the length of the left and right sides of the triangle.
 Since we want $side$ to be equal to $width$, this can be rewritten as $(\frac{width}{2})^2 + height^2 = width^2$, which eventually gives the formula $height = \sqrt{\frac{3 \times width^2}{4}}$, implemented below:
 #+begin_src python :noweb-ref sierpiński
