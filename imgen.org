@@ -336,19 +336,17 @@ class polygon:
 pol = polygon
 #+end_src
 
-*** Triangle
+*** Simple polygons
+
+Simple meaning here simple to define.
 
 #+begin_src python :noweb-ref pymgen
 def triangle(a, b, c): return polygon(a, b, c)
 tri = triangle
-#+end_src
-
-*** Quadrangle
-
-#+begin_src python :noweb-ref pymgen
 def quadrangle(a, b, c, d): return polygon(a, b, c, b, c, d)
 quad = quadrangle
 #+end_src
+
 
 ** Generation
 
@@ -403,6 +401,7 @@ def imgspec(polygon, width, height):
     print(width, height)
 #+end_src
 #+depends:pymgen :noweb enumerator
+
 
 ** Code blocks
 
@@ -473,6 +472,7 @@ destination="$3"
 #+end_src
 #+depends:pymgen-cli :noweb pymgen-cli-impl py
 #+tangle:pymgen-cli tangle/pymgen.bash
+
 
 ** Extension of primitives
 
@@ -594,7 +594,6 @@ def y(self): return self.pos.y
 def y(self, y): self.pos.y = y
 #+end_src
 
-
 **** Usage: colorful square with added line
 
 This is the same basic example, but with an additional line going from the left-bottom point to the right-top one.
@@ -610,7 +609,6 @@ imgspec(quad(rt&y, lt&m, rb&c, lb&k) + line(lb&k, rt&k, .1), 128, 64)
 :results:
 [[file:images/imgen/colorful-square+line.png]]
 :end:
-
 
 
 Here is what the spec looks like[fn::The line vertices are very easy to spot.]:
