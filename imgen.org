@@ -559,13 +559,15 @@ b1.x -= t.y; b1.y += t.x; b2.x += t.y; b2.y -= t.x
     #+end_src
     Require accessors to the $x$ and $y$ components for the =vertex= class.
 
-This implements 1, 2, and 3, in that order:
+This implements 1, 2, and 3, in that order, with addition thrown in for good measure:
 #+begin_src python :noweb-ref coord/
-def __sub__(self, other:'coord'): # self-other, substraction.
+def __sub__(self, other:'coord'):
     return coord(self.x - other.x, self.y - other.y)
 def norm(self): return math.sqrt(self.x * self.x + self.y * self.y)
 def __imul__(self, coeff: float): # self *= coeff, in-place multiplication.
     self.x *= coeff; self.y *= coeff; return self
+def __add__(self, other:'coord'):
+    return coord(self.x + other.x, self.y + other.y)
 #+end_src
 
 Manual =vertex= copy is necessary because simply assigning a =vertex= creates a reference, thus any operation on the "new" =vertex= will modify the original.
