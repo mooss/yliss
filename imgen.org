@@ -650,7 +650,7 @@ def __or__(self, other:'coord'):
 Where the previous section had a complex implementation illustrated by a short usage, this time it is the usage that is a bit more complex, because while the Sierpiński triangle is a pretty simple concept, it is not as trivial as the images that have been constructed until now.
 
 Constructing the coordinates of a Sierpiński triangle is a matter of recursing through each subtriangle, this is done in =sierec=.
-Those subtriangles are themselves constructed using midpoints computed with the =mid= function.
+Those subtriangles are themselves constructed using midpoints computed with =|= operator that was just defined.
 #+begin_src python :noweb-ref sierpiński
 def sierec(a, b, c, n=1):
     if n <= 0: return [(a, b, c)]
