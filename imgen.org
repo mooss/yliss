@@ -688,3 +688,41 @@ imgspec(sierpinski(lb, rb, mt, 7, .0015), width, height())
 :results:
 [[file:images/imgen/sierpiński.png]]
 :end:
+
+*** Rotation
+
+Using the following equations taken from [[here][https://danceswithcode.net/engineeringnotes/rotations_in_2d/rotations_in_2d.html]]:
+ 1. $r_x = (p_x - c_x) cos(\theta) - (p_y - c_y) sin(\theta) + c_x$
+ 2. $r_y = (p_x - c_x) sin(\theta) + (p_y - c_y) cos(\theta) + c_y$
+Where $r$ is the rotated point, $p$ is the initial point, $c$ is the center of rotation and $\theta$ is the rotation angle.
+
+#+begin_src python :noweb-ref coord/
+def rotate_pi(self, angle:float, center:'coord'):
+    angle *= math.pi; z = self - center
+    rx = z.x * math.cos(angle) - z.y * math.sin(angle) + center.x
+    ry = z.x * math.sin(angle) + z.y * math.cos(angle) + center.y
+    return coord(rx, ry)
+#+end_src
+
+**** Usage: rough hexagon
+
+This builds a rough hexagon by rotating a point 6 times around the center.
+One just has to take a look at the generated image to understand why this is a "rough" hexagon.
+
+#+name: rough-hexagon
+#+begin_src python
+start = left_middle + pos(.1, 0)
+hexagon = polygon()
+for _ in range(6):
+    end = start.rotate_pi(1/3, center)
+    hexagon += line(start&cyan, end&magenta, .15)
+    start = end
+imgspec(hexagon, 64, 64)
+#+end_src
+
+#+call: py("rough-hexagon")
+
+#+RESULTS:
+:results:
+[[file:images/imgen/rough-hexagon.png]]
+:end:
