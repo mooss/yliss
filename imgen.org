@@ -534,7 +534,7 @@ Implementing =line= is more challenging than implementing =quad= because to add 
 The position of those new points is computed by shifting them towards each of the normal directions by an amount of $width / 2$, thus making the distance between them equal to $width$.
 
 #+begin_src python :noweb-ref pymgen
-def line(a, b, width=.01):
+def line(a, b, width):
     # Compute the tangent.
     t = b.pos-a.pos
     # Apply the width:
